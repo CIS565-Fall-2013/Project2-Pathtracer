@@ -9,6 +9,7 @@
 #include "glm/glm.hpp"
 #include <cuda_runtime.h>
 
+// x, y, z, w is row vector
 struct cudaMat3{
 	glm::vec3 x;
 	glm::vec3 y;

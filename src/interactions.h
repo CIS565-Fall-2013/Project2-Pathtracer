@@ -8,6 +8,16 @@
 
 #include "intersections.h"
 
+struct Fresnel {
+  float reflectionCoefficient;
+  float transmissionCoefficient;
+};
+
+struct AbsorptionAndScatteringProperties{
+    glm::vec3 absorptionCoefficient;
+    float reducedScatteringCoefficient;
+};
+
 //forward declaration
 __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2);
@@ -16,6 +26,37 @@ __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, g
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident);
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2);
+
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance) {
+  return glm::vec3(0,0,0);
+}
+
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
+                                                        glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3){
+  return false;
+}
+
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR) {
+  return glm::vec3(0,0,0);
+}
+
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
+  //nothing fancy here
+  return glm::vec3(0,0,0);
+}
+
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
+  Fresnel fresnel;
+
+  fresnel.reflectionCoefficient = 1;
+  fresnel.transmissionCoefficient = 0;
+  return fresnel;
+}
 
 //LOOK: This function demonstrates cosine weighted random direction generation in a sphere!
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2) {
@@ -49,7 +90,67 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
 //Now that you know how cosine weighted direction generation works, try implementing non-cosine (uniform) weighted random direction generation.
 //This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
-  return glm::vec3(0,0,0);
+
+    return glm::vec3(0,0,0);
+}
+
+//TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
+//returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
+__host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
+                                       AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
+                                       glm::vec3& color, glm::vec3& unabsorbedColor, material m){
+
+    return 1;
+};
+
+__host__ __device__ glm::vec3 reflectedRay(const glm::vec3 &incidentDir, const glm::vec3 &surfaceNormal)
+{
+	glm::vec3 normal = glm::normalize(surfaceNormal);
+//	printf("%f %f %f\n", normal.x, normal.y, normal.z);
+	glm::vec3 refDirection = incidentDir - 2.0f * normal * glm::dot(incidentDir, normal);
+	return refDirection;
+}
+
+__host__ __device__ glm::vec3 refractedRay(const glm::vec3 &incidentDir, const glm::vec3 &surfaceNormal, const float refractionIndex1, const float refractionIndex2, float &nextIndexOfRefraction)
+{
+	glm::vec3 normal = glm::normalize(surfaceNormal);
+	glm::vec3 inDir = glm::normalize(incidentDir);
+	glm::vec3 refDirection = reflectedRay(inDir, surfaceNormal);	
+	glm::vec3 refraDirection;
+	float sinIncidentAngle = glm::length(glm::cross(inDir, surfaceNormal));
+//	printf("sinIncidentAngle: %f\n",sinIncidentAngle);
+	float transmitAngle;
+//	printf("refractionIndex1: %f refractionIndex2: %f\n", refractionIndex1, refractionIndex2);
+	//	printf("%f %f %f\n", normal.x, normal.y, normal.z);
+	if(refractionIndex1 < refractionIndex2) // from air to glass
+	{
+		transmitAngle = asin(refractionIndex1 / refractionIndex2 * sinIncidentAngle);
+		glm::vec3 tangentVec = inDir + refDirection;
+		refraDirection = tangentVec - glm::length(tangentVec) / tan(transmitAngle) * normal;
+		nextIndexOfRefraction = refractionIndex2;
+//		printf("refraDirection: %f %f %f\n", refraDirection.x, refraDirection.y, refraDirection.z);
+	}
+	else                                    // from glass to air
+	{
+//		printf("from glass to air\n");
+		float sinCriticalAngle = refractionIndex2 / refractionIndex1;
+//		printf("IncidentAngle: %f, CriticalAngle: %f\n", glm::degrees(asin(sinIncidentAngle)), glm::degrees(asin(sinCriticalAngle)));
+		if(sinIncidentAngle > sinCriticalAngle) 
+		{
+//			printf("internal reflection\n");
+			refraDirection =  refDirection;       //total internal reflection
+			nextIndexOfRefraction = refractionIndex1;
+		}
+		else
+		{
+			transmitAngle = asin(refractionIndex1 / refractionIndex2 * sinIncidentAngle);
+			glm::vec3 tangentVec = inDir + refDirection;
+			refraDirection = tangentVec - glm::length(tangentVec) / tan(transmitAngle) * normal;
+			nextIndexOfRefraction = refractionIndex2;
+		}
+	}
+//	printf("nextIndexOfRefraction: %f\n", nextIndexOfRefraction);
+	return refraDirection;
 }
 
 #endif

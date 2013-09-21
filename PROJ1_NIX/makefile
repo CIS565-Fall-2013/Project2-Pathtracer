@@ -8,7 +8,7 @@ CUDA_FLAGS = -I/usr/local/cuda/samples/common/inc -I/usr/local/cuda/include
 
 LFLAGS = -lglut -lGL -lGLEW 
 
-all: 565Pathtracer
+all: 565raytracer
 
 raytraceKernel.o: ../src/raytraceKernel.cu
 	$(NVCC) $(CUDA_FLAGS) -c ../src/raytraceKernel.cu
@@ -34,12 +34,12 @@ stb_image_write.o: ../src/stb_image/stb_image_write.c
 main.o: ../src/main.cpp
 	$(CPPC) $(CUDA_FLAGS) ../src/main.cpp -c
 
-565Pathtracer: main.o raytraceKernel.o glslUtility.o utilities.o image.o scene.o stb_image_write.o stb_image.o
-	$(NVCC) $(LFLAGS) main.o raytraceKernel.o glslUtility.o utilities.o image.o scene.o stb_image_write.o stb_image.o -o 565Pathtracer
+565raytracer: main.o raytraceKernel.o glslUtility.o utilities.o image.o scene.o stb_image_write.o stb_image.o
+	$(NVCC) $(LFLAGS) main.o raytraceKernel.o glslUtility.o utilities.o image.o scene.o stb_image_write.o stb_image.o -o 565raytracer
 
 clean:
 	rm *.o
-	rm 565Pathtracer
+	rm 565raytracer
 
-test: 565Pathtracer
-	./565Pathtracer scene=../scenes/sampleScene.txt
+test: 565raytracer
+	./565raytracer scene=../scenes/sampleScene.txt
