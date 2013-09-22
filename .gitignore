@@ -1,0 +1,13 @@
+renders/
+scenes/
+CudaRaytracer/CudaRaytracer/Debug/
+CudaRaytracer/CudaRaytracer/Release/
+CudaRaytracer/Release/
+CudaRaytracer/Debug/
+log
+*.pdb
+*.sdf
+*.opensdf
+*.test
+*.ppm
+*.lib

@@ -1,0 +1,109 @@
+size 1024 768
+
+camera 1 1 3 1 1 1 0 1 0 60
+
+#point 1 1.99 1 0.5 0.5 0.5
+#area light : centerx centery centerz width normalx normaly normalz R G B
+area 1 1.9999 1 1 0 -1 0 1 1 1
+
+maxverts 12
+
+vertex 0 0 0
+vertex 2 0 0
+vertex 2 2 0
+vertex 0 2 0  
+vertex 0 2 2
+vertex 0 0 2 
+vertex 2 2 2
+vertex 2 0 2
+
+#light
+vertex 0.5 1.99 0.5
+vertex 1.5 1.99 0.5
+vertex 0.5 1.99 1.5
+vertex 1.5 1.99 1.5
+
+#mirror
+vertex 0 0 0
+vertex 2 0 0
+vertex 2 2 0
+vertex 0 2 0
+
+pushTransform
+
+#light
+mtl 1 1 1 1 1 1 0 0 0 0 0 0 1
+tri 8 9 10
+tri 10 9 11
+
+#back
+mtl .1 .1 .1 0 0 0 1 1 1 0 0 0 1
+tri 0 1 2 
+tri 0 2 3
+
+#left
+mtl .2 0 0 0 0 0 1 0 0 0 0 0 1
+tri 0 3 5
+tri 3 4 5
+
+#bottom
+mtl .1 .1 .1 0 0 0 1 1 1 0 0 0 1
+tri 0 5 1
+tri 5 7 1
+
+#right
+mtl 0 .2 0 0 0 0 0 1 0 0 0 0 1
+tri 1 7 6 
+tri 6 2 1
+
+#top
+mtl .1 .1 .1 0 0 0 1 1 1 0 0 0 1
+tri 3 2 6 
+tri 6 4 3
+
+mtl 0 0 0.2 0 0 0 0 0 1 0 0 0 1
+#front
+tri 4 6 5
+tri 5 6 7
+
+
+
+#mirror ball
+mtl 0 0 0 0 0 0 0 0 0 0.3 0.3 0.3 40
+popTransform
+pushTransform
+translate 1.6 0.5 0.5
+sphere 0 0 0 0.4
+#tri 12 13 14
+#tri 12 15 13
+
+#mirror ball 2
+mtl 0 0 0 0 0 0 0 0 0 0.8 0.8 0.8 40
+popTransform
+pushTransform
+translate 0.8 0.5 0.6
+#sphere 0 0 0 0.3
+
+
+mtl .1 .1 .1 0 0 0 1 1 1 0 0 0 1
+popTransform
+pushTransform
+scale 0.5 0.5 0.5
+translate 0.8 1 1.5
+model venusv.obj
+
+mtl .1 .1 .1 0 0 0 1 1 1 0 0 0 1
+popTransform
+pushTransform
+scale 0.5 0.5 0.5
+translate 2 1 2
+model box.obj
+
+#mirror
+mtl 0 0 0 0 0 0 0 0 0 1 1 1 200
+popTransform
+pushTransform
+scale 0.5 0.5 0.5
+translate 1 1.2 0.1
+tri 0 1 2 
+tri 0 2 3
