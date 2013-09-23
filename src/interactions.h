@@ -9,12 +9,12 @@
 #include "intersections.h"
 
 //forward declaration
-__host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);
+//__host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2);
-__host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance);
-__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR);
-__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident);
-__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
+//__host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance);
+//__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR);
+//__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident);
+//__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2);
 
 //LOOK: This function demonstrates cosine weighted random direction generation in a sphere!
@@ -45,11 +45,20 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
     
 }
 
-//TODO: IMPLEMENT THIS FUNCTION
-//Now that you know how cosine weighted direction generation works, try implementing non-cosine (uniform) weighted random direction generation.
-//This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
+//Generates a random uniform direction in sphere. Note that this is a radially uniform distribution
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
-  return glm::vec3(0,0,0);
+	float u = 2*(xi1-0.5);
+	float th = 2*PI*xi2;
+
+	glm::vec3 point;
+	float root = glm::sqrt(1-u*u);
+
+	//Find a uniform random point on a unit sphere and return it as a direction vector. Already normalized
+	point.x = root*glm::cos(th);
+	point.y = root*glm::sin(th);
+	point.z = u;
+
+	return point;
 }
 
 #endif

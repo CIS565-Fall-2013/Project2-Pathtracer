@@ -44,7 +44,7 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
   thrust::uniform_real_distribution<float> u01(0,1);
   
   //standard camera raycast stuff
-  glm::vec3 E = eye;
+  glm::vec3 EYE = eye;
   glm::vec3 C = view;
   glm::vec3 U = up;
   float fovx = fov.x;
@@ -54,7 +54,7 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
   
   glm::vec3 A = glm::cross(C, U);
   glm::vec3 B = glm::cross(A, C);
-  glm::vec3 M = E+C;
+  glm::vec3 M = EYE+C;
   glm::vec3 H = (A*float(CD*tan(fovx*(PI/180))))/float(glm::length(A));
   glm::vec3 V = (B*float(CD*tan(-fovy*(PI/180))))/float(glm::length(B));
   
@@ -62,8 +62,8 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
   float sy = (y)/(resolution.y-1);
   
   glm::vec3 P = M + (((2*sx)-1)*H) + (((2*sy)-1)*V);
-  glm::vec3 PmE = P-E;
-  glm::vec3 R = E + (float(200)*(PmE))/float(glm::length(PmE));
+  glm::vec3 PmE = P-EYE;
+  glm::vec3 R = EYE + (float(200)*(PmE))/float(glm::length(PmE));
   
   glm::vec3 direction = glm::normalize(R);
   //major performance cliff at this point, TODO: find out why!
