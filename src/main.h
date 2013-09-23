@@ -16,6 +16,7 @@
 #endif
 
 #include <stdlib.h>
+#include <ctime>
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 #include <string>
@@ -79,6 +80,7 @@ int main(int argc, char** argv);
 //---------RUNTIME STUFF---------
 //-------------------------------
 
+float fps;
 void runCuda();
 
 #ifdef __APPLE__
