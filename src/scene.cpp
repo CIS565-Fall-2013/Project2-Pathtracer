@@ -162,6 +162,8 @@ int scene::loadCamera(){
 	vector<glm::vec3> positions;
 	vector<glm::vec3> views;
 	vector<glm::vec3> ups;
+	vector<float> focalLengths;
+	vector<float> apertures;
     while (!line.empty() && fp_in.good()){
 	    
 	    //check frame number
@@ -172,7 +174,7 @@ int scene::loadCamera(){
         }
 	    
 	    //load camera properties
-	    for(int i=0; i<3; i++){
+	    for(int i=0; i<5; i++){
             //glm::vec3 translation; glm::vec3 rotation; glm::vec3 scale;
             utilityCore::safeGetline(fp_in,line);
             tokens = utilityCore::tokenizeString(line);
@@ -183,6 +185,13 @@ int scene::loadCamera(){
             }else if(strcmp(tokens[0].c_str(), "UP")==0){
                 ups.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }
+			else if(strcmp(tokens[0].c_str(), "FOCAL") ==0){
+				focalLengths.push_back(atof(tokens[1].c_str()));
+			}
+			else if(strcmp(tokens[0].c_str(), "APERTURE") ==0){
+				apertures.push_back(atof(tokens[1].c_str()));
+			}
+
 	    }
 	    
 	    frameCount++;
@@ -194,10 +203,15 @@ int scene::loadCamera(){
 	newCamera.positions = new glm::vec3[frameCount];
 	newCamera.views = new glm::vec3[frameCount];
 	newCamera.ups = new glm::vec3[frameCount];
+	newCamera.focalLengths = new float[frameCount];
+	newCamera.apertures = new float[frameCount];
+
 	for(int i=0; i<frameCount; i++){
 		newCamera.positions[i] = positions[i];
 		newCamera.views[i] = views[i];
 		newCamera.ups[i] = ups[i];
+		newCamera.focalLengths[i] = focalLengths[i];
+		newCamera.apertures[i] = apertures[i];
 	}
 
 	//calculate fov based on resolution
@@ -235,6 +249,12 @@ int scene::loadMaterial(string materialid){
 			vector<string> tokens = utilityCore::tokenizeString(line);
 			if(strcmp(tokens[0].c_str(), "RGB")==0){
 				glm::vec3 color( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
+				if(color.x > 1) 
+					color.x /=255.0f;
+				if(color.y > 1) 
+					color.y /=255.0f;
+				if(color.z > 1) 
+					color.z /=255.0f;
 				newMaterial.color = color;
 			}else if(strcmp(tokens[0].c_str(), "SPECEX")==0){
 				newMaterial.specularExponent = atof(tokens[1].c_str());				  

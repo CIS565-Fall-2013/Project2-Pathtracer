@@ -25,6 +25,10 @@ int main(int argc, char** argv){
   bool loadedScene = false;
   finishedRender = false;
 
+  clearImage = false;
+
+  totalTime = 0;
+
   targetFrame = 0;
   singleFrameMode = false;
 
@@ -66,7 +70,7 @@ int main(int argc, char** argv){
 	init(argc, argv);
   #endif
 
-  initCuda();
+	initCuda();
 
   initVAO();
   initTextures();
@@ -123,11 +127,14 @@ void runCuda(){
     
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), clearImage);
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   }else{
+	 
+	  //t = clock() - t;
+	  //cout<<totalTime/CLOCKS_PER_SEC/renderCam->iterations<<endl;
 
     if(!finishedRender){
       //output image file
@@ -143,7 +150,7 @@ void runCuda(){
       gammaSettings gamma;
       gamma.applyGamma = true;
       gamma.gamma = 1.0;
-      gamma.divisor = 1.0; //renderCam->iterations;
+      gamma.divisor = renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -155,7 +162,7 @@ void runCuda(){
       outputImage.saveImageRGB(filename);
       cout << "Saved frame " << s << " to " << filename << endl;
       finishedRender = true;
-      if(singleFrameMode==true){
+	  if(singleFrameMode==true){
         cudaDeviceReset(); 
         exit(0);
       }
@@ -174,6 +181,8 @@ void runCuda(){
   }
   
 }
+
+
 
 #ifdef __APPLE__
 
@@ -199,7 +208,14 @@ void runCuda(){
 #else
 
 	void display(){
+
+		//t = clock();
+		
 		runCuda();
+
+		//t = clock() - t;
+	    //cout<<((float)t)/CLOCKS_PER_SEC<<endl;
+		//totalTime += t;
 
 		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
 		glutSetWindowTitle(title.c_str());
@@ -220,12 +236,51 @@ void runCuda(){
 
 	void keyboard(unsigned char key, int x, int y)
 	{
-		std::cout << key << std::endl;
+		//std::cout << key << std::endl;
+		
 		switch (key) 
 		{
-		   case(27):
-			   exit(1);
-			   break;
+
+		case(27):
+			exit(1);
+			break;
+			
+		case('a'):
+			renderCam->positions[targetFrame].x += 1.0f;
+			iterations = 0;
+			clearImage = true;
+			break;
+
+		case('d'):
+			renderCam->positions[targetFrame].x -= 1.0f;
+			iterations = 0;
+			clearImage = true;
+			break;
+
+		case('w'):
+			renderCam->positions[targetFrame].y += 1.0f;
+			iterations = 0;
+			clearImage = true;
+			break;
+
+		case('s'):
+			renderCam->positions[targetFrame].y -= 1.0f;
+			iterations = 0;
+			clearImage = true;
+			break;
+
+		case('j'):
+			renderCam->positions[targetFrame].z += 1.0f;
+			iterations = 0;
+			clearImage = true;
+			break;
+
+		case('k'):
+			renderCam->positions[targetFrame].z -= 1.0f;
+			iterations = 0;
+			clearImage = true;
+			break;
+
 		}
 	}
 

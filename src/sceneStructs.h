@@ -45,6 +45,8 @@ struct cameraData {
 	glm::vec3 view;
 	glm::vec3 up;
 	glm::vec2 fov;
+	float focalLength;
+	float aperture;
 };
 
 struct camera {
@@ -58,6 +60,9 @@ struct camera {
 	glm::vec3* image;
 	ray* rayList;
 	std::string imageName;
+
+	float* focalLengths;
+	float* apertures;
 };
 
 struct material{

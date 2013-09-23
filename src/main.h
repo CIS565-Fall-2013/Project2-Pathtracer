@@ -30,6 +30,8 @@
 #include "utilities.h"
 #include "scene.h"
 
+#include <ctime>
+
 #if CUDA_VERSION >= 5000
     #include <helper_cuda.h>
     #include <helper_cuda_gl.h>
@@ -103,6 +105,10 @@ void initCuda();
 void initTextures();
 void initVAO();
 GLuint initShader(const char *vertexShaderPath, const char *fragmentShaderPath);
+
+bool clearImage;
+clock_t t;
+float totalTime;
 
 //-------------------------------
 //---------CLEANUP STUFF---------
