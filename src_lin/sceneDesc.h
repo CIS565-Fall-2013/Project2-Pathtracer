@@ -4,6 +4,7 @@
 #include "shape.h"
 #include "sphere.h"
 #include "triangle.h"
+#include "bbox.h"
 #include "light.h"
 #include "material.h"
 #include <vector>

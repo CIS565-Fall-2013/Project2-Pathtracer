@@ -8,7 +8,12 @@
 
 #define FLOAT_INF 0x7F800000
 
+#define TYPE_SPHERE 0
+#define TYPE_TRIANGLE 1
+#define TYPE_BBOX 2
+
 #define cudaErrorCheck( errNo ) checkError( (errNo), __FILE__, __LINE__ )
+
 
 inline void checkError( cudaError_t err, const char* const filename, const int line  )
 {
@@ -23,7 +28,7 @@ inline void checkError( cudaError_t err, const char* const filename, const int l
 
 typedef struct _Primitive
 {
-    int type;
+    int type;  
 
     //used for sphere type
     glm::vec3 center;

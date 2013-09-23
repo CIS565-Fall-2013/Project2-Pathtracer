@@ -23,6 +23,7 @@
     <None Include="shaders\basic.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src_lin\bbox.cpp" />
     <ClCompile Include="..\..\src_lin\ColorImage.cpp" />
     <ClCompile Include="..\..\src_lin\cudaRaytracer.cpp" />
     <ClCompile Include="..\..\src_lin\fileParser.cpp" />
@@ -38,6 +39,7 @@
     <ClCompile Include="..\..\src_lin\triangle.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\src_lin\bbox.h" />
     <ClInclude Include="..\..\src_lin\ColorImage.h" />
     <ClInclude Include="..\..\src_lin\cudaRaytracer.h" />
     <ClInclude Include="..\..\src_lin\cudaRaytracerKernel.h" />

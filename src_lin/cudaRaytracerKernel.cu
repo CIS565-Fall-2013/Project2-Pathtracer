@@ -64,6 +64,59 @@ __device__ float rayTriangleIntersect( const _Primitive* const triangle, const g
         return FLOAT_INF;
 }
 
+__device__ float rayBoxIntersect( const _Primitive* const box, 
+                                     const glm::vec3* const raySource, const glm::vec3* const rayDir, const glm::vec3* const invRay
+                                      )
+{
+    float3 tmax, tmin;
+    bool rayDirSign;
+    if( rayDir->x >= 0 )
+    {
+        tmin.x = ( box->vert[0].x - raySource->x ) * invRay->x;
+        tmax.x = ( box->vert[1].x - raySource->x ) * invRay->x;
+    }
+    else
+    {
+        tmax.x = ( box->vert[0].x - raySource->x ) * invRay->x;
+        tmin.x = ( box->vert[1].x - raySource->x ) * invRay->x;
+    }
+    if( rayDir->y >= 0 )
+    {
+        tmin.y = ( box->vert[0].y - raySource->y ) * invRay->y;
+        tmax.y = ( box->vert[1].y - raySource->y ) * invRay->y;
+    }
+    else
+    {
+        tmax.y = ( box->vert[0].y - raySource->y ) * invRay->y;
+        tmin.y = ( box->vert[1].y - raySource->y ) * invRay->y;
+    }
+    if( tmin.x > tmax.y || tmin.y > tmax.x )
+        return FLOAT_INF;
+    if( tmin.y > tmin.x ) tmin.x = tmin.y;
+    if( tmax.x > tmax.y ) tmax.x = tmax.y;
+
+    if( rayDir->z >= 0 )
+    {
+        tmin.z = ( box->vert[0].z - raySource->z ) * invRay->z;
+        tmax.z = ( box->vert[1].z - raySource->z ) * invRay->z;
+    }
+    else
+    {
+        tmax.z = ( box->vert[0].z - raySource->z ) * invRay->z;
+        tmin.z = ( box->vert[1].z - raySource->z ) * invRay->z;
+    }
+
+    if( tmin.x > tmax.z || tmin.z > tmax.x )
+        return FLOAT_INF;
+    if( tmin.z > tmin.x ) tmin.x = tmin.z;
+    if( tmax.z < tmax.x ) tmax.x = tmax.z;
+
+    if( tmin.x <= 0 && tmax.x <= 0 ) 
+        return FLOAT_INF;
+    else 
+        return tmin.x;
+    
+}
 
 __device__ glm::vec3 shade( glm::vec3* point, glm::vec3* normal, glm::vec3* eyeRay, 
                            const _Material* const mtl, const glm::vec3* const lightColor,
@@ -109,9 +162,10 @@ __device__ int raytrace( const glm::vec3* const ray, const glm::vec3* const sour
     float nearest = FLOAT_INF;
     float dst;
     int   id = -1;
-    int threadId = blockDim.y * threadIdx.y + threadIdx.x;
+    //int threadId = blockDim.y * threadIdx.y + threadIdx.x;
 
     glm::vec3 tmpP, tmpN;
+    glm::vec3 invRay = glm::vec3( 1.0/ray->x, 1.0/ray->y, 1.0/ray->z );
     //__shared__ _Primitive s_primitive;
 
     for( int i = 0; i < primitiveNum; ++i )
@@ -125,14 +179,23 @@ __device__ int raytrace( const glm::vec3* const ray, const glm::vec3* const sour
         if( primitives[i].type == 0 ) //sphere
         {
             dst = raySphereIntersect( primitives+i, source ,ray );
+            if( FLOAT_INF == dst )
+                continue;
         }
-        else
+        else if( primitives[i].type == 1 )
         {
             dst = rayTriangleIntersect( primitives+i,  source, ray);
-
+            if( FLOAT_INF == dst )
+                continue;
         }
-        if( FLOAT_INF == dst )
-           continue;
+        else 
+        {
+            dst = rayBoxIntersect( primitives+i, source, ray, &invRay );
+            if( FLOAT_INF == dst )
+                i += primitives[i].mtl_id-1; //skip primitives enclosed by this bounding box
+            continue;
+        }
+
 
         tmpP = *source + ( dst * (*ray) );  
         
@@ -160,7 +223,7 @@ __device__ glm::vec3 shadowTest( glm::vec3* point, glm::vec3* normal, glm::vec3 
                              const _Light* const light, curandState *state )
 {
     glm::vec3 color( .0f, .0f, .0f );
-    glm::vec3 L;
+    glm::vec3 L, invL;
     glm::vec3 O;
     float lightDst, occluderDst;
     float shadowPct = 0;
@@ -207,6 +270,7 @@ __device__ glm::vec3 shadowTest( glm::vec3* point, glm::vec3* normal, glm::vec3 
         for( int x = 1; x <= LSample.x; ++x )
     {
         L = glm::normalize(L);
+        invL = glm::vec3( 1.0/L.x, 1.0/L.y, 1.0/L.z );
         shadowPct = 0;
         for( int i = 0; i < occluderNum; ++i )
         {
@@ -215,14 +279,23 @@ __device__ glm::vec3 shadowTest( glm::vec3* point, glm::vec3* normal, glm::vec3 
             if( occluders[i].type == 0 ) //sphere
             {
                 occluderDst = raySphereIntersect( occluders+i, point ,&L );
+                if( FLOAT_INF == occluderDst )
+                   continue;
             }
-            else
+            else if( occluders[i].type == 1 ) //triangle
             {
                 occluderDst = rayTriangleIntersect( occluders+i,  point, &L );
+                if( FLOAT_INF == occluderDst )
+                    continue;
 
             }
-            if( FLOAT_INF == occluderDst )
-               continue;
+            else if ( occluders[i].type == 2 )
+            {
+                occluderDst = rayBoxIntersect( occluders+i, point, &L, &invL );
+                if( FLOAT_INF == occluderDst )
+                    i += occluders[i].mtl_id-1;
+                continue;
+            }
 
 
             if( occluderDst < lightDst )

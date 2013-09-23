@@ -3,6 +3,7 @@
 #include "shape.h"
 #include "sphere.h"
 #include "triangle.h"
+#include "bbox.h"
 #include "material.h"
 #include "transform.h"
 #include <fstream>
@@ -348,13 +349,21 @@ int FileParser::parse( const char input[], SceneDesc& sceneDesc )
         {
            // string modelName;
             if( stringParse( lineSStr, 1, &modelName ) )
-            {
+            {   
                 model = sceneDesc.model[sceneDesc.modelCount] = glmReadOBJ( const_cast<char*>(modelName.c_str()) );
                 if( sceneDesc.model[sceneDesc.modelCount] != NULL )
                 {
                     mat4 transform = transtack.back();
                     sceneDesc.modelCount+=1;
                     glmUnitize( model );
+
+                    //make a bounding box for this obj  
+                    Bbox* pBbox = new Bbox();
+                    pBbox->min = vec3( transform * glm::vec4( -1, -1, -1, 1 ) );
+                    pBbox->max = vec3( transform * glm::vec4( 1, 1, 1, 1 ) );
+                    pBbox->polyNum = model->numtriangles;
+                    sceneDesc.primitives.push_back( pBbox );
+
                     //parse triangles
                     GLMgroup* group = model->groups;
 			        while( group )
@@ -378,12 +387,12 @@ int FileParser::parse( const char input[], SceneDesc& sceneDesc )
                             pTri->pn = normalize( cross( pTri->v[0] - pTri->v[1], pTri->v[0] - pTri->v[2] ) );     
                             pTri->mtl_idx = sceneDesc.mtls.size() - 1;
 
-
                             sceneDesc.primitives.push_back( pTri );
                         }
                         group = group->next;
                     }
                 }
+                glmDelete( model );
             }
         }
     }

@@ -112,7 +112,8 @@ void CudaRayTracer::packSceneDescData( const SceneDesc &sceneDesc )
         {
             h_pPrimitives[i].center = glm::vec3( ((Sphere*)sceneDesc.primitives[i])->center );
             h_pPrimitives[i].radius = ((Sphere*)sceneDesc.primitives[i])->radius;
-            h_pPrimitives[i].type = 0; //sphere type
+            h_pPrimitives[i].type = TYPE_SPHERE; //sphere type
+            h_pPrimitives[i].mtl_id = sceneDesc.primitives[i]->mtl_idx;
         }
         else if( sceneDesc.primitives[i]->toString().compare("triangle") == 0 )
         {
@@ -124,11 +125,19 @@ void CudaRayTracer::packSceneDescData( const SceneDesc &sceneDesc )
 
             h_pPrimitives[i].pn = ((Triangle*)sceneDesc.primitives[i])->pn;
 
-            h_pPrimitives[i].type = 1; //triangle type
+            h_pPrimitives[i].type = TYPE_TRIANGLE; //triangle type
+            h_pPrimitives[i].mtl_id = sceneDesc.primitives[i]->mtl_idx;
+        }
+        else if( sceneDesc.primitives[i]->toString().compare("bounding box") == 0 )
+        {
+            h_pPrimitives[i].vert[0] = ((Bbox*)sceneDesc.primitives[i])->min;
+            h_pPrimitives[i].vert[1] = ((Bbox*)sceneDesc.primitives[i])->max;
+            h_pPrimitives[i].mtl_id = ((Bbox*)sceneDesc.primitives[i])->polyNum;
+            h_pPrimitives[i].type = TYPE_BBOX;
         }
         //h_pPrimitives[i].transform = sceneDesc.primitives[i]->transform;
         //h_pPrimitives[i].invTrans = sceneDesc.primitives[i]->invTrans;
-        h_pPrimitives[i].mtl_id = sceneDesc.primitives[i]->mtl_idx;
+        
     }
 
     //pack light sources
