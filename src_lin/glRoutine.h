@@ -3,6 +3,7 @@
 #include <GL/glew.h>
 #include <GL/glut.h>
 
+
 void glut_display();
 
 void glut_idle();
@@ -17,6 +18,8 @@ int intVertexData();
 
 GLuint initShader();
 GLuint initShaderProg();
+
+void initGLUI( int win_id );
 
 int initGL();
 void cleanUpGL();

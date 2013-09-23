@@ -42,14 +42,14 @@ void CudaRayTracer::renderImage( cudaGraphicsResource* pboResource )
     cudaErrorCheck( cudaGraphicsResourceGetMappedPointer((void**) &d_outputImage, &pboSize, pboResource ) );
     cudaErrorCheck( cudaMemset( (void*)d_outputImage, 0, sizeof(unsigned char) * 4 * width * height ) );
 
-    GpuTimer timer;
-    timer.Start();
+    //GpuTimer timer;
+    //timer.Start();
     //Launch the ray tracing kernel through the wrapper
     rayTracerKernelWrapper( d_outputImage, width, height, cameraData, 
         d_primitives, numPrimitive, d_lights, numLight, d_materials, numMaterial, 1, d_devStates );
-    timer.Stop();
+    //timer.Stop();
 
-    std::cout<<"Render time: "<<timer.Elapsed()<<" ms."<<std::endl;
+    //std::cout<<"Render time: "<<timer.Elapsed()<<" ms."<<std::endl;
     cudaErrorCheck( cudaGraphicsUnmapResources( 1, &pboResource, 0 ) );
 
 }

@@ -3,7 +3,6 @@
 #include <string>
 #include <GL/glew.h>
 #include <GL/freeglut.h>
-#include <GL/glui.h>
 #include <FreeImage.h>
 #include "cudaRaytracer.h"
 #include "SceneDesc.h"
@@ -21,10 +20,10 @@ CudaRayTracer* cudaRayTracer = NULL;
 unsigned int win_w, win_h;
 
 SceneDesc theScene;
+int win_id;
 
 int main( int argc, char* argv[] )
 {
-    
     FreeImage_Initialise();
 
     if( argc == 1 )
@@ -47,7 +46,7 @@ int main( int argc, char* argv[] )
     glutInitContextProfile( GLUT_COMPATIBILITY_PROFILE );
 
     glutInitWindowSize( theScene.width, theScene.height );
-    glutCreateWindow( "GPU RayTracer" );
+    win_id = glutCreateWindow( "GPU RayTracer" );
 
     GLenum errCode = glewInit();
     if( errCode != GLEW_OK )
@@ -58,6 +57,8 @@ int main( int argc, char* argv[] )
 
     if( initGL() != 0 )
         return 1;
+
+    initGLUI( win_id );
 
     cudaRayTracer = new CudaRayTracer();
     cudaRayTracer->init( theScene );

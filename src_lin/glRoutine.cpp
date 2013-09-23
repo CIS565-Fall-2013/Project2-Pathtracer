@@ -1,9 +1,11 @@
 #include <GL/glew.h>
+#include <GL/glui.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <cuda_gl_interop.h>
 #include "cudaRaytracer.h"
+#define GLM_SWIZZLE
 #include "glm/glm.hpp"
 #include "glRoutine.h"
 #include "variables.h"
@@ -44,9 +46,20 @@ GLuint texLoc;
 //Cuda-OpenGL interop objects
 cudaGraphicsResource* pboResource;
 
+//GLUI-controlled matrices
+glm::mat4 cameraRotate(1.0f, 0.0f, 0.0f, 0.0f,
+                       0.0f, 1.0f, 0.0f, 0.0f,
+                       0.0f, 0.0f, 1.0f, 0.0f,
+                       0.0f, 0.0f, 0.0f, 1.0f );
+glm::vec4 initialEyePos( 0.0f,0.0f, 0.0f,1.0f);
+glm::vec3 eyePosTranslate;
+
 void glut_display()
 {
     //generate the image using GPU raytracer
+    theScene.eyePos = (cameraRotate * initialEyePos ).xyz;
+    theScene.eyePos = theScene.eyePos +eyePosTranslate;
+    cudaRayTracer->updateCamera( theScene );
     cudaRayTracer->renderImage( pboResource );
 
     //render a quad to display the image
@@ -68,6 +81,7 @@ void glut_display()
 
 void glut_idle()
 {
+    glutSetWindow(win_id);
     glutPostRedisplay();
 }
 
@@ -264,6 +278,33 @@ int initGL()
         return -1;
 
     return 0;
+}
+
+void initGLUI( int win_id )
+{
+    GLUI *glui_obj = GLUI_Master.create_glui( "glui" );
+    glui_obj->set_main_gfx_window( win_id );
+
+    GLUI_Master.set_glutIdleFunc( glut_idle );
+    GLUI_Master.set_glutSpecialFunc( NULL );
+
+    GLUI_Rotation *view_rot = glui_obj->add_rotation( "Camera", &cameraRotate[0][0] );
+	view_rot->set_spin( 0 );
+	glui_obj->add_column( false );
+
+    GLUI_Rotation *obj_rot = glui_obj->add_rotation( "Light", &cameraRotate[0][0] );
+	obj_rot->set_spin(0 );
+ 
+	glui_obj->add_column( false );
+
+    initialEyePos = glm::vec4( theScene.eyePos , 1.0f ) ;
+    eyePosTranslate = theScene.center;
+    initialEyePos.xyz = initialEyePos.xyz - eyePosTranslate;
+    //initialEyePos.xyz = glm::vec3( 0, 1.0, 2.0 );
+    //cameraRotate[3][0] = theScene.eyePos.x;
+    //cameraRotate[3][1] = theScene.eyePos.y;
+    //cameraRotate[3][2] = theScene.eyePos.z;
+
 }
 
 void cleanUpGL()
