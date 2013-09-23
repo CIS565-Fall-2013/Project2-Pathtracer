@@ -101,7 +101,6 @@ int main(int argc, char** argv){
 //-------------------------------
 
 void runCuda(){
-
 	// Map OpenGL buffer object for writing from CUDA on a single GPU
 	// No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
@@ -129,8 +128,15 @@ void runCuda(){
 		fps = 0.2*fps + 0.8*CLOCKS_PER_SEC/float(tic-toc);
 
 		// execute the kernel
+		
+		#ifdef CUDA_PROFILING
+			cudaProfilerStart();
+		#endif
 		cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
-
+		
+		#ifdef CUDA_PROFILING
+			cudaProfilerStop();
+		#endif
 		// unmap buffer object
 		cudaGLUnmapBufferObject(pbo);
 	}else{
@@ -179,6 +185,7 @@ void runCuda(){
 		}
 	}
 
+
 }
 
 #ifdef __APPLE__
@@ -205,6 +212,8 @@ void display(){
 #else
 
 void display(){
+	
+
 	runCuda();
 
 

@@ -20,6 +20,10 @@
     #include <cutil_math.h>
 #endif
 
+#ifdef CUDA_PROFILING
+	#include "cuda_profiler_api.h"
+#endif
+
 void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
 
 #endif

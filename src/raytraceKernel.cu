@@ -37,7 +37,11 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 
 //Function that does the initial raycast from the camera given a float defined pixel. Allows pixels to be defined with subpixel resolution easily.
 //20% faster than provided code.
-__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
+__host__ __device__ ray raycastFromCamera(glm::vec2 resolution, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
+
+#ifdef CUDA_PROFILING
+	nvtxRangePushA("Raycast from Camera");
+#endif
 
 	ray r;
 	r.origin = eye;
@@ -50,6 +54,10 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float x, f
 	r.direction = glm::normalize(pixel_location);
 
 	return r;
+
+#ifdef CUDA_PROFILING
+	nvtxRangePop();
+#endif
 }
 
 //Kernel that blacks out a given image buffer
@@ -101,38 +109,38 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec3* colors, 
 							staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
 
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int index = x + (y * resolution.x);
+								int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+								int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+								int index = x + (y * resolution.x);
 
-	ray r = raycastFromCameraKernel(resolution, x, y, cam.position, cam.view, cam.up, cam.fov);
-	
-	if((x<=resolution.x && y<=resolution.y)){
+								ray r = raycastFromCamera(resolution, x, y, cam.position, cam.view, cam.up, cam.fov);
 
-		float MAX_DEPTH = 100000000000000000;
-		float depth = MAX_DEPTH;
+								if((x<=resolution.x && y<=resolution.y)){
 
-		for(int i=0; i<numberOfGeoms; i++){
-			glm::vec3 intersectionPoint;
-			glm::vec3 intersectionNormal;
-			if(geoms[i].type==SPHERE){
-				depth = sphereIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
-			}else if(geoms[i].type==CUBE){
-				depth = boxIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
-			}else if(geoms[i].type==MESH){
-				//triangle tests go here
-			}else{
-				//lol?
-			}
-			if(depth<MAX_DEPTH && depth>-EPSILON){
-				MAX_DEPTH = depth;
-				colors[index] = materials[geoms[i].materialid].color;
-			}
-		}
+									float MAX_DEPTH = 100000000000000000;
+									float depth = MAX_DEPTH;
 
-	
-		//colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
-	}	
+									for(int i=0; i<numberOfGeoms; i++){
+										glm::vec3 intersectionPoint;
+										glm::vec3 intersectionNormal;
+										if(geoms[i].type==SPHERE){
+											depth = sphereIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
+										}else if(geoms[i].type==CUBE){
+											depth = boxIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
+										}else if(geoms[i].type==MESH){
+											//triangle tests go here
+										}else{
+											//lol?
+										}
+										if(depth<MAX_DEPTH && depth>-EPSILON){
+											MAX_DEPTH = depth;
+											colors[index] = materials[geoms[i].materialid].color;
+										}
+									}
+
+
+									//colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+								}	
 
 }
 
@@ -188,6 +196,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	{
 		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
 	}
+
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
 	//retrieve image from GPU

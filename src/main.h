@@ -15,6 +15,7 @@
 	#include <GL/glut.h>
 #endif
 
+
 #include <stdlib.h>
 #include <ctime>
 #include <cuda_runtime.h>
@@ -42,6 +43,7 @@
 #endif
 
 using namespace std;
+
 
 //-------------------------------
 //----------PATHTRACER-----------
