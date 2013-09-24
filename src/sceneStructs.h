@@ -78,4 +78,14 @@ struct material{
 	float emittance;
 };
 
+//for caching first bounce
+struct rayBounce{
+
+	ray thisRay;
+	int objID;	
+	glm::vec3 normal;
+	glm::vec3 intersectPt;
+	int matID;
+};
+
 #endif //CUDASTRUCTS_H

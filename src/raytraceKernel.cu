@@ -159,23 +159,25 @@ __host__ __device__ float testGeomIntersection(staticGeom* geoms, int numberOfGe
 
 }
 
-//reflection function
-__global__ void reflectRay(){}
+//creates and stores first bounce rays, always at depth 1
+__global__ void createRay(cameraData cam, staticGeom* geoms, int numberOfGeoms, material* materials, int numLights, int* lightID, rayBounce* firstPass){
+
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * cam.resolution.x);
+	
+	//do camera cast bullshit
+	glm::vec3 intersection;
+	glm::vec3 normal;
+
+
+}
+
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numLights, int* lightID){
-
-	//__shared__ int sharedLights[3];
-	//for(int l = 0; l < numLights; ++l){
-	//	sharedLights [l] = lightID[l]; 
-	//}
-
-	//__shared__ staticGeom sharedGeom[5];
-	//for(int g = 0; g<numberOfGeoms; ++g){
-	//	sharedGeom[g] = geoms[g];
-	//}
+                            staticGeom* geoms, int numberOfGeoms, material* materials, int numLights, int* lightID, rayBounce* firstPass){
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -191,7 +193,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 		ray firstRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov); 
 		glm::vec3 finalColor(1,1,1);
-
+		
 		while(currDepth <= rayDepth){
 
 #pragma region setup
@@ -214,6 +216,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 			jitterVal = generateRandomNumberFromThread(resolution, time, x, y);
 			jitterVal -= glm::vec3(0.5f, 0.5f, 0.5f);
 			firstRay.direction += 0.0015f* jitterVal; 
+
+			//firstPass[index] = firstRay;
 #pragma endregion setup
 
 			//do intersection test
@@ -235,6 +239,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				finalColor *= surfColor;
 				break;
 			}
+
 
 	#pragma region lightAndShadow
 			glm::vec3 diffuse(0,0,0);
@@ -297,6 +302,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 					//phong *= 0.5f;
 					//diffuse *= 0.9f;
 				}
+
 			}
 	#pragma endregion lightAndShadow
 
@@ -308,10 +314,9 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				//offsect a little to prevent intersection
 				firstRay.origin = intersection + 0.0001f * firstRay.direction;
 				currDepth++;
-
-				finalColor *= surfColor;
+				
+				finalColor *= glm::clamp(surfColor + phong, 0.0f, 1.0f);
 			}
-			
 			else{
 				finalColor *= glm::clamp(diffuse + phong, 0.0f, 1.0f);
 				break;
@@ -321,8 +326,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 	
 		//output final color
 		colors[index] += finalColor;
-
 	}
+
 }
 
 
@@ -360,7 +365,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	//store which objects are lights
 	if(materials[geoms[i].materialid].emittance > 0)
 		lightVec.push_back(i);
-
   }
   
   staticGeom* cudageoms = NULL;
@@ -392,24 +396,41 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.focalLength = renderCam->focalLengths[frame];
   cam.aperture = renderCam->apertures[frame];
 
-  //kernel launches
+  //cache the first bounce since they're the same for each iteration
+  rayBounce* cudaFirstPass = NULL;
+  cudaMalloc((void**)&cudaFirstPass, cam.resolution.x*cam.resolution.y*sizeof(rayBounce));
+
+  //clear image if camera has been moved
   if(clear){
 	  clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaimage); 
 	  clear = false;
   }
-  else
-  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, 
-													cudaMaterials, numLights, cudaLights);
+
+  else{
+	  //first pass, get rays for first bounce
+	  if(iterations == 1) {
+		  createRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cam, cudageoms, numberOfGeoms, cudaMaterials, numLights, cudaLights, cudaFirstPass); 
+		  
+	  }
+	  else {
+		  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, 
+															cudaMaterials, numLights, cudaLights, cudaFirstPass);
+	  }
+ 
+  }
 
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);
 
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
+
   //free up stuff, or else we'll leak memory like a madman
   cudaFree( cudaimage );
   cudaFree( cudageoms );
   cudaFree( cudaMaterials);
+  cudaFree( cudaLights);
+  cudaFree( cudaFirstPass);
   delete geomList;
   delete lightID;
 
