@@ -21,6 +21,8 @@ int main(int argc, char** argv){
 	glfwOpenWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #endif
 
+
+
 	// Set up pathtracer stuff
 	bool loadedScene = false;
 	finishedRender = false;
@@ -45,6 +47,23 @@ int main(int argc, char** argv){
 	if(!loadedScene){
 		cout << "Error: scene file needed!" << endl;
 		return 0;
+	}
+
+	//Print CUDA device info
+	// Number of CUDA devices
+	int devCount;
+	cudaGetDeviceCount(&devCount);
+	printf("CUDA Device Query...\n");
+	printf("There are %d CUDA devices.\n", devCount);
+
+	// Iterate through devices
+	for (int i = 0; i < devCount; ++i)
+	{
+		// Get device properties
+		printf("\nCUDA Device #%d\n", i);
+		cudaDeviceProp devProp;
+		cudaGetDeviceProperties(&devProp, i);
+		utilityCore::printDevProp(devProp);
 	}
 
 	// Set up camera stuff from loaded pathtracer settings
@@ -129,14 +148,8 @@ void runCuda(){
 
 		// execute the kernel
 		
-		#ifdef CUDA_PROFILING
-			cudaProfilerStart();
-		#endif
 		cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
 		
-		#ifdef CUDA_PROFILING
-			cudaProfilerStop();
-		#endif
 		// unmap buffer object
 		cudaGLUnmapBufferObject(pbo);
 	}else{

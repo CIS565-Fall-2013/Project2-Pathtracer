@@ -39,10 +39,6 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 //20% faster than provided code.
 __host__ __device__ ray raycastFromCamera(glm::vec2 resolution, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
 
-#ifdef CUDA_PROFILING
-	nvtxRangePushA("Raycast from Camera");
-#endif
-
 	ray r;
 	r.origin = eye;
 	glm::vec3 right = glm::cross(view, up);
@@ -55,9 +51,6 @@ __host__ __device__ ray raycastFromCamera(glm::vec2 resolution, float x, float y
 
 	return r;
 
-#ifdef CUDA_PROFILING
-	nvtxRangePop();
-#endif
 }
 
 //Kernel that blacks out a given image buffer
@@ -107,40 +100,41 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec3* colors, 
-							staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
+							staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials)
+{
+	//Compute pixel and index
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * resolution.x);
 
-								int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-								int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-								int index = x + (y * resolution.x);
+	ray r = raycastFromCamera(resolution, x, y, cam.position, cam.view, cam.up, cam.fov);
 
-								ray r = raycastFromCamera(resolution, x, y, cam.position, cam.view, cam.up, cam.fov);
+	if((x<=resolution.x && y<=resolution.y)){
 
-								if((x<=resolution.x && y<=resolution.y)){
+		float MAX_DEPTH = 100000000000000000;
+		float depth = MAX_DEPTH;
 
-									float MAX_DEPTH = 100000000000000000;
-									float depth = MAX_DEPTH;
-
-									for(int i=0; i<numberOfGeoms; i++){
-										glm::vec3 intersectionPoint;
-										glm::vec3 intersectionNormal;
-										if(geoms[i].type==SPHERE){
-											depth = sphereIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
-										}else if(geoms[i].type==CUBE){
-											depth = boxIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
-										}else if(geoms[i].type==MESH){
-											//triangle tests go here
-										}else{
-											//lol?
-										}
-										if(depth<MAX_DEPTH && depth>-EPSILON){
-											MAX_DEPTH = depth;
-											colors[index] = materials[geoms[i].materialid].color;
-										}
-									}
+		for(int i=0; i<numberOfGeoms; i++){
+			glm::vec3 intersectionPoint;
+			glm::vec3 intersectionNormal;
+			if(geoms[i].type==SPHERE){
+				depth = sphereIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
+			}else if(geoms[i].type==CUBE){
+				depth = boxIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
+			}else if(geoms[i].type==MESH){
+				//triangle tests go here
+			}else{
+				//lol?
+			}
+			if(depth<MAX_DEPTH && depth>-EPSILON){
+				MAX_DEPTH = depth;
+				colors[index] = materials[geoms[i].materialid].color;
+			}
+		}
 
 
-									//colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
-								}	
+		//colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+	}	
 
 }
 

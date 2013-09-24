@@ -42,6 +42,7 @@ namespace utilityCore {
     extern void printCudaMat4(cudaMat4 m);
     extern std::string convertIntToString(int number);
     extern std::istream& safeGetline(std::istream& is, std::string& t); //Thanks to http://stackoverflow.com/a/6089413
+	extern void printDevProp(cudaDeviceProp devProp);//Thanks to http://gpucoder.livejournal.com/1064.html
 
     //-----------------------------
     //-------GLM Printers----------
