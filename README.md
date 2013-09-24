@@ -1,9 +1,9 @@
 -------------------------------------------------------------------------------
 CIS565: Project 2: CUDA Pathtracer
 -------------------------------------------------------------------------------
-Fall 2012
+Fall 2013
 -------------------------------------------------------------------------------
-Due Friday, 10/12/2012
+Due Wednesday, 10/02/13
 -------------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------
@@ -53,7 +53,7 @@ You will need to implement the following features. A number of these required fe
 * Full global illumination (including soft shadows, color bleeding, etc.) by pathtracing rays through the scene. 
 * Properly accumulating emittance and colors to generate a final image
 * Supersampled antialiasing
-* Parallelization by ray instead of by pixel via string compaction
+* Parallelization by ray instead of by pixel via stream compaction
 * Perfect specular reflection
 
 You are also required to implement at least two of the following features. Some of these features you may have already implemented in Project 1. If you have, you may NOT resubmit those features and instead must pick two new ones to implement.
