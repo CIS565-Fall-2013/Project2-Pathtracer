@@ -134,6 +134,7 @@ std::istream& utilityCore::safeGetline(std::istream& is, std::string& t)
         }
     }
 }
+
 //-----------------------------
 //-------GLM Printers----------
 //-----------------------------

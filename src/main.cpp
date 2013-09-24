@@ -104,8 +104,9 @@ void runCuda(){
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  
+
   if(iterations<renderCam->iterations){
+
     uchar4 *dptr=NULL;
     iterations++;
     cudaGLMapBufferObject((void**)&dptr, pbo);
@@ -123,7 +124,7 @@ void runCuda(){
     
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+		cudaRaytraceCore(dptr, renderCam, renderScene->globalAttr, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -143,7 +144,7 @@ void runCuda(){
       gammaSettings gamma;
       gamma.applyGamma = true;
       gamma.gamma = 1.0;
-      gamma.divisor = 1.0; //renderCam->iterations;
+      gamma.divisor = renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -161,18 +162,25 @@ void runCuda(){
       }
     }
     if(targetFrame<renderCam->frames-1){
-
-      //clear image buffer and move onto next frame
-      targetFrame++;
-      iterations = 0;
-      for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
-        renderCam->image[i] = glm::vec3(0,0,0);
-      }
-      cudaDeviceReset(); 
-      finishedRender = false;
+			//clear image buffer and move onto next frame
+			targetFrame++;
+			iterations = 0;
+			for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
+				renderCam->image[i] = glm::vec3(0,0,0);
+			}
+			cudaDeviceReset(); 
+			finishedRender = false;
     }
   }
   
+}
+
+// Clear the image on CPU and set iterations to 0
+void clearImage() {
+  iterations = 0;
+  for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
+    renderCam->image[i] = glm::vec3(0,0,0);
+  }
 }
 
 #ifdef __APPLE__
@@ -199,6 +207,9 @@ void runCuda(){
 #else
 
 	void display(){
+		//// Keep track of time
+    //theFpsTracker.timestamp();
+
 		runCuda();
 
 		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
@@ -216,16 +227,51 @@ void runCuda(){
 
 		glutPostRedisplay();
 		glutSwapBuffers();
+
+		//cout << "Framerate: " << theFpsTracker.fpsAverage() << endl;
 	}
 
 	void keyboard(unsigned char key, int x, int y)
 	{
+		float step = 0.1; // camera step
 		std::cout << key << std::endl;
 		switch (key) 
 		{
-		   case(27):
+		   case(27): //Esc
 			   exit(1);
 			   break;
+			 case(97): //a
+				 renderCam->positions[0] += glm::vec3(1, 0, 0) * step;
+				 clearImage();
+				 break;
+			 case(119): //w
+				 renderCam->positions[0] += glm::vec3(0, 1, 0) * step;
+				 clearImage();
+				 break;
+			 case(100): //d
+				 renderCam->positions[0] += glm::vec3(-1, 0, 0) * step;
+				 clearImage();
+				 break;
+			 case(115): //s
+				 renderCam->positions[0] += glm::vec3(0, -1, 0) * step;
+				 clearImage();
+				 break;
+			 case(122): //z
+				 renderCam->positions[0] += glm::vec3(0, 0, -1) * step;
+				 clearImage();
+				 break;
+			 case(120): //x
+				 renderCam->positions[0] += glm::vec3(0, 0, 1) * step;
+				 clearImage();
+				 break;
+			 //case(91): //[
+				// renderCam->focal -= 0.5;
+				// clearImage();
+				// break;
+			 //case(93): //]
+				// renderCam->focal += 0.5;
+				// clearImage();
+				// break;
 		}
 	}
 

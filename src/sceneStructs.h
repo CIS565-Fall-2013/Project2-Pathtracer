@@ -45,6 +45,8 @@ struct cameraData {
 	glm::vec3 view;
 	glm::vec3 up;
 	glm::vec2 fov;
+	float focal;
+	float aperture;
 };
 
 struct camera {
@@ -55,12 +57,14 @@ struct camera {
 	int frames;
 	glm::vec2 fov;
 	unsigned int iterations;
+	float focal;
+	float aperture;
 	glm::vec3* image;
 	ray* rayList;
 	std::string imageName;
 };
 
-struct material{
+struct material {
 	glm::vec3 color;
 	float specularExponent;
 	glm::vec3 specularColor;
@@ -71,6 +75,13 @@ struct material{
 	glm::vec3 absorptionCoefficient;
 	float reducedScatterCoefficient;
 	float emittance;
+};
+
+struct globalAttributes {
+	float Ka;
+	float Kd;
+	float Ks;
+	glm::vec3 ambient; // ambient light
 };
 
 #endif //CUDASTRUCTS_H
