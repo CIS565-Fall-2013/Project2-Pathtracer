@@ -40,11 +40,62 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
     
 }
 
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
+  //nothing fancy here
+  return glm::normalize(incident-2.0f*normal*glm::dot(incident,normal));
+}
+
+
 //TODO: IMPLEMENT THIS FUNCTION
 //Now that you know how cosine weighted direction generation works, try implementing non-cosine (uniform) weighted random direction generation.
 //This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
-  return glm::vec3(0,0,0);
+	float up = xi1; 
+    float over = sqrt(1 - up * up); // sin(theta)
+    float around = xi2 * TWO_PI;	
+	return glm::vec3( cos(around)*over,sin(around)*over,xi1);
 }
+
+//TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
+//returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
+__host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
+                                       glm::vec3& color, glm::vec3& unabsorbedColor, material m, float randomSeed){
+
+  r.origin = intersect;
+  thrust::default_random_engine rng(hash(randomSeed));
+  thrust::uniform_real_distribution<float> u01(0,1);
+
+  r.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal,u01(rng),u01(rng)));
+  return 0;
+ 
+  if (m.diffuseCoefficient>0.0f && m.hasReflective)
+  {
+	if (u01(rng) < m.diffuseCoefficient)
+	{
+		r.direction = calculateRandomDirectionInHemisphere(normal,u01(rng),u01(rng));
+		return 0;
+	}
+	else
+	{
+		r.direction = calculateReflectionDirection(normal,r.direction);
+		return 1;
+	}
+  }
+
+  else if(m.hasReflective)
+  {
+	  r.direction = calculateReflectionDirection(normal,r.direction);
+	  return 1;
+  }
+
+
+  else
+  {
+	  r.direction = calculateRandomDirectionInHemisphere(normal,u01(rng),u01(rng));
+	  return 0;
+  }
+ 
+};
 
 #endif

@@ -16,6 +16,8 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	bool active;
+	glm::vec2 pixelIndex;
 };
 
 struct geom {
@@ -71,6 +73,7 @@ struct material{
 	glm::vec3 absorptionCoefficient;
 	float reducedScatterCoefficient;
 	float emittance;
+	float diffuseCoefficient;
 };
 
 #endif //CUDASTRUCTS_H

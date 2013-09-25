@@ -156,10 +156,18 @@ __host__ __device__  float boxIntersectionTest(glm::vec3 boxMin, glm::vec3 boxMa
     }
 
     intersectionPoint = multiplyMV(box.transform, glm::vec4(osintersect, 1.0));
+	glm::vec4 itX(box.inverseTransform.x.x,box.inverseTransform.y.x,box.inverseTransform.z.x,box.inverseTransform.w.x);
+	glm::vec4 itY(box.inverseTransform.x.y,box.inverseTransform.y.y,box.inverseTransform.z.y,box.inverseTransform.w.y);
+	glm::vec4 itZ(box.inverseTransform.x.z,box.inverseTransform.y.z,box.inverseTransform.z.z,box.inverseTransform.w.z);
+	glm::vec4 itW(box.inverseTransform.x.w,box.inverseTransform.y.w,box.inverseTransform.z.w,box.inverseTransform.w.w);
+	
+	cudaMat4 inverseTranspose;
+	inverseTranspose.x = itX;
+	inverseTranspose.y = itY;
+	inverseTranspose.z = itZ;
+	inverseTranspose.w = itW;
 
-
-
-    normal = multiplyMV(box.transform, glm::vec4(currentNormal,0.0));
+    normal = multiplyMV(inverseTranspose, glm::vec4(currentNormal,0.0));
     return glm::length(intersectionPoint-ro.origin);
 }
 
@@ -275,6 +283,47 @@ __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float ra
   glm::vec3 randPoint = multiplyMV(sphere.transform, glm::vec4(point,1.0f));
 
   return randPoint;
+}
+
+
+__host__ __device__ int findNearestGeometricIntersection(ray& r, glm::vec3& intersectionPoint,
+														   glm::vec3& intersectionNormal,
+														   staticGeom* geoms, int numberOfGeoms)
+{
+	int nearestIntersectionObject = -1;
+	float nearestIntersectionDist = FLT_MAX;
+	for(int i=0; i<numberOfGeoms;++i)
+	{
+		if(geoms[i].type == SPHERE)
+		{
+			glm::vec3 iPoint;
+			glm::vec3 iNormal;		
+			float t = sphereIntersectionTest(geoms[i],r,iPoint,iNormal);
+			if (t!= -1 && t<nearestIntersectionDist)
+			{
+				nearestIntersectionObject = i;
+				nearestIntersectionDist = t;
+				intersectionPoint = iPoint;
+				intersectionNormal = iNormal;
+			}
+		}
+
+		else if(geoms[i].type == CUBE)
+		{
+			glm::vec3 iPoint;
+			glm::vec3 iNormal;		
+			float t = boxIntersectionTest(geoms[i],r,iPoint,iNormal);
+			if (t!= -1 && t<nearestIntersectionDist)
+			{
+				nearestIntersectionObject = i;
+				nearestIntersectionDist = t;
+				intersectionPoint = iPoint;
+				intersectionNormal = iNormal;
+			}
+		}
+	}
+
+	return nearestIntersectionObject;
 }
 
 #endif
