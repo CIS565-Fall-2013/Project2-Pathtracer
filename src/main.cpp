@@ -356,7 +356,9 @@ void initCuda(){
 
   // Clean up on program exit
   atexit(cleanupCuda);
+  atexit(cudaFreeMemory);
 
+  cudaAllocMemory(renderCam->resolution);
   runCuda();
 }
 

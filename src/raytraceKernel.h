@@ -20,6 +20,11 @@
     #include <cutil_math.h>
 #endif
 
+//for first bounce
+void cudaAllocMemory(glm::vec2 resolution);
+
+void cudaFreeMemory();
+
 void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool& clear);
 
 

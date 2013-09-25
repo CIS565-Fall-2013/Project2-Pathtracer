@@ -80,12 +80,13 @@ struct material{
 
 //for caching first bounce
 struct rayBounce{
-
 	ray thisRay;
 	int objID;	
 	glm::vec3 normal;
 	glm::vec3 intersectPt;
 	int matID;
+	int currDepth;
+
 };
 
 #endif //CUDASTRUCTS_H

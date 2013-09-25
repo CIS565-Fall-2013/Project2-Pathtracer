@@ -22,6 +22,14 @@
     #include <cutil_math.h>
 #endif
 
+
+//global variables
+rayBounce* cudaFirstPass;
+rayBounce* cudaRayPool;		//for stream compaction, pool of rays that are still alive
+int* cudaCompactA;
+int* cudaCompactB;
+int* cudaNumRays;		//number of rays left in the pool
+
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
   if( cudaSuccess != err) {
@@ -43,7 +51,7 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
-__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
+__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
 	
 	ray r;
 
@@ -159,25 +167,102 @@ __host__ __device__ float testGeomIntersection(staticGeom* geoms, int numberOfGe
 
 }
 
-//creates and stores first bounce rays, always at depth 1
-__global__ void createRay(cameraData cam, staticGeom* geoms, int numberOfGeoms, material* materials, int numLights, int* lightID, rayBounce* firstPass){
+__global__ void streamCompact(glm::vec2 resolution, int* numRays, int* compactIn, int* compactOut, rayBounce* rayPass, int maxDepth, int d){
 
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int index = x + (y * cam.resolution.x);
-	
-	//do camera cast bullshit
-	glm::vec3 intersection;
-	glm::vec3 normal;
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+	if(index < *numRays){
+		if( index >= pow(2.0f, d)){
+			compactOut[index] = compactIn[index - (int)pow(2.0f, d-1)] + compactIn[index];
+		}
+		else{
+			compactOut[index] = compactIn[index];
+		}
+	}
+
+}
+
+__global__ void buildRayPool(int* compactIn, int* compactOut, rayBounce* rayPass, int* numRays){
+
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+	if(index < *numRays){
+		if(compactIn[index] == 1)
+			rayPass[index] = rayPass[compactOut[index]];
+		//else just ignore the ray since it's dead
+	}
+
+	*numRays = compactOut[*numRays - 1];		//last value in compact out
 
 
 }
 
 
-//TODO: IMPLEMENT THIS FUNCTION
-//Core raytracer kernel
-__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numLights, int* lightID, rayBounce* firstPass){
+//creates and stores first bounce rays, always at depth 1
+__global__ void createRay(glm::vec2 resolution, cameraData cam, staticGeom* geoms, int numberOfGeoms, material* materials, 
+						 int numLights, int* lightID, rayBounce* firstPass, int maxDepth, int* compactIn, int* numRays){
+
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * cam.resolution.x);
+	
+	glm::vec3 intersection;
+	glm::vec3 normal;
+
+	if(x<=resolution.x  && y<=resolution.y){
+
+		ray firstRay = raycastFromCameraKernel(resolution, x, y, cam.position, cam.view, cam.up, cam.fov); 
+		
+		//DOF and antialiasing setup
+		//float focalLength = cam.focalLength;
+		//float aperture = cam.aperture;
+		//
+		//glm::vec3 focalPoint = firstRay.origin + focalLength * firstRay.direction;
+
+		////jitter camera
+		//glm::vec3 jitterVal = 2.0f * aperture * generateRandomNumberFromThread(resolution, time, x, y);
+		//jitterVal -= glm::vec3(aperture);
+		//firstRay.origin += jitterVal;
+
+		////find new direction
+		//firstRay.direction = glm::normalize(focalPoint - firstRay.origin);
+
+		////antialias sample per pixel
+		//jitterVal = generateRandomNumberFromThread(resolution, time, x, y);
+		//jitterVal -= glm::vec3(0.5f, 0.5f, 0.5f);
+		//firstRay.direction += 0.0015f* jitterVal; 
+
+		//do intersection test
+		int objID = -1;
+		float len = testGeomIntersection(geoms, numberOfGeoms, firstRay, intersection, normal, objID);
+			
+		//if no intersection, return
+		if(objID == -1){
+			firstPass[index] = rayBounce();
+			firstPass[index].currDepth = maxDepth+1;
+			compactIn[index] = 0;
+			return;	
+		}
+		
+		int matID = geoms[objID].materialid;
+		
+		//save the first bounce information
+		firstPass[index] = rayBounce();
+		firstPass[index].intersectPt = intersection;
+		firstPass[index].normal = normal;
+		firstPass[index].matID = matID;
+		firstPass[index].thisRay.origin = firstRay.origin;
+		firstPass[index].thisRay.direction = firstRay.direction;
+		firstPass[index].currDepth = 1;
+		
+		compactIn[index] = 1;
+	}
+
+}
+
+
+__global__ void rayParallelTrace(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors, staticGeom* geoms, int numberOfGeoms, 
+								material* materials, int numLights, int* lightID, rayBounce* rayPass){
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -191,7 +276,53 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 
 	if((x<=resolution.x && y<=resolution.y)){
 
-		ray firstRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov); 
+		ray firstRay = rayPass[index].thisRay;
+
+		glm::vec3 finalColor(1,1,1);
+		
+		//do intersection test
+		int objID = -1;
+
+		float len = testGeomIntersection(geoms, numberOfGeoms, firstRay, intersection, normal, objID);
+
+		//if no intersection, return
+		if(objID == -1){
+			finalColor *= 0.0f;
+		}
+		
+		int matID = geoms[objID].materialid;
+		surfColor = materials[matID].color;
+
+		//check if you intersected with light, if so, just return light color
+		if(materials[matID].emittance > 0){
+			finalColor *= surfColor;
+		}
+
+	
+		//output final color
+		colors[index] += surfColor;
+	}
+
+}
+
+//TODO: IMPLEMENT THIS FUNCTION
+//Core raytracer kernel
+__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors, staticGeom* geoms, int numberOfGeoms, 
+							material* materials, int numLights, int* lightID, rayBounce* firstPass){
+
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * resolution.x);
+
+	glm::vec3 intersection;
+	glm::vec3 normal;
+	glm::vec3 surfColor;
+
+	int currDepth = 1;
+
+	if((x<=resolution.x && y<=resolution.y)){
+
+		ray firstRay = raycastFromCameraKernel(resolution, x, y, cam.position, cam.view, cam.up, cam.fov); 
 		glm::vec3 finalColor(1,1,1);
 		
 		while(currDepth <= rayDepth){
@@ -331,11 +462,46 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 }
 
 
+//allocate memory on cuda
+void cudaAllocMemory(glm::vec2 resolution){
+	
+	//std::cout<<"allocate "<<std::endl;
+	//cache the first bounce since they're the same for each iteration
+	cudaFirstPass = NULL;
+	cudaMalloc((void**)&cudaFirstPass, resolution.x*resolution.y*sizeof(rayBounce));
+
+	cudaRayPool = NULL;
+	cudaMalloc((void**)&cudaRayPool, resolution.x*resolution.y*sizeof(rayBounce));
+
+	cudaCompactA= NULL;
+	cudaMalloc((void**)&cudaCompactA, resolution.x*resolution.y*sizeof(int));
+
+	cudaCompactB= NULL;
+	cudaMalloc((void**)&cudaCompactB, resolution.x*resolution.y*sizeof(int));
+
+	cudaNumRays = NULL;
+	cudaMalloc((void**)&cudaNumRays, sizeof(int));
+
+	int* numRays = new int[1];
+	*numRays = resolution.x * resolution.y;
+	cudaMemcpy( cudaNumRays, numRays, sizeof(int), cudaMemcpyHostToDevice);
+	delete [] numRays;
+}
+
+void cudaFreeMemory(){
+	//std::cout<<"free memory "<<std::endl;
+	cudaFree( cudaFirstPass);
+	cudaFree( cudaRayPool);
+	cudaFree( cudaCompactA);
+	cudaFree( cudaCompactB);
+	cudaFree( cudaNumRays);
+}
+
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool& clear){
   
-  int traceDepth = 10; //determines how many bounces the raytracer traces
+  int traceDepth = 2; //determines how many bounces the raytracer traces
 
   // set up crucial magic
   int tileSize = 8;
@@ -396,27 +562,37 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.focalLength = renderCam->focalLengths[frame];
   cam.aperture = renderCam->apertures[frame];
 
-  //cache the first bounce since they're the same for each iteration
-  rayBounce* cudaFirstPass = NULL;
-  cudaMalloc((void**)&cudaFirstPass, cam.resolution.x*cam.resolution.y*sizeof(rayBounce));
+  //find tiles and block size for ray compaction
+  dim3 threadsPerBlockRayPool(tileSize*tileSize);			//each block has 64 * 1 threads
+  dim3 fullBlocksPerGridRayPool((int)ceil(float(renderCam->resolution.x)*float(renderCam->resolution.y)/float(tileSize)/float(tileSize)));
 
   //clear image if camera has been moved
   if(clear){
 	  clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaimage); 
 	  clear = false;
   }
-
   else{
 	  //first pass, get rays for first bounce
 	  if(iterations == 1) {
-		  createRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cam, cudageoms, numberOfGeoms, cudaMaterials, numLights, cudaLights, cudaFirstPass); 
-		  
+		  createRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cam, cudageoms, numberOfGeoms, cudaMaterials, 
+															numLights, cudaLights, cudaFirstPass, traceDepth, cudaCompactA, cudaNumRays); 
+		  cudaMemcpy(cudaRayPool, cudaFirstPass, (*cudaNumRays)*sizeof(rayBounce), cudaMemcpyDeviceToDevice);
 	  }
 	  else {
-		  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, 
-															cudaMaterials, numLights, cudaLights, cudaFirstPass);
+		  rayParallelTrace<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, 
+															cudaMaterials, numLights, cudaLights, cudaRayPool);
 	  }
- 
+
+	  //do naive stream compaction
+	  for(int d = 0; d < log((float)(*cudaNumRays)); d++){
+		  if(iterations % 2 == 1){
+			  streamCompact<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaNumRays, cudaCompactA, cudaCompactB, cudaRayPool, traceDepth, d); 
+		  }
+		  else
+			  streamCompact<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaNumRays, cudaCompactB, cudaCompactA, cudaRayPool, traceDepth, d); 
+	  }
+
+
   }
 
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);
@@ -430,7 +606,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudageoms );
   cudaFree( cudaMaterials);
   cudaFree( cudaLights);
-  cudaFree( cudaFirstPass);
   delete geomList;
   delete lightID;
 
