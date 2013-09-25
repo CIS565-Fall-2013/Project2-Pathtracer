@@ -6,10 +6,13 @@
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
 #include "main.h"
+#include "fps.h"
 
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
+
+mmc::FpsTracker theFpsTracker;
 
 int main(int argc, char** argv){
 
@@ -113,17 +116,20 @@ void runCuda(){
     //pack geom and material arrays
     geom* geoms = new geom[renderScene->objects.size()];
     material* materials = new material[renderScene->materials.size()];
+	int* lightIds = new int[renderScene->lightIds.size()];
     
     for(int i=0; i<renderScene->objects.size(); i++){
-      geoms[i] = renderScene->objects[i];
+		geoms[i] = renderScene->objects[i];
     }
     for(int i=0; i<renderScene->materials.size(); i++){
-      materials[i] = renderScene->materials[i];
+		materials[i] = renderScene->materials[i];
     }
+	for(int i=0; i<renderScene->lightIds.size(); i++){
+		lightIds[i]= renderScene->lightIds[i];
+	}
     
-  
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+	cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), lightIds, renderScene->lightIds.size());
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -143,7 +149,7 @@ void runCuda(){
       gammaSettings gamma;
       gamma.applyGamma = true;
       gamma.gamma = 1.0;
-      gamma.divisor = 1.0; //renderCam->iterations;
+      gamma.divisor = renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -199,9 +205,30 @@ void runCuda(){
 #else
 
 	void display(){
+		theFpsTracker.timestamp();
+
+		cudaEvent_t start, stop;
+		float time;
+
+		// Keep track of time
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
+
+		cudaEventRecord( start, 0 );
+
 		runCuda();
 
-		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
+		cudaEventRecord( stop, 0 );
+		cudaEventSynchronize( stop );
+
+		cudaEventElapsedTime( &time, start, stop );
+		cudaEventDestroy( start );
+		cudaEventDestroy( stop );
+
+		char info[1024];
+		sprintf(info, "565Raytracer | %i Iterations | Framerate : %3.1f fps | GPU Elapsed Time : %3.1f ms", iterations, theFpsTracker.fpsAverage(), time);
+		string title(info);
+		
 		glutSetWindowTitle(title.c_str());
 
 		glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);
@@ -218,13 +245,46 @@ void runCuda(){
 		glutSwapBuffers();
 	}
 
+
+
 	void keyboard(unsigned char key, int x, int y)
 	{
 		std::cout << key << std::endl;
+
 		switch (key) 
 		{
 		   case(27):
 			   exit(1);
+			   break;
+		   case 'w':
+			   renderCam->positions->y += .1f;
+			   clearImageBuffer(renderCam);
+			   iterations = 0;
+			   break;
+		   case 'x':
+			   renderCam->positions->y -= .1f;
+			   clearImageBuffer(renderCam);
+			   iterations = 0;
+			   break;
+		   case 'a':
+			   renderCam->positions->x += .1f;
+			   clearImageBuffer(renderCam);
+			   iterations = 0;
+			   break;
+		   case 'd':
+			   renderCam->positions->x -= .1f;
+			   clearImageBuffer(renderCam);
+			   iterations = 0;
+			   break;
+		   case 's':
+			   renderCam->positions->z -= .1f;
+			   clearImageBuffer(renderCam);
+			   iterations = 0;
+			   break;
+		   case 'z':
+			   renderCam->positions->z += .1f;
+			   clearImageBuffer(renderCam);
+			   iterations = 0;
 			   break;
 		}
 	}

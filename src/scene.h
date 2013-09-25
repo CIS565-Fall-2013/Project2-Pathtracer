@@ -28,6 +28,7 @@ public:
 
     vector<geom> objects;
     vector<material> materials;
+	vector<int> lightIds;
     camera renderCam;
 };
 

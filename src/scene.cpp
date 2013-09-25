@@ -128,6 +128,7 @@ int scene::loadObject(string objectid){
 	}
 	
         objects.push_back(newObject);
+		if(materials.at(newObject.materialid).emittance > .001f) lightIds.push_back(objects.size() - 1);
 	
 	cout << "Loaded " << frameCount << " frames for Object " << objectid << "!" << endl;
         return 1;

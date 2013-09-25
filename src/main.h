@@ -107,7 +107,6 @@ GLuint initShader(const char *vertexShaderPath, const char *fragmentShaderPath);
 //-------------------------------
 //---------CLEANUP STUFF---------
 //-------------------------------
-
 void cleanupCuda();
 void deletePBO(GLuint* pbo);
 void deleteTexture(GLuint* tex);
