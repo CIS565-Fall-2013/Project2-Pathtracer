@@ -71,6 +71,23 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
+// find the index of the closest intersected geometry
+__host__ __device__ int getClosestIntersection(staticGeom* geoms, int numberOfGeoms, ray r, glm::vec3& minIntersection, glm::vec3& minNormal) {
+	int minIdx = -1;
+	float minDist = FLT_MAX;
+	for (int i=0; i<numberOfGeoms; ++i) {
+		glm::vec3 intersection, normal;
+		float dist = geomIntersectionTest(geoms[i], r, intersection, normal);
+		if (dist > THRESHOLD && dist < minDist) {
+			minIdx = i;
+			minDist = dist;
+			minIntersection = intersection;
+			minNormal = normal;
+		}
+	}
+	return minIdx;
+}
+
 // Geometry intersection test, call sphere/box/mesh intersection test functions depending the type of the geometry
 __host__ __device__ float geomIntersectionTest(staticGeom geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal) {
 	switch (geom.type) {
@@ -217,7 +234,6 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
       t = min(t1, t2);
   } else {
       t = max(t1, t2);
-			inverseNormal = true; // since we are inside the sphere, we have to inverse the normal
   }
 
   glm::vec3 realIntersectionPoint = multiplyMV(sphere.transform, glm::vec4(getPointOnRay(rt, t), 1.0));
@@ -225,9 +241,6 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
 
   intersectionPoint = realIntersectionPoint;
   normal = glm::normalize(realIntersectionPoint - realOrigin);
-	if (inverseNormal) {
-		normal *= -1;
-	}
         
   return glm::length(r.origin - realIntersectionPoint);
 }

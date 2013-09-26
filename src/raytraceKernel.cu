@@ -33,6 +33,50 @@ void checkCUDAError(const char *msg) {
   }
 }
 
+//Kernel that blacks out a given image buffer
+__global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
+    int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+    int index = x + (y * resolution.x);
+    if(x<=resolution.x && y<=resolution.y){
+      image[index] = glm::vec3(0,0,0);
+    }
+}
+
+//Kernel that writes the image to the OpenGL PBO directly.
+__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image){
+  
+  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  int index = x + (y * resolution.x);
+  
+  if(x<=resolution.x && y<=resolution.y){
+
+      glm::vec3 color;
+      color.x = image[index].x*255.0;
+      color.y = image[index].y*255.0;
+      color.z = image[index].z*255.0;
+
+      if(color.x>255){
+        color.x = 255;
+      }
+
+      if(color.y>255){
+        color.y = 255;
+      }
+
+      if(color.z>255){
+        color.z = 255;
+      }
+      
+      // Each thread writes one pixel location in the texture (textel)
+      PBOpos[index].w = 0;
+      PBOpos[index].x = color.x;
+      PBOpos[index].y = color.y;
+      PBOpos[index].z = color.z;
+  }
+}
+
 //---------------------------------------------
 //--------------Helper functions---------------
 //---------------------------------------------
@@ -92,10 +136,40 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
   return r;
 }
 
-// Determine if a randomly generated ray
-__host__ __device__  bool isReflectedRay(float randomSeed, float n1, float n2, glm::vec3 n, glm::vec3 d, glm::vec3 t) {
-	float rpar = (n2 * glm::dot(n, d) - n1 * glm::dot(n, t)) / (n2 * glm::dot(n, d) + n1 * glm::dot(n, t));
-	float rperp = (n1 * glm::dot(n, d) - n2 * glm::dot(n, t)) / (n1 * glm::dot(n, d) + n2 * glm::dot(n, t));
+// Get the reflected ray direction from ray direction and normal
+__host__ __device__ glm::vec3 getReflectedRay(glm::vec3 d, glm::vec3 n) {
+	glm::vec3 VR; // reflected ray direction
+	if (glm::length(-d - n) < THRESHOLD) {
+		VR = n;
+	}
+	else if (abs(glm::dot(-d, n)) < THRESHOLD) {
+		VR = d;
+	}
+	else {
+		VR = glm::normalize(d - 2.0f * glm::dot(d, n) * n);
+	}
+	return VR;
+}
+
+// Get the refracted ray direction from ray direction, normal and index of refraction (IOR)
+__host__ __device__ glm::vec3 getRefractedRay(glm::vec3 d, glm::vec3 n, float IOR) {
+	glm::vec3 VT; // refracted ray direction
+	float t = 1 / IOR;
+	float base = 1 - t * t * (1 - pow(glm::dot(n, d), 2));
+	if (base < 0) {
+		 VT = glm::vec3(0, 0, 0);
+	}
+	else {
+		VT = (-t * glm::dot(n, d) - sqrt(base)) * n + t * d; // refracted ray
+		VT = glm::normalize(VT);
+	}
+	return VT;
+}
+
+// Determine if the randomly generated ray is a refracted ray or a reflected ray
+__host__ __device__  bool isRefractedRay(float randomSeed, float IOR, glm::vec3 d, glm::vec3 n, glm::vec3 t) {
+	float rpar = (IOR * glm::dot(n, d) - glm::dot(n, t)) / (IOR * glm::dot(n, d) + glm::dot(n, t));
+	float rperp = (glm::dot(n, d) - IOR * glm::dot(n, t)) / (glm::dot(n, d) + IOR * glm::dot(n, t));
 
 	// compute proportion of the light reflected
 	float fr = 0.5 * (rpar * rpar + rperp * rperp);
@@ -104,55 +178,37 @@ __host__ __device__  bool isReflectedRay(float randomSeed, float n1, float n2, g
 	thrust::default_random_engine rng(hash(randomSeed));
 	thrust::uniform_real_distribution<float> u01(0,1);
 	if (u01(rng) <= fr) {
-		return true;
-	}
-	else {
 		return false;
 	}
+	else {
+		return true;
+	}
 }
 
-//Kernel that blacks out a given image buffer
-__global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
-    int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-    int index = x + (y * resolution.x);
-    if(x<=resolution.x && y<=resolution.y){
-      image[index] = glm::vec3(0,0,0);
-    }
-}
-
-//Kernel that writes the image to the OpenGL PBO directly.
-__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image){
-  
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
-  
-  if(x<=resolution.x && y<=resolution.y){
-
-      glm::vec3 color;
-      color.x = image[index].x*255.0;
-      color.y = image[index].y*255.0;
-      color.z = image[index].z*255.0;
-
-      if(color.x>255){
-        color.x = 255;
-      }
-
-      if(color.y>255){
-        color.y = 255;
-      }
-
-      if(color.z>255){
-        color.z = 255;
-      }
-      
-      // Each thread writes one pixel location in the texture (textel)
-      PBOpos[index].w = 0;
-      PBOpos[index].x = color.x;
-      PBOpos[index].y = color.y;
-      PBOpos[index].z = color.z;
-  }
+// Decide if the intersection point is in the shadow of a light
+__host__ __device__ bool isInShadow(staticGeom* geoms, int numberOfGeoms, int lightIdx, glm::vec3 intersection,
+																		int pixelIdx, float time, glm::vec3& L /*out*/) {
+	// generate shadow feeler
+	glm::vec3 pointOnLight = getRandomPointOnGeom(geoms[lightIdx], pixelIdx * time); // area light
+	float distToLight = glm::distance(intersection, pointOnLight);
+	L = glm::normalize(intersection - pointOnLight); // direction from light to point
+	ray shadowFeeler;
+	shadowFeeler.origin = intersection + (-L) * (float)THRESHOLD;
+	shadowFeeler.direction = -L;
+	
+	// find out if the shadow feeler intersects other objects
+	bool shadow = false;
+	for (int j=0; j<numberOfGeoms; ++j) {
+		if (j != lightIdx) {
+			glm::vec3 intersection, normal;
+			float dist = geomIntersectionTest(geoms[j], shadowFeeler, intersection, normal);
+			if (abs(dist+1) > THRESHOLD && dist < distToLight) {
+				shadow = true;
+				break;
+			}
+		}
+	}
+	return shadow;
 }
 
 //TODO: IMPLEMENT THIS FUNCTION
@@ -171,20 +227,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, gl
 		glm::vec3 baseColor(1, 1, 1);
 
 		for (int iteration=0; iteration<MAXDEPTH; ++iteration) {
-			// find the closest intersected geometry
-			int minIdx = -1;
-			float minDist = FLT_MAX;
-			glm::vec3 minIntersection, minNormal;
-			for (int i=0; i<numberOfGeoms; ++i) {
-				glm::vec3 intersection, normal;
-				float dist = geomIntersectionTest(geoms[i], r, intersection, normal);
-				if (dist > THRESHOLD && dist < minDist) {
-					minIdx = i;
-					minDist = dist;
-					minIntersection = intersection;
-					minNormal = normal;
-				}
-			}
+			glm::vec3 minIntersection, minNormal; // closest intersection point and the normal at that point
+			int minIdx = getClosestIntersection(geoms, numberOfGeoms, r, minIntersection, minNormal);
 
 			if (minIdx != -1) {
 				material mtl = materials[geoms[minIdx].materialid]; // does caching make it faster?
@@ -193,36 +237,20 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, gl
 					color = glm::clamp(mtl.color * mtl.emittance, glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
 				}
 				else {
-					if (mtl.hasReflective < THRESHOLD && mtl.hasRefractive < THRESHOLD) { // diffuse surface
+					if (mtl.hasReflective < THRESHOLD && mtl.hasRefractive < THRESHOLD) { // use phong shading model
 						glm::vec3 ambient = globalAttr.ambient * mtl.color;
 						ambient = glm::clamp(ambient, glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
 						glm::vec3 diffuse(0, 0, 0);
 						glm::vec3 specular(0, 0, 0);
+
+						if (glm::dot(r.direction, minNormal) > 0) { // reverse normal if we are inside the object
+							minNormal *= -1;
+						}
 						
 						for (int i=0; i<numberOfLights; ++i) {
-							staticGeom light = geoms[lightIds[i]];
-							glm::vec3 pointOnLight = getRandomPointOnGeom(light, index * time); // area light
-							float distToLight = glm::distance(minIntersection, pointOnLight);
-							glm::vec3 L = glm::normalize(minIntersection - pointOnLight); // direction from light to point
-							ray shadowFeeler;
-							shadowFeeler.origin = minIntersection + (-L) * (float)THRESHOLD;
-							shadowFeeler.direction = -L;
-
-							// find out if the ray intersects other objects
-							bool shadow = false;
-							for (int j=0; j<numberOfGeoms; ++j) {
-								if (j != lightIds[i]) {
-									glm::vec3 intersection, normal;
-									float dist = geomIntersectionTest(geoms[j], shadowFeeler, intersection, normal);
-									if (abs(dist+1) > THRESHOLD && dist < distToLight) {
-										shadow = true;
-										break;
-									}
-								}
-							}
-							
-							if (!shadow) {
-								material lightMtl = materials[light.materialid];
+							glm::vec3 L;
+							if (!isInShadow(geoms, numberOfGeoms, lightIds[i], minIntersection, index, time, L)) {
+								material lightMtl = materials[geoms[lightIds[i]].materialid];
 								glm::vec3 lightColor = glm::clamp(lightMtl.color * lightMtl.emittance, glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
 								
 								// compute diffuse color
@@ -233,13 +261,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, gl
 
 								if (mtl.specularExponent > THRESHOLD) {
 									// compute specular color
-									glm::vec3 LR; // reflected light direction
-									if (glm::length(-L - minNormal) < THRESHOLD)
-										LR = minNormal;
-									else if (abs(glm::dot(-L, minNormal)) < THRESHOLD)
-										LR = L;
-									else
-										LR = glm::normalize(L - 2.0f * glm::dot(L, minNormal) * minNormal);
+									glm::vec3 LR = getReflectedRay(L, minNormal); 
 									specular += lightColor * mtl.specularColor * pow(glm::clamp(glm::dot(LR, -r.direction), 0.0f, 1.0f), mtl.specularExponent);
 									if (componentCompare(specular, mtl.specularColor)) {
 										break;
@@ -254,49 +276,25 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, gl
 						break;
 					}
 					else {
-						glm::vec3 VR, VT;
-						if (mtl.hasReflective && mtl.hasRefractive) {
-							thrust::default_random_engine rng(hash(time * index));
-							thrust::uniform_real_distribution<float> u01(0,1);
-							float random = u01(rng);
-							if (random < 0.5) {
-								// shoot reflective ray
-								hasRefractive = false;
-							}
-							else {
-								// shoot refractive ray
-								hasReflective = false;
+						float IOR = mtl.indexOfRefraction;
+						if (glm::dot(r.direction, minNormal) > 0) { // reverse normal and index of refraction if we are inside the object
+							minNormal *= -1;
+							IOR = 1/(IOR + THRESHOLD);
+						}
+						if (mtl.hasRefractive > THRESHOLD) { // if the surface has refraction
+							glm::vec3 VT = getRefractedRay(r.direction, minNormal, IOR);
+							if (glm::length(VT) > THRESHOLD && (mtl.hasReflective < THRESHOLD || isRefractedRay(index*time, IOR, r.direction, minNormal, VT))) {
+								r.direction = VT;
+								r.origin = minIntersection + VT * (float)THRESHOLD;
+								//baseColor *= mtl.color;
+								continue;
 							}
 						}
-						if (hasReflective) {
-							glm::vec3 VR; // reflected ray direction
-							if (glm::length(-r.direction - minNormal) < THRESHOLD) {
-								VR = minNormal;
-							}
-							else if (abs(glm::dot(-r.direction, minNormal)) < THRESHOLD) {
-								VR = r.direction;
-							}
-							else {
-								VR = glm::normalize(r.direction - 2.0f * glm::dot(r.direction, minNormal) * minNormal);
-							}
-							r.origin = minIntersection + VR * (float)THRESHOLD;
-							r.direction = VR;
-							baseColor = baseColor * mtl.color;
-						}
-						else {
-							float t = 1 / mtl.indexOfRefraction;
-							float base = 1 - t * t * (1 - pow(glm::dot(minNormal, r.direction), 2));
-							if (base < 0) {
-								break;
-							}
-							else {
-								glm::vec3 T = (-t * glm::dot(minNormal, r.direction) - sqrt(base)) * minNormal + t * r.direction; // refracted ray
-								T = glm::normalize(T);
-								r.origin = minIntersection + T * (float)THRESHOLD;
-								r.direction = T;
-								baseColor = baseColor * mtl.color;
-							}
-						}
+						// if the surface only has reflection
+						glm::vec3 VR = getReflectedRay(r.direction, minNormal);
+						r.origin = minIntersection + VR * (float)THRESHOLD;
+						r.direction = VR;
+						baseColor *= mtl.color;
 					}
 				}
 			}

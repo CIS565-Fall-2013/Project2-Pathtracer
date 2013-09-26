@@ -13,7 +13,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release (v5.5)|Win32'">
-    <LocalDebuggerCommandArguments>scene=../../scenes/crazy_bw.txt</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>scene=../../scenes/reflection_refraction.txt</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>
