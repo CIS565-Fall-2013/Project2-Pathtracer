@@ -1,3 +1,4 @@
+test
 GLOBAL
 Ka			0.1
 Kd			0.9
