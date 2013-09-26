@@ -14,6 +14,7 @@
 #include <cmath>
 #include "sceneStructs.h"
 
+
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
 #else
@@ -21,7 +22,7 @@
 #endif
 
 #ifdef CUDA_PROFILING
-	#include "cuda_profiler_api.h"
+	#include "cuda_profiler_api."h
 #endif
 
 struct rayState{
@@ -31,6 +32,6 @@ struct rayState{
 	int matIndex;//Index of transmission medium material. -1 if in free space.
 };
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+void cudaRaytraceCore(uchar4* pos, camera* renderCam, renderOptions* rconfig, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
 
 #endif

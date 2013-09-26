@@ -141,14 +141,28 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
 
-	int traceDepth = 1; //determines how many bounces the raytracer traces
+	int traceDepth = rconfig->traceDepth; //determines how many bounces the raytracer traces
+	int numPixels = renderCam->resolution.x*renderCam->resolution.y;
+	int rayPoolSize = (int) ceil(float(numPixels)*rconfig->rayPoolSize);
+
+	if(rconfig->forceOnePerPixel && rayPoolSize < numPixels)
+	{
+		//Error
+		printf("Error Not Enough Rays in Pool\n");
+		return;
+	}
 
 	// set up crucial magic
 	int tileSize = 8;
-	dim3 threadsPerBlock(tileSize, tileSize);
-	dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
+	dim3 threadsPerBlockByPixel(tileSize, tileSize);
+	dim3 fullBlocksPerGridByPixel((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
+
+	int blockSize = 64;
+	dim3 threadsPerBlockByRay(blockSize);
+	dim3 fullBlocksPerGridByRay((int)ceil(float(rayPoolSize)/float(blockSize)));
+
 
 	//send image to GPU
 	glm::vec3* cudaimage = NULL;
@@ -177,6 +191,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaMalloc((void**)&cudamaterials, numberOfMaterials*sizeof(material));
 	cudaMemcpy( cudamaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
 
+	rayState* cudaraypool = NULL;
+	cudaMalloc((void**)&cudaraypool, rayPoolSize*sizeof(rayState));
+
 	//package camera
 	cameraData cam;
 	cam.resolution = renderCam->resolution;
@@ -185,13 +202,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
 
+
+
 	//kernel launches
 	for(int bounce = 1; bounce <= 1; ++bounce)
 	{
-		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+		raytraceRay<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
 	}
 
-	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
+	sendImageToPBO<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(PBOpos, renderCam->resolution, cudaimage);
 
 	//retrieve image from GPU
 	cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
@@ -200,6 +219,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaFree( cudaimage );
 	cudaFree( cudageoms );
 	cudaFree( cudamaterials );
+	cudaFree( cudaraypool );
 	delete [] geomList;
 
 	// make certain the kernel has completed 

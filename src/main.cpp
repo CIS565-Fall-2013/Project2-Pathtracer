@@ -72,6 +72,26 @@ int main(int argc, char** argv){
 	width = renderCam->resolution[0];
 	height = renderCam->resolution[1];
 
+	
+	//TODO: Set up rendering options
+	renderOpts = new renderOptions();
+	renderOpts->mode = PATHTRACE;
+	renderOpts->traceDepth = 1;
+	renderOpts->rayPoolSize = 1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
+
+	//Note, these constants must sum to 1.
+	renderOpts->ambientLightColor = glm::vec3(1,1,1);
+	renderOpts->ambientLightIntensity = 0.05;
+
+	//Rendering toggle options
+	renderOpts->antialiasing = false;
+	renderOpts->maxSamplesPerPixel = 9;
+	renderOpts->aargbThresholds = glm::vec3(0.01,0.01,0.01);
+
+	renderOpts->frameFiltering = false;
+
+
+
 	if(targetFrame>=renderCam->frames){
 		cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
 		targetFrame = 0;
@@ -148,7 +168,7 @@ void runCuda(){
 
 		// execute the kernel
 		
-		cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+		cudaRaytraceCore(dptr, renderCam, renderOpts, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
 		
 		// unmap buffer object
 		cudaGLUnmapBufferObject(pbo);
