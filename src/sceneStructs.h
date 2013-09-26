@@ -86,7 +86,7 @@ struct rayBounce{
 	glm::vec3 intersectPt;
 	int matID;
 	int currDepth;
-
+	int pixID;			//pixel id of ray
 };
 
 #endif //CUDASTRUCTS_H
