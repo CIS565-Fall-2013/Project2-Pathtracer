@@ -27,6 +27,7 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+	int meshId;
 };
 
 struct staticGeom {
@@ -37,6 +38,7 @@ struct staticGeom {
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
+	int meshId;
 };
 
 struct cameraData {
@@ -73,4 +75,23 @@ struct material{
 	float emittance;
 };
 
+struct face{
+	// Vertex indices
+	int p1;
+	int p2;
+	int p3;
+};
+
+struct mesh{
+	// Tight-bounding Box
+	glm::vec3 min;
+	glm::vec3 max;
+
+	// Static Information
+	int numberOfFaces;
+
+	// Vertex and Face
+	glm::vec3* vertices;
+	face* faces;
+};
 #endif //CUDASTRUCTS_H

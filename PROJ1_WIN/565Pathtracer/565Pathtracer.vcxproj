@@ -19,7 +19,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\src\clock.h" />
     <ClInclude Include="..\..\src\cudaMat4.h" />
+    <ClInclude Include="..\..\src\fps.h" />
     <ClInclude Include="..\..\src\glslUtility.h" />
     <ClInclude Include="..\..\src\image.h" />
     <ClInclude Include="..\..\src\interactions.h" />
@@ -30,9 +32,11 @@
     <ClInclude Include="..\..\src\sceneStructs.h" />
     <ClInclude Include="..\..\src\stb_image\stb_image.h" />
     <ClInclude Include="..\..\src\stb_image\stb_image_write.h" />
+    <ClInclude Include="..\..\src\timer.h" />
     <ClInclude Include="..\..\src\utilities.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\fps.cpp" />
     <ClCompile Include="..\..\src\glslUtility.cpp" />
     <ClCompile Include="..\..\src\image.cpp" />
     <ClCompile Include="..\..\src\main.cpp" />
@@ -49,6 +53,7 @@
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>565Pathtracer</RootNamespace>
     <ProjectName>565Pathtracer</ProjectName>
+    <CudaToolkitCustomDir>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5</CudaToolkitCustomDir>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

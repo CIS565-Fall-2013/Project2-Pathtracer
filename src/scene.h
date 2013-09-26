@@ -22,10 +22,13 @@ private:
     int loadMaterial(string materialid);
     int loadObject(string objectid);
     int loadCamera();
+	int loadMesh(string line);
+	int* tokenizeFaceVerts(vector<string> token_vec);
 public:
     scene(string filename);
     ~scene();
 
+	vector<mesh> meshes;
     vector<geom> objects;
     vector<material> materials;
 	vector<int> lightIds;

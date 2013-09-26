@@ -64,6 +64,7 @@ int scene::loadObject(string objectid){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
 		    		newObject.type = MESH;
+					newObject.meshId = loadMesh(line);
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;
@@ -263,4 +264,88 @@ int scene::loadMaterial(string materialid){
 		materials.push_back(newMaterial);
 		return 1;
 	}
+}
+
+int scene::loadMesh(string filename){
+	char* fname = (char*)filename.c_str();
+	ifstream file;
+	file.open(fname);
+
+	vector<glm::vec3> vert_pos;
+	vector<glm::vec3> vert_tex;
+	vector<glm::vec3> vert_norm;
+	vector<face> faces;
+	
+	glm::vec3 min_v = glm::vec3(1000000, 1000000, 1000000);
+	glm::vec3 max_v = glm::vec3(-1000000, -1000000, -1000000);
+	
+	if(file.is_open()){
+		while(file.good()){
+			string line;
+			utilityCore::safeGetline(file, line);
+			if(!line.empty()){
+				vector<string> tokens = utilityCore::tokenizeString(line);
+				if(tokens.size() > 0){
+					if(strcmp(tokens[0].c_str(), "v") == 0){
+						glm::vec3 v = glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
+						min_v = glm::vec3(min(min_v.x, v.x), min(min_v.y, v.y), min(min_v.z, v.z));
+						max_v = glm::vec3(max(max_v.x, v.x), min(max_v.y, v.y), max(max_v.z, v.z));
+						vert_pos.push_back(v);
+					}else if(strcmp(tokens[0].c_str(), "f") == 0){
+						// Tokenize '/' to get texture and normal coordinates
+						int* indices = tokenizeFaceVerts(tokens);
+
+						// Fan triangulation of faces with 3+ vertices
+						for(int i = 0; i < tokens.size() - 3; i++){
+							face f;
+							// Read vertex index
+							// TODO: Add texture and normal support
+							f.p1 = indices[0];
+							f.p2 = indices[i+1];
+							f.p3 = indices[i+2];
+
+							faces.push_back(f);
+						}
+
+						if(indices) delete(indices);
+					}
+				}
+			}
+		}
+	}
+	
+	// Copy information into static objects
+	glm::vec3* vertices = new glm::vec3[vert_pos.size()];
+	for(int i = 0; i < vert_pos.size(); i++){
+		vertices[i] = vert_pos[i];
+	}
+
+	face* staticFaces = new face[faces.size()];
+	for(int i = 0; i < faces.size(); i++){
+		staticFaces[i] = faces[i];
+	}
+
+	mesh m;
+	m.vertices = vertices;
+	m.faces = staticFaces;
+	m.numberOfFaces = faces.size();
+	m.min = min_v;
+	m.max = max_v;
+
+	meshes.push_back(m);
+
+	return meshes.size() - 1;
+}
+
+
+int* scene::tokenizeFaceVerts(vector<std::string> tokens_vec){
+	int* indices = new int[tokens_vec.size() - 1];
+	int i;
+
+	for(i = 1; i < tokens_vec.size(); i++){
+		char* str = (char*)tokens_vec.at(i).c_str();
+		char* tok = strtok(str, "/");
+		indices[i-1] = atoi(tok);
+	}
+	return indices;
 }

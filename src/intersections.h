@@ -16,12 +16,16 @@
 //Some forward declarations
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
+__host__ __device__ float determinant(cudaMat3 m);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
 __host__ __device__ bool rayBlocked(glm::vec3 const& p1, glm::vec3 const& p2, int idx, staticGeom* geoms, int numberOfGeoms, material* mats);
 __host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms, int& geomId);
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float meshIntersectionTest(staticGeom mesh, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float triangleIntersectionTest(cudaMat4 invT, face f, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float getArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3);
 __host__ __device__ glm::vec3 getRandomPoint(staticGeom geom, float randomSeed);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed);
@@ -60,6 +64,14 @@ __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
   r.y = (m.y.x*v.x)+(m.y.y*v.y)+(m.y.z*v.z)+(m.y.w*v.w);
   r.z = (m.z.x*v.x)+(m.z.y*v.y)+(m.z.z*v.z)+(m.z.w*v.w);
   return r;
+}
+
+// Gets the determinant of a 3x3 matrix
+__host__ __device__ float determinant(cudaMat3 m){
+	float add = 0.0f;
+	add += (m.x.x * m.y.y * m.z.z) + (m.x.y * m.y.z * m.z.x) + (m.x.z * m.y.x * m.z.y);
+	add -= ((m.x.z * m.y.y * m.z.x) + (m.x.y * m.y.x * m.z.z) + (m.x.x * m.y.z * m.z.y));
+	return add;
 }
 
 //Gets 1/direction for a ray
@@ -113,7 +125,6 @@ __host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::
 	return intersect;
 }
 
-//TODO: IMPLEMENT THIS FUNCTION
 //Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 	cudaMat4 Ti = box.inverseTransform;
@@ -214,6 +225,54 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   return glm::length(r.origin - realIntersectionPoint);
 }
 
+__host__ __device__ float triangleIntersectionTest(staticGeom mesh, face f, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, glm::vec3* vertices){
+	glm::vec3 ro = multiplyMV(mesh.inverseTransform, glm::vec4(r.origin, 1.0f));
+	glm::vec3 rd = multiplyMV(mesh.inverseTransform, glm::vec4(r.direction, 0.0f));
+
+	glm::vec3 p1, p2, p3;
+	p1 = vertices[f.p1], p2 = vertices[f.p2],p3 = vertices[f.p3];
+	
+	glm::vec3 N = glm::normalize(glm::cross(p3 - p1, p2 - p1));
+	float t = glm::dot(N, p1 - ro) / glm::dot(N, rd);
+	glm::vec3 P = ro + t * rd;
+
+	float s, s1, s2, s3;
+	s = getArea(p1,p2,p3);
+	s1 = getArea(P, p2, p3) / s;
+	s2 = getArea(P, p3, p1) / s;
+	s3 = getArea(P, p1, p2) / s;
+
+	if(s1 < -.001f || s1 > 1.001f || s2 < -.001f || s2 > 1.001f || s3 < -.001f || s3 > 1.001f || s1 + s2 + s3 - 1 > .001) return -1.0f;
+	else{
+		// Calculate Normal
+		float sign = glm::dot(rd, N);
+		if(sign > -.001) normal = N;
+		else normal = -1.0f * N;
+		
+		// Transform intersection point to world coord
+		intersectionPoint = multiplyMV(mesh.transform, glm::vec4(P, 1.0f));
+
+		return glm::length(intersectionPoint - r.origin);
+	}
+}
+
+__host__ __device__ float getArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3){
+	// Get Triangle Area
+	cudaMat3 m1, m2, m3;
+    glm::vec3 x, y, z;
+	x = glm::vec3(p1.x, p2.x, p3.x), y = glm::vec3(p1.y, p2.y, p3.y), z = glm::vec3(p1.z, p2.z, p3.z);
+	
+	m1.x = y, m1.y = z, m1.z = glm::vec3(1.0);
+	m2.x = z, m2.y = x, m2.z = glm::vec3(1.0);
+	m3.x = x, m3.y = y, m3.z = glm::vec3(1.0);
+
+	float d1, d2, d3;
+
+	d1 = determinant(m1), d2 = determinant(m2), d3 = determinant(m3);
+
+	return .5 * sqrt(pow(d1,2) + pow(d2,2) + pow(d3,2)); 
+}
+
 //returns x,y,z half-dimensions of tightest bounding box
 __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){
     glm::vec3 origin = multiplyMV(geom.transform, glm::vec4(0,0,0,1));
@@ -233,6 +292,7 @@ __host__ __device__ glm::vec3 getRandomPoint(staticGeom geom, float randomSeed){
 	case GEOMTYPE::SPHERE:
 		return getRandomPointOnSphere(geom, randomSeed);
 	default:
+		// TODO : Generate random point on given mesh, such that there is equal probability on all surface area
 		return glm::vec3(0.0);
 	}
 }
@@ -283,7 +343,6 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
        
 }
 
-//TODO: IMPLEMENT THIS FUNCTION
 //Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
 	thrust::default_random_engine rng(hash(randomSeed));

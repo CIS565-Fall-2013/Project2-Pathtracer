@@ -12,6 +12,7 @@
     <ClCompile Include="..\..\src\stb_image\stb_image_write.c">
       <Filter>stb_image</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\fps.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\cudaMat4.h" />
@@ -30,6 +31,9 @@
     <ClInclude Include="..\..\src\stb_image\stb_image.h">
       <Filter>stb_image</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\clock.h" />
+    <ClInclude Include="..\..\src\fps.h" />
+    <ClInclude Include="..\..\src\timer.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\..\src\raytraceKernel.cu" />
