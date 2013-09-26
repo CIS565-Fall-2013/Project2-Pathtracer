@@ -1,4 +1,24 @@
 -------------------------------------------------------------------------------
+First Steps:
+-------------------------------------------------------------------------------
+Moved some of my code from Project1 over and started getting the path tracer up and working. 
+Naive Implementation: 
+* Send out ray from camera, then calculate new ray direction by randomly sampling on a hemisphere
+* Sample the brdf using the new direction 
+
+![screenshot](https://raw.github.com/uriahjb/Project1-RayTracer/master/renders/path_tracer_first_steps.bmp)
+
+I put together debug some simple debug modes:
+
+New Ray direction ( converges to the point normal ):
+![screenshot](https://raw.github.com/uriahjb/Project1-RayTracer/master/renders/sampled_directions.bmp)
+
+
+BRDF ( first object intersected color ):
+![screenshot](https://raw.github.com/uriahjb/Project1-RayTracer/master/renders/brdf_sampling.bmp)
+
+
+-------------------------------------------------------------------------------
 CIS565: Project 2: CUDA Pathtracer
 -------------------------------------------------------------------------------
 Fall 2013
