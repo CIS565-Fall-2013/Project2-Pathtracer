@@ -366,63 +366,7 @@ __global__ void		shadowFeeler (glm::vec2 resolution, float time, cameraData cam,
                             staticGeom* geoms, sceneInfo objectCountInfo, material* textureArray, projectionInfo ProjectionParams, 
 							renderInfo* renderParams)
 {
-	__shared__ staticGeom light;
-	__shared__ float ks;
-	__shared__ float ka;
-	__shared__ float kd;
-	__shared__ glm::vec3 lightPos;
-	__shared__ glm::vec3 lightCol;
-	__shared__ float nLights;
-	__shared__ int sqrtLights;
-	__shared__ float stepSize;
-
-	if ((threadIdx.x == 0) && (threadIdx.y == 0))
-	{
-		ks = renderParams->ks;
-		ka = renderParams->ka;
-		kd = renderParams->kd;
-		nLights = renderParams->nLights;
-		sqrtLights = renderParams->sqrtLights;
-		stepSize = renderParams->lightStepSize;
-		light = geoms [0];
-		lightPos = renderParams->lightPos;
-		lightCol = renderParams->lightCol;
-	}
-	__syncthreads ();
-
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-    int index = x + (y * resolution.x);
-	
-	if ((x <= resolution.x) && (y <= resolution.y)) 
-	{
-		ray castRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov, 
-					ProjectionParams.centreProj, ProjectionParams.halfVecH, ProjectionParams.halfVecV);
-
-		interceptInfo theRightIntercept = getIntercept (geoms, objectCountInfo, castRay, textureArray);
-		glm::vec3 lightVec; 
-	
-	//	Shadow shading
-	//	--------------
-		// Perturb the intersection pt along the normal a slight distance to avoid self intersection. 
-		castRay.origin += (castRay.direction * (float)(theRightIntercept.interceptVal - 0.001));
-															
-		glm::vec3 shadedColour = colors [index];
-		glm::vec3 shadowColour = glm::vec3 (0);
-		for (int i = 0; i < nLights; ++ i)
-		{
-			lightVec = multiplyMV (light.transform, glm::vec4 (lightPos.x + ((i%sqrtLights)*stepSize), lightPos.y, lightPos.z + ((i/sqrtLights)*stepSize), 1.0));
-			castRay.direction = glm::normalize (lightVec - castRay.origin);
-
-			if (isShadowRayBlocked (castRay, lightVec, geoms, objectCountInfo))
-				shadowColour += ka * theRightIntercept.intrMaterial.color;	// If point in shadow, add ambient colour to shadowColour
-			else
-				shadowColour += shadedColour;								// Otherwise, add the computed shade.
-		}
-		shadedColour = shadowColour/nLights;
-
-		colors [index] = shadedColour;
-	}
+	;
 }
 
 // NON_FUNCTIONAL: Kernel for shading cubes.
@@ -653,6 +597,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   std::uniform_real_distribution<float> jitter ((float)0, (float)0.142);
 
   float movement = 1.0/48;
+  int nBounces = 4;
+
   // For each point sampled in the area light, launch the raytraceRay Kernel which will compute the diffuse, specular, ambient
   // and shadow colours. It will also compute reflected colours for reflective surfaces.
   for (int i = 0; i < RenderParams.nLights; i ++)
@@ -687,9 +633,68 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	  glm::vec3 lightPos = multiplyMV (geomList [0].transform, glm::vec4 (curLightSamplePos, 1.0));
 	  
-	  // kernel launches
-	  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, materialColours, RenderParamsOnDevice, primCounts, ProjectionParams, lightPos);
-	  cudaThreadSynchronize(); // Wait for Kernel to finish, because we don't want a race condition between successive kernel launches.
+	  // Create Ray Pool. 
+	  int rayPoolLength = cam.resolution.x * cam.resolution.y;
+	  ray *rayPool = new ray [rayPoolLength];
+	  // Initialize ray pool with rays passing through every pixel in projection plane.
+	  for (int i=0; i < cam.resolution.y; i ++)
+		  for (int j = 0; j < cam.resolution.x; j ++)
+			  rayPool [i * (int)cam.resolution.x + j] = raycastFromCameraKernel (cam.resolution, iterations, j, i, cam.position, 
+													cam.view, cam.up, cam.fov, ProjectionParams.centreProj, 
+													ProjectionParams.halfVecH, ProjectionParams.halfVecV);
+	  // Send ray pool to device.
+	  ray *rayPoolOnDevice = NULL;
+	  cudaMalloc ((void **)&rayPoolOnDevice, rayPoolLength * sizeof (ray));
+	  cudaMemcpy (rayPoolOnDevice, rayPool, rayPoolLength * sizeof (ray), cudaMemcpyHostToDevice);
+
+	  // Create primary and secondary arrays for stream compaction:
+	  bool *primaryArray = new bool [rayPoolLength];
+	  bool *primaryArrayOnDevice = NULL;
+	  cudaMalloc ((void **)&primaryArrayOnDevice, rayPoolLength * sizeof (bool));
+	  cudaMemset (primaryArrayOnDevice, true, rayPoolLength * sizeof (bool)); // (primaryArrayOnDevice, primaryArray, rayPoolLength * sizeof (bool), cudaMemcpyHostToDevice);
+	  int *secondaryArray = new int [rayPoolLength];
+	  memset (secondaryArray, 0, rayPoolLength * sizeof (int));
+//	  int *secondaryArrayOnDevice = NULL;
+//	  cudaMalloc ((void **)&secondaryArrayOnDevice, rayPoolLength * sizeof (int));
+//	  cudaMemset (secondaryArrayOnDevice, 0, rayPoolLength * sizeof (int)); // (primaryArrayOnDevice, primaryArray, rayPoolLength * sizeof (bool), cudaMemcpyHostToDevice);
+	  
+
+	  // Iterate until nBounces: launch kernel to trace each ray bounce.
+	  for (int i = 0; i < nBounces; i++)
+	  {
+		// kernel launches
+		fullBlocksPerGrid = dim3 (((int)ceil(float(rayPoolLength)/threadsPerBlock.x), (int)ceil(float(rayPoolLength)/threadsPerBlock.y)); 
+		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, materialColours, RenderParamsOnDevice, primCounts, ProjectionParams, lightPos);
+		cudaThreadSynchronize(); // Wait for Kernel to finish, because we don't want a race condition between successive kernel launches.
+
+		// Inefficient. Grossly inefficient. Need to look over and change as required.
+		cudaMemcpy (primaryArray, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
+		cudaMemcpy (rayPool, rayPoolOnDevice, rayPoolLength * sizeof (ray), cudaMemcpyDeviceToHost);
+
+		// Stream compaction:
+		secondaryArray [0] = 0;
+		for (int i = 1; i < rayPoolLength; i ++)
+			secondaryArray [i] = primaryArray [i-1] + primaryArray [i];
+
+		int count = 0;
+		for (int i = 0; i < rayPoolLength; i++)
+		{
+			if (primaryArray [i])
+			{
+				rayPool [count] = rayPool [secondaryArray [i]];
+				++ count;
+			}
+		}
+
+		rayPoolLength = count;
+	  }
+
+	  delete [] rayPool;
+	  delete [] primaryArray;
+	  delete [] secondaryArray;
+
+	  cudaFree (rayPoolOnDevice);
+	  cudaFree (primaryArrayOnDevice);
 	  std::cout << "\rRendering.. " <<  ceil ((float)i/(RenderParams.nLights-1) * 100) << " percent complete.";
   }
 
