@@ -158,9 +158,17 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 		  PBOpos[index].y *= (iterations);
 		  PBOpos[index].z *= (iterations);
 
-		  PBOpos[index].x = (PBOpos[index].x+color.x)/currentIteration;
-		  PBOpos[index].y = (PBOpos[index].y+color.y)/currentIteration;
-		  PBOpos[index].z = (PBOpos[index].z+color.z)/currentIteration;
+		  float x = PBOpos[index].x;
+		  float y = PBOpos[index].y;
+		  float z = PBOpos[index].z;
+
+		  x = (x*iterations + color.x)/currentIteration;
+		  y = (y*iterations + color.y)/currentIteration;
+		  z = (z*iterations + color.z)/currentIteration;
+		 
+		  PBOpos[index].x = x;
+		  PBOpos[index].y = y;
+		  PBOpos[index].z = z;
 	  }
   }
 }
@@ -334,17 +342,17 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.fov = renderCam->fov;
 
   //kernel launches
-  for(int bounce = 1; bounce <= 10; ++bounce)
+  for(int bounce = 1; bounce <= 1; ++bounce)
   {
   raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays);
   }
   //clearActiveRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays, cudaimage);
-
+  
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage,iterations);
 
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-
+  clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaimage);
   //free up stuff, or else we'll leak memory like a madman
   cudaFree( cudaimage );
   cudaFree( cudageoms );
