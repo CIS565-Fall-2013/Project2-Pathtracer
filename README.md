@@ -6,16 +6,16 @@ Naive Implementation:
 * Send out ray from camera, then calculate new ray direction by randomly sampling on a hemisphere
 * Sample the brdf using the new direction 
 
-![screenshot](https://raw.github.com/uriahjb/Project1-RayTracer/master/renders/path_tracer_first_steps.bmp)
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/path_tracer_first_steps.png)
 
 I put together debug some simple debug modes:
 
 New Ray direction ( converges to the point normal ):
-![screenshot](https://raw.github.com/uriahjb/Project1-RayTracer/master/renders/sampled_directions.bmp)
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/sampled_directions.png)
 
 
 BRDF ( first object intersected color ):
-![screenshot](https://raw.github.com/uriahjb/Project1-RayTracer/master/renders/brdf_sampling.bmp)
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/brdf_sampling.png)
 
 
 -------------------------------------------------------------------------------
