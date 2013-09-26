@@ -7,6 +7,7 @@
 #include <iostream>
 #include "scene.h"
 #include <cstring>
+#include "stb_image/stb_image.h"
 
 scene::scene(string filename){
 	cout << "Reading scene from " << filename << " ..." << endl;
@@ -30,6 +31,28 @@ scene::scene(string filename){
 				    cout << " " << endl;
 				}
 			}
+		}
+	}
+}
+
+scene::~scene ()
+{
+	for (int i = 0; i < materials.size (); i++)
+	{
+		if (materials [i].hasTexture)
+		{
+			materials[i].Texture.texelHeight = 0;
+			materials[i].Texture.texelWidth = 0;
+			delete [] materials[i].Texture.texels;
+			materials[i].Texture.texels = NULL;
+		}
+
+		if (materials [i].hasNormalMap)
+		{
+			materials[i].NormalMap.texelHeight = 0;
+			materials[i].NormalMap.texelWidth = 0;
+			delete [] materials[i].NormalMap.texels;
+			materials[i].NormalMap.texels = NULL;
 		}
 	}
 }
@@ -227,7 +250,15 @@ int scene::loadMaterial(string materialid){
 	}else{
 		cout << "Loading Material " << id << "..." << endl;
 		material newMaterial;
+
+		newMaterial.hasTexture = false;
+		newMaterial.Texture.texelHeight = 0;
+		newMaterial.Texture.texelWidth = 0;
 	
+		newMaterial.hasNormalMap = false;
+		newMaterial.NormalMap.texelHeight = 0;
+		newMaterial.NormalMap.texelWidth = 0;
+
 		//load static properties
 		for(int i=0; i<10; i++){
 			string line;
@@ -255,8 +286,39 @@ int scene::loadMaterial(string materialid){
 			}else if(strcmp(tokens[0].c_str(), "RSCTCOEFF")==0){
 				newMaterial.reducedScatterCoefficient = atof(tokens[1].c_str());					  
 			}else if(strcmp(tokens[0].c_str(), "EMITTANCE")==0){
-				newMaterial.emittance = atof(tokens[1].c_str());					  
-			
+				newMaterial.emittance = atof(tokens[1].c_str());					  	
+			}
+			else if (strcmp(tokens[0].c_str(), "TEXTURE")==0)
+			{
+				int nComps;
+				unsigned char *bytes = stbi_load(tokens [1].c_str (), &newMaterial.Texture.texelWidth, &newMaterial.Texture.texelHeight, &nComps, 3);
+				if (bytes)
+				{
+					newMaterial.hasTexture = true;
+					newMaterial.Texture.texels = new glm::vec3 [newMaterial.Texture.texelWidth * newMaterial.Texture.texelHeight];
+					for (int i = 0; i < (newMaterial.Texture.texelWidth * newMaterial.Texture.texelHeight); i ++)
+					{
+						newMaterial.Texture.texels [i].r = bytes [3*i] / 255.0;
+						newMaterial.Texture.texels [i].g = bytes [3*i + 1] / 255.0;
+						newMaterial.Texture.texels [i].b = bytes [3*i + 2] / 255.0;
+					}
+				}
+			}
+			else if (strcmp(tokens[0].c_str(), "NMAP")==0)
+			{
+				int nComps;
+				unsigned char *bytes = stbi_load(tokens [1].c_str (), &newMaterial.NormalMap.texelWidth, &newMaterial.NormalMap.texelHeight, &nComps, 3);
+				if (bytes)
+				{
+					newMaterial.hasNormalMap = true;
+					newMaterial.NormalMap.texels = new glm::vec3 [newMaterial.NormalMap.texelWidth * newMaterial.NormalMap.texelHeight];
+					for (int i = 0; i < (newMaterial.Texture.texelWidth * newMaterial.NormalMap.texelHeight); i ++)
+					{
+						newMaterial.NormalMap.texels [i].r = bytes [3*i] / 255.0;
+						newMaterial.NormalMap.texels [i].g = bytes [3*i + 1] / 255.0;
+						newMaterial.NormalMap.texels [i].b = bytes [3*i + 2] / 255.0;
+					}
+				}
 			}
 		}
 		materials.push_back(newMaterial);

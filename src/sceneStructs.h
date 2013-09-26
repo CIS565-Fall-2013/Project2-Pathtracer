@@ -60,6 +60,13 @@ struct camera {
 	std::string imageName;
 };
 
+struct mytexture
+{
+	int texelHeight;
+	int texelWidth;
+	glm::vec3 * texels;
+};
+
 struct material{
 	glm::vec3 color;
 	float specularExponent;
@@ -68,9 +75,49 @@ struct material{
 	float hasRefractive;
 	float indexOfRefraction;
 	float hasScatter;
+	bool  hasTexture;
+	mytexture Texture;
+	bool  hasNormalMap;
+	mytexture NormalMap;
 	glm::vec3 absorptionCoefficient;
 	float reducedScatterCoefficient;
 	float emittance;
 };
+
+struct projectionInfo
+{
+	glm::vec3	centreProj;
+	glm::vec3	halfVecH;
+	glm::vec3	halfVecV;
+};
+
+struct interceptInfo
+{
+	float		interceptVal;
+	glm::vec3	intrNormal;
+	material	intrMaterial;
+	glm::vec2	UV;
+};
+
+struct sceneInfo
+{
+	int		nCubes;
+	int		nSpheres;
+	int		nMeshes;
+};
+
+struct renderInfo
+{
+	float kd;
+	float ks;
+	float ka;
+	
+	int nLights;
+	int sqrtLights;
+	float lightStepSize;
+	glm::vec3 lightPos;
+	glm::vec3 lightCol;
+};
+
 
 #endif //CUDASTRUCTS_H

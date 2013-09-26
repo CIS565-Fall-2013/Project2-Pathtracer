@@ -52,7 +52,7 @@ int main(int argc, char** argv){
   renderCam = &renderScene->renderCam;
   width = renderCam->resolution[0];
   height = renderCam->resolution[1];
-
+//  renderCam->
   if(targetFrame>=renderCam->frames){
     cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
     targetFrame = 0;
@@ -121,12 +121,10 @@ void runCuda(){
       materials[i] = renderScene->materials[i];
     }
     
-  
-    // execute the kernel
+	// execute the kernel
     cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
-    
     // unmap buffer object
-    cudaGLUnmapBufferObject(pbo);
+	cudaGLUnmapBufferObject(pbo);
   }else{
 
     if(!finishedRender){
@@ -142,8 +140,8 @@ void runCuda(){
       
       gammaSettings gamma;
       gamma.applyGamma = true;
-      gamma.gamma = 1.0;
-      gamma.divisor = 1.0; //renderCam->iterations;
+      gamma.gamma = 1.0;///2.2;
+      gamma.divisor = renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;

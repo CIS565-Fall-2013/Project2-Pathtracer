@@ -38,7 +38,7 @@ image::~image(){
 //------------------------
 
 float image::applyGamma(float f){
-    //apply gamma correction, use simple power law gamma for now.
+    //apply gamma correction, use simple power law gamma for now. TODO: sRGB
     return pow(f/float(gamma.divisor), gamma.gamma);
 }
 

@@ -29,6 +29,7 @@
 #include "raytraceKernel.h"
 #include "utilities.h"
 #include "scene.h"
+#include "cuPrintf.cuh"
 
 #if CUDA_VERSION >= 5000
     #include <helper_cuda.h>
