@@ -53,14 +53,36 @@ __host__ __device__ ray raycastFromCamera(glm::vec2 resolution, float x, float y
 
 }
 
-__global__ void allocateRayPool(float time, renderOptions rconfig, cameraData cam, glm::vec3* cudaimage, rayState* cudaraypool)
+__global__ void allocateRayPool(float time, renderOptions rconfig, cameraData cam, glm::vec3* cudaimage, rayState* cudaraypool, int numRays)
 {
 	//1D blocks and 2D grid
 
 	int blockId   = blockIdx.y * gridDim.x + blockIdx.x;			 	
 	int rIndex = blockId * blockDim.x + threadIdx.x; 
 
-	cudaraypool[rIndex].index = rIndex;
+	if(rIndex < numRays){//Thread index range check
+		int numPixels = cam.resolution.x*cam.resolution.y;
+		cudaraypool[rIndex].index = rIndex % numPixels;//TODO allocate stocastically.
+	}
+}
+
+__global__ void displayRayCounts(cameraData cam, renderOptions rconfig, glm::vec3* cudaimage, rayState* cudaraypool, int numRays, float maxScale)
+{
+	int blockId   = blockIdx.y * gridDim.x + blockIdx.x;			 	
+	int rIndex = blockId * blockDim.x + threadIdx.x; 
+	
+	if(rIndex < numRays){//Thread index range check
+		int pixelIndex = cudaraypool[rIndex].index;
+		if(pixelIndex >= 0)
+		{
+			float scale = clamp(1.0f/maxScale, 0.0f, 1.0f);
+			//TODO improve parallelism by removing atomic adds?
+			atomicAdd(&cudaimage[pixelIndex].x, scale);
+			atomicAdd(&cudaimage[pixelIndex].y, scale);
+			atomicAdd(&cudaimage[pixelIndex].z, scale);
+		}
+	}
+
 }
 
 //Kernel that blacks out a given image buffer
@@ -223,12 +245,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	cam.fov = renderCam->fov;
 
 	//Figure out which rays should go to which pixels.
-	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>((float) iterations, *rconfig, cam, cudaimage, cudaraypool);
+	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>((float) iterations, *rconfig, cam, cudaimage, cudaraypool, rayPoolSize);
 
-	//kernel launches
-	for(int bounce = 1; bounce <= 1; ++bounce)
+	if(rconfig->mode == RAYCOUNT_DEBUG)
 	{
-		raytraceRay<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+		clearImage<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(cam.resolution, cudaimage);
+		displayRayCounts<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, cudaimage, cudaraypool, rayPoolSize, rconfig->maxSamplesPerPixel);
+	}else{
+
+
 	}
 
 	sendImageToPBO<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(PBOpos, renderCam->resolution, cudaimage);

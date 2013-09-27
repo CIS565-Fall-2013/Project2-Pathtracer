@@ -75,10 +75,10 @@ int main(int argc, char** argv){
 	
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
-	renderOpts->mode = PATHTRACE;
+	renderOpts->mode = RAYCOUNT_DEBUG;
 	renderOpts->traceDepth = 1;
-	renderOpts->rayPoolSize = 1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
-
+	renderOpts->rayPoolSize = 0.9f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
+	renderOpts->forceOnePerPixel = true;
 	//Note, these constants must sum to 1.
 	renderOpts->ambientLightColor = glm::vec3(1,1,1);
 	renderOpts->ambientLightIntensity = 0.05;
