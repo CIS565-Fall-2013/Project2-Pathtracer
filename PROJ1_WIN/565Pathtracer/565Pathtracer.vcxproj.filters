@@ -30,9 +30,11 @@
     <ClInclude Include="..\..\src\stb_image\stb_image.h">
       <Filter>stb_image</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\cudaAlgorithms.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\..\src\raytraceKernel.cu" />
+    <CudaCompile Include="..\..\src\cudaAlgorithms.cu" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="stb_image">

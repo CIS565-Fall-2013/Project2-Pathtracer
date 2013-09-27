@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\src\cudaAlgorithms.h" />
     <ClInclude Include="..\..\src\cudaMat4.h" />
     <ClInclude Include="..\..\src\glslUtility.h" />
     <ClInclude Include="..\..\src\image.h" />
@@ -42,6 +43,7 @@
     <ClCompile Include="..\..\src\utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <CudaCompile Include="..\..\src\cudaAlgorithms.cu" />
     <CudaCompile Include="..\..\src\raytraceKernel.cu" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

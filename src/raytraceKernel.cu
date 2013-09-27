@@ -53,7 +53,10 @@ __host__ __device__ ray raycastFromCamera(glm::vec2 resolution, float x, float y
 
 }
 
-__global__ void allocateRayPool(float time, renderOptions rconfig, cameraData cam, glm::vec3* cudaimage, rayState* cudaraypool, int numRays)
+//Takes the number of rays requested by each pixel from the pool and allocates them stocastically from a single random number
+//scannedRayRequests is an array of ints containing the results of an inclusive scan
+//xi1 is a uniformly distributed random number from 0 to 1
+__global__ void allocateRayPool(float xi1, renderOptions rconfig, cameraData cam, glm::vec3* cudaimage, rayState* cudaraypool, int* scannedRayRequests, int numRays)
 {
 	//1D blocks and 2D grid
 
@@ -62,7 +65,28 @@ __global__ void allocateRayPool(float time, renderOptions rconfig, cameraData ca
 
 	if(rIndex < numRays){//Thread index range check
 		int numPixels = cam.resolution.x*cam.resolution.y;
-		cudaraypool[rIndex].index = rIndex % numPixels;//TODO allocate stocastically.
+
+		if(rconfig.forceOnePerPixel){
+			if(rIndex < numPixels)
+			{
+				//Ensure that each pixel gets at least one ray
+				cudaraypool[rIndex].index = rIndex;
+			}else{
+				//Use stochastic universal sampling on remaining rays
+
+				int spares = numRays-numPixels;
+				float P = float(scannedRayRequests[numPixels-1])/spares;//compute stochastic interval
+				float start = xi1*P;
+				cudaraypool[rIndex].index = ((int)(floor(start+P*(rIndex-numPixels))) % numPixels);
+			}
+
+		}else{
+			//Allocate all rays stochastically
+			float P = float(scannedRayRequests[numPixels-1])/numRays;//compute stochastic interval
+			float start = xi1*P;
+			cudaraypool[rIndex].index = ((int)(floor(start+P*(rIndex))) % numPixels);
+		}
+
 	}
 }
 
@@ -70,7 +94,7 @@ __global__ void displayRayCounts(cameraData cam, renderOptions rconfig, glm::vec
 {
 	int blockId   = blockIdx.y * gridDim.x + blockIdx.x;			 	
 	int rIndex = blockId * blockDim.x + threadIdx.x; 
-	
+
 	if(rIndex < numRays){//Thread index range check
 		int pixelIndex = cudaraypool[rIndex].index;
 		if(pixelIndex >= 0)
@@ -244,8 +268,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
 
+
+
 	//Figure out which rays should go to which pixels.
-	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>((float) iterations, *rconfig, cam, cudaimage, cudaraypool, rayPoolSize);
+	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>((float) iterations, *rconfig, cam, cudaimage, cudaraypool, scannedRayRequests, rayPoolSize);
 
 	if(rconfig->mode == RAYCOUNT_DEBUG)
 	{
