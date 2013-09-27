@@ -56,7 +56,7 @@ __host__ __device__ ray raycastFromCamera(glm::vec2 resolution, float x, float y
 __global__ void allocateRayPool(float time, renderOptions rconfig, cameraData cam, glm::vec3* cudaimage, rayState* cudaraypool)
 {
 	//1D blocks and 2D grid
-	
+
 	int blockId   = blockIdx.y * gridDim.x + blockIdx.x;			 	
 	int rIndex = blockId * blockDim.x + threadIdx.x; 
 
@@ -170,11 +170,19 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	dim3 fullBlocksPerGridByPixel((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
 
 	// Set up a 2D grid
-	//TODO Improve work division for other numbers of rays
+	// Fill up rows before adding more
+	//TODO: Improve resource allocation. Slipping over once will create a lot of wasted blocks
 	int blockSize = 64;
 	dim3 threadsPerBlockByRay(blockSize);
-	dim3 fullBlocksPerGridByRay((int)ceil(sqrt(float(rayPoolSize)/float(blockSize))), (int)ceil(sqrt(float(rayPoolSize)/float(blockSize))));
+	int blockCount = (int)ceil(float(rayPoolSize)/float(blockSize));
 
+	dim3 fullBlocksPerGridByRay;
+	int maxGridX = 65535;//TODO: get this dynamically
+	if(blockCount > maxGridX){
+		fullBlocksPerGridByRay = dim3(maxGridX, (int)ceil( blockCount / float(maxGridX)));
+	}else{
+		fullBlocksPerGridByRay = dim3(blockCount);
+	}
 
 	//send image to GPU
 	glm::vec3* cudaimage = NULL;
