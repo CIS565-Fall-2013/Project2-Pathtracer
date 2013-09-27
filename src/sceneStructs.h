@@ -12,6 +12,7 @@
 #include <string>
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
+enum MATTYPE{ BASE,GRID,VSTRIPE,HSTRIPE,MARBLE};
 
 struct ray {
 	glm::vec3 origin;
@@ -63,6 +64,7 @@ struct camera {
 };
 
 struct material{
+	enum MATTYPE type;
 	glm::vec3 color;
 	float specularExponent;
 	glm::vec3 specularColor;
