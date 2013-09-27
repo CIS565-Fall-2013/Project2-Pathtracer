@@ -53,6 +53,16 @@ __host__ __device__ ray raycastFromCamera(glm::vec2 resolution, float x, float y
 
 }
 
+__global__ void allocateRayPool(float time, renderOptions rconfig, cameraData cam, glm::vec3* cudaimage, rayState* cudaraypool)
+{
+	//1D blocks and 2D grid
+	
+	int blockId   = blockIdx.y * gridDim.x + blockIdx.x;			 	
+	int rIndex = blockId * blockDim.x + threadIdx.x; 
+
+	cudaraypool[rIndex].index = rIndex;
+}
+
 //Kernel that blacks out a given image buffer
 __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -159,9 +169,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	dim3 threadsPerBlockByPixel(tileSize, tileSize);
 	dim3 fullBlocksPerGridByPixel((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
 
+	// Set up a 2D grid
+	//TODO Improve work division for other numbers of rays
 	int blockSize = 64;
 	dim3 threadsPerBlockByRay(blockSize);
-	dim3 fullBlocksPerGridByRay((int)ceil(float(rayPoolSize)/float(blockSize)));
+	dim3 fullBlocksPerGridByRay((int)ceil(sqrt(float(rayPoolSize)/float(blockSize))), (int)ceil(sqrt(float(rayPoolSize)/float(blockSize))));
 
 
 	//send image to GPU
@@ -202,7 +214,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
 
-
+	//Figure out which rays should go to which pixels.
+	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>((float) iterations, *rconfig, cam, cudaimage, cudaraypool);
 
 	//kernel launches
 	for(int bounce = 1; bounce <= 1; ++bounce)

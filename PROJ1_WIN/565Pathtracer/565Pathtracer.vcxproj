@@ -150,6 +150,8 @@
     <CudaCompile>
       <CompileOut>$(ProjectDir)$(Platform)/$(Configuration)/%(Filename)%(Extension).obj</CompileOut>
       <Include>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include;C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc;../shared/glew/includes;../shared/freeglut/includes;C:\Program Files\NVIDIA Corporation\NvToolsExt\include</Include>
+      <GPUDebugInfo>true</GPUDebugInfo>
+      <GenerateLineInfo>true</GenerateLineInfo>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
