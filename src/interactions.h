@@ -102,9 +102,30 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 //returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
 __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
                                        AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
-                                       glm::vec3& color, glm::vec3& unabsorbedColor, material m){
+									   float randomSeed, 
+                                       glm::vec3& color, glm::vec3& unabsorbedColor, material m)
+{
+	int retVal = 0;
+	r.origin = intersect;
+	thrust::default_random_engine rng(hash(randomSeed));
+    thrust::uniform_real_distribution<float> u01(0, 1);
+    thrust::uniform_real_distribution<float> u02(0, 1);
 
-  return 1;
+	if (m.hasReflective)
+	{
+		r.direction = glm::normalize (reflectRay (r.direction, normal));
+		retVal = 1;
+	}
+	else if (m.hasRefractive)
+	{
+		retVal = 2;
+	}
+	else
+	{
+		float xi1, xi2;
+		r.direction = glm::normalize (calculateRandomDirectionInHemisphere (normal, u01 (rng), u02 (rng)));
+	}
+	return retVal;
 };
 
 #endif
