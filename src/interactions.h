@@ -147,10 +147,28 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 
 //TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
 //returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
-__host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
+__host__ __device__ int calculateBSDF(ray currentRay, ray& nextRay, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
                                        /*AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,*/
-                                       glm::vec3& color, /*glm::vec3& unabsorbedColor*/, material m){
-  //return 1;
+                                       glm::vec3& color, /*glm::vec3& unabsorbedColor, */material m, bool airMediumFlag){
+  
+  nextRay.origin = intersect;
+
+  // Use the refractive or reflective parameter determining whether the surface is diffuse or reflected or transmitted
+  if (m.hasRefractive >= EPSILON) {
+    // Transmission
+    float n1, n2;
+	if (!airMediumFlag) {
+		n1 = m.indexOfRefraction;
+		n2 = 1.0f;
+		bool internalReflectionFlag = false;
+		nextRay.origin = calculateTransmissionDirection(normal, currentRay, , internalReflectionFlag);
+	}
+
+  } else () {
+    // Specular reflection
+  } else {
+    // Diffusion scattering
+  }
   return 1;
 };
 
