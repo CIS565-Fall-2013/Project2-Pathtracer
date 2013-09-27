@@ -6,11 +6,39 @@
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
 #include "main.h"
-
+#include <windows.h>
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
+// added for camera interaction
+void mouseClick(int button, int status,int x,int y);
+void mouseMotion(int x, int y);
+static bool r_buttonDown = false;
+static bool l_buttonDown = false;
+static int g_yclick = 0;
+static int g_ylclick = 0;
+static int g_xlclick = 0;
+int mouse_old_x, mouse_old_y;
+glm::vec3 originPos;
+glm::vec3 originView;
 
+float fps = 0;
+float preTime = 0;
+float currTime;
+int frames = 0;
+void CalcFPS()
+{
+	frames ++;
+	currTime = glutGet(GLUT_ELAPSED_TIME);
+	if(currTime - preTime > 1000)
+	{
+		fps = frames*1000.0/(currTime - preTime);
+		preTime = currTime;
+		frames = 0;
+	}
+}
+
+unsigned char button_mask = 0x00;
 int main(int argc, char** argv){
 
   #ifdef __APPLE__
@@ -42,6 +70,7 @@ int main(int argc, char** argv){
     }
   }
 
+
   if(!loadedScene){
     cout << "Error: scene file needed!" << endl;
     return 0;
@@ -52,7 +81,9 @@ int main(int argc, char** argv){
   renderCam = &renderScene->renderCam;
   width = renderCam->resolution[0];
   height = renderCam->resolution[1];
-
+  originView = glm::vec3(renderCam->views->x,renderCam->views->y,renderCam->views->z);
+  originPos = glm::vec3(renderCam->positions->x,renderCam->positions->y,renderCam->positions->z);
+  
   if(targetFrame>=renderCam->frames){
     cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
     targetFrame = 0;
@@ -85,12 +116,12 @@ int main(int argc, char** argv){
 				exit(0);
 		}
 	  }
-
 	  glfwTerminate();
   #else
 	  glutDisplayFunc(display);
+	  glutMouseFunc (mouseClick);
+	  glutMotionFunc (mouseMotion);
 	  glutKeyboardFunc(keyboard);
-
 	  glutMainLoop();
   #endif
   return 0;
@@ -107,7 +138,7 @@ void runCuda(){
   
   if(iterations<renderCam->iterations){
     uchar4 *dptr=NULL;
-    iterations++;
+    iterations++;	
     cudaGLMapBufferObject((void**)&dptr, pbo);
   
     //pack geom and material arrays
@@ -129,7 +160,8 @@ void runCuda(){
     cudaGLUnmapBufferObject(pbo);
   }else{
 
-    if(!finishedRender){
+    if(!finishedRender)
+	{
       //output image file
       image outputImage(renderCam->resolution.x, renderCam->resolution.y);
 
@@ -143,7 +175,7 @@ void runCuda(){
       gammaSettings gamma;
       gamma.applyGamma = true;
       gamma.gamma = 1.0;
-      gamma.divisor = 1.0; //renderCam->iterations;
+      gamma.divisor = 1.0;//renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -200,8 +232,8 @@ void runCuda(){
 
 	void display(){
 		runCuda();
-
-		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
+		CalcFPS();
+		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations" + utilityCore::convertFloatToString(fps) + "fps";
 		glutSetWindowTitle(title.c_str());
 
 		glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);
@@ -220,12 +252,23 @@ void runCuda(){
 
 	void keyboard(unsigned char key, int x, int y)
 	{
+		//glm::vec3* oldPos;
 		std::cout << key << std::endl;
 		switch (key) 
 		{
 		   case(27):
 			   exit(1);
 			   break;
+		   case('r'):
+			   {
+			
+				   renderCam->positions = new glm::vec3(originPos.x,originPos.y,originPos.z);			;
+				   renderCam->views = new glm::vec3(originView.x,originView.y,originView.z);
+				   iterations = 0;
+				   runCuda();
+				   break;
+			   }
+			
 		}
 	}
 
@@ -395,4 +438,41 @@ void shut_down(int return_code){
 	glfwTerminate();
   #endif
   exit(return_code);
+}
+
+void mouseClick(int button,int state, int x,int y)
+{
+	if(button == GLUT_RIGHT_BUTTON)
+	{
+		//std::cout<<"ss"<<std::endl;
+		r_buttonDown = (state == GLUT_DOWN) ? true:false;
+		g_yclick = y - 5.0 * renderCam->positions->z;
+	}
+	else if(button == GLUT_LEFT_BUTTON)
+	{
+		l_buttonDown = (state == GLUT_DOWN) ? true:false;
+		g_ylclick = y - (renderCam->positions->y + renderCam->views->y);
+		g_xlclick = x -(renderCam->positions->x + renderCam->views->x);
+	}
+}
+
+void mouseMotion(int x, int y)
+{
+	if(r_buttonDown)
+	{
+		renderCam->positions->z = (y - g_yclick)/5.0;
+		iterations = 0;	
+		finishedRender = false;
+		runCuda();
+		//glutPostRedisplay();
+	}
+	else if(l_buttonDown)
+	{
+		renderCam->views->x = (x - g_xlclick)/500.0;
+		renderCam->views->y = (y - g_ylclick)/500.0;
+		iterations = 0;
+		finishedRender = false;
+		runCuda();
+		//glutPostRedisplay();
+	}
 }
