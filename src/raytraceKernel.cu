@@ -125,7 +125,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   
   if(x<=resolution.x && y<=resolution.y){
 
-      glm::vec3 color;      
+      glm::vec3 color;    
       color.x = image[index].x*255.0;
       color.y = image[index].y*255.0;
       color.z = image[index].z*255.0;
@@ -143,7 +143,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
       }
       
       // Each thread writes one pixel location in the texture (textel)
-	  if (iterations == 0)
+	  if (iterations == 1)
 	  {
       PBOpos[index].w = 0;
       PBOpos[index].x = color.x;     
@@ -153,23 +153,35 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 	  else
 	  {
-		  int currentIteration = iterations+1;
-		  PBOpos[index].x *= (iterations);
-		  PBOpos[index].y *= (iterations);
-		  PBOpos[index].z *= (iterations);
-
 		  float x = PBOpos[index].x;
 		  float y = PBOpos[index].y;
 		  float z = PBOpos[index].z;
 
-		  x = (x*iterations + color.x)/currentIteration;
-		  y = (y*iterations + color.y)/currentIteration;
-		  z = (z*iterations + color.z)/currentIteration;
-		 
-		  PBOpos[index].x = x;
-		  PBOpos[index].y = y;
-		  PBOpos[index].z = z;
+		  PBOpos[index].x = (x*(iterations-1)+color.x)/iterations;
+		  PBOpos[index].y = (y*(iterations-1)+color.y)/iterations;
+		  PBOpos[index].z = (z*(iterations-1)+color.z)/iterations;
+
 	  }
+	  //else
+	  //{
+		 // int currentIteration = iterations+1;
+		 // PBOpos[index].x *= (iterations);
+		 // PBOpos[index].y *= (iterations);
+		 // PBOpos[index].z *= (iterations);
+
+		 // float x = PBOpos[index].x;
+		 // float y = PBOpos[index].y;
+		 // float z = PBOpos[index].z;
+
+		 // x = (x*iterations + color.x)/currentIteration;
+		 // y = (y*iterations + color.y)/currentIteration;
+		 // z = (z*iterations + color.z)/currentIteration;
+		 //
+		 // PBOpos[index].x = x;
+		 // PBOpos[index].y = y;
+		 // PBOpos[index].z = z;
+	  //}
+
   }
 }
 
@@ -187,7 +199,7 @@ __global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec3* imag
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * resolution.x);
     if(x<=resolution.x && y<=resolution.y && rays[index].active){
-       image[index] = glm::vec3(0,0,0);
+		image[index] = glm::vec3(0,0,0);
     }
 }
 
@@ -234,7 +246,8 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 		return;
 	}
 	material mtl = materials[geoms[objId].materialid];
-	if (isLight(objId,lights,numberOfLights))
+	/*if (isLight(objId,lights,numberOfLights))*/
+	if (objId == 8)
 	{
 		r.active = false;
 		rays[index].active = false;
@@ -246,7 +259,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 
 	glm::vec3 emittedColor;
 	glm::vec3 unabsorbedColor;
-	int bsdf = calculateBSDF(r,intersectionPoint,intersectionNormal,emittedColor,colors[index],unabsorbedColor,mtl,time);
+	int bsdf = calculateBSDF(r,intersectionPoint,intersectionNormal,emittedColor,colors[index],unabsorbedColor,mtl,index);
 	
 	if (bsdf == 0)
 	{		
@@ -267,7 +280,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 		colors[index].z = mtl.color.z;
 	}
 
-	rays[index].origin = r.origin;
+	rays[index].origin = r.origin + 0.001f*r.direction;
 	rays[index].direction = r.direction;
 	rays[index].active = r.active;
 	rays[index].pixelIndex = r.pixelIndex;
@@ -342,11 +355,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.fov = renderCam->fov;
 
   //kernel launches
-  for(int bounce = 1; bounce <= 1; ++bounce)
+  for(int bounce = 1; bounce <= 4; ++bounce)
   {
-  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays);
+	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays);
   }
-  //clearActiveRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays, cudaimage);
+  clearActiveRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays, cudaimage);
   
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage,iterations);
 
