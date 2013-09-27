@@ -11,7 +11,7 @@ class CudaRayTracer
 public:
     CudaRayTracer();
     ~CudaRayTracer();
-    void renderImage( cudaGraphicsResource* pboResource );
+    void renderImage( cudaGraphicsResource* pboResource, int iteration );
     void renderImage( FIBITMAP* outputImage );
     void init( const SceneDesc &scene );
     void registerPBO( unsigned int pbo );
@@ -36,9 +36,14 @@ private:
     int numLight;
     int numMaterial;
 
-    unsigned char* d_outputImage;
-    float* d_posBuffer;
-    float* d_normalBuffer;
+    //unsigned char* d_outputImage;
+    float* d_outputImage;
+    //float* d_posBuffer;
+    //float* d_rayBuffer;
+    //float* d_specuBuffer;
+    //float* d_normalBuffer;
+    float* d_directIllum;
+    float* d_indirectIllum;
 
     unsigned char* h_outputImage;
     _Primitive* d_primitives;
@@ -50,4 +55,5 @@ private:
 
     //rand state
     curandState *d_devStates;
+
 };

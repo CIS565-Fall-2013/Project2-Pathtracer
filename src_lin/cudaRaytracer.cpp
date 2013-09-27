@@ -22,11 +22,18 @@ CudaRayTracer::CudaRayTracer()
     d_outputImage = 0;
     h_outputImage = 0;
 
+    //d_posBuffer = 0;
+    //d_rayBuffer = 0;
+    //d_specuBuffer = 0;
+    d_directIllum = 0;
+    d_indirectIllum = 0;
+
     d_primitives = 0;
     d_lights = 0;
     d_materials = 0;
 
     d_devStates = 0;
+
 }
 
 CudaRayTracer::~CudaRayTracer()
@@ -34,23 +41,32 @@ CudaRayTracer::~CudaRayTracer()
     cleanUp();
 }
 
-void CudaRayTracer::renderImage( cudaGraphicsResource* pboResource )
+void CudaRayTracer::renderImage( cudaGraphicsResource* pboResource, int iteration )
 {
 
 
     cudaErrorCheck( cudaGraphicsMapResources( 1, &pboResource, 0 ) );
     cudaErrorCheck( cudaGraphicsResourceGetMappedPointer((void**) &d_outputImage, &pboSize, pboResource ) );
-    cudaErrorCheck( cudaMemset( (void*)d_outputImage, 0, sizeof(unsigned char) * 4 * width * height ) );
+    if( iteration == 1 )
+    {
+        cudaErrorCheck( cudaMemset( (void*)d_outputImage, 0, sizeof(float) * 4 * width * height ) );
+        cudaErrorCheck( cudaMemset( (void*)d_directIllum, 0, sizeof(float) * 3 * width * height * MAXDEPTH ) );
+        cudaErrorCheck( cudaMemset( (void*)d_indirectIllum, 0, sizeof(float) * 3 * width * height * MAXDEPTH ) );
+        //cudaErrorCheck( cudaMemset( (void*)d_specuBuffer, 0, sizeof(float) * 3 * width * height ) );
+        //cudaErrorCheck( cudaMemset( (void*)d_posBuffer, 0, sizeof(float) * 3 * width * height ) );
+        //cudaErrorCheck( cudaMemset( (void*)d_rayBuffer, 0, sizeof(float) * 3 * width * height ) );
+    }
 
-    //GpuTimer timer;
-    //timer.Start();
+    GpuTimer timer;
+    timer.Start();
     //Launch the ray tracing kernel through the wrapper
-    rayTracerKernelWrapper( d_outputImage, width, height, cameraData, 
-        d_primitives, numPrimitive, d_lights, numLight, d_materials, numMaterial, 1, d_devStates );
-    //timer.Stop();
+    rayTracerKernelWrapper( d_outputImage, d_directIllum, d_indirectIllum, width, height, cameraData, 
+        d_primitives, numPrimitive, d_lights, numLight, d_materials, numMaterial, 1, d_devStates, iteration );
+    timer.Stop();
 
-    //std::cout<<"Render time: "<<timer.Elapsed()<<" ms."<<std::endl;
+    std::cout<<"Render time: "<<timer.Elapsed()<<" ms. at iteration "<<iteration<<std::endl;
     cudaErrorCheck( cudaGraphicsUnmapResources( 1, &pboResource, 0 ) );
+
 
 }
 
@@ -60,11 +76,11 @@ void CudaRayTracer::renderImage( FIBITMAP* outputImage )
     cudaErrorCheck( cudaMemset( (void*)d_outputImage, 0, sizeof(unsigned char) * 4 * width * height ) );
 
     GpuTimer timer;
-    timer.Start();
+    //timer.Start();
     //Launch the ray tracing kernel through the wrapper
-    rayTracerKernelWrapper( d_outputImage, width, height, cameraData, 
-        d_primitives, numPrimitive, d_lights, numLight, d_materials, numMaterial, 1, d_devStates );
-    timer.Stop();
+    //rayTracerKernelWrapper( d_outputImage, 0, 0, width, height, cameraData, 
+    //    d_primitives, numPrimitive, d_lights, numLight, d_materials, numMaterial, 1, d_devStates,iteration );
+    //timer.Stop();
 
     std::cout<<"Render time: "<<timer.Elapsed()<<" ms."<<std::endl;
    
@@ -88,14 +104,23 @@ void CudaRayTracer::renderImage( FIBITMAP* outputImage )
 
 void CudaRayTracer::packSceneDescData( const SceneDesc &sceneDesc )
 {
-    //packing the camrea setting
-    cameraData.eyePos = sceneDesc.eyePos;
-    cameraData.viewportHalfDim.y = tan( sceneDesc.fovy / 2.0 );
-    cameraData.viewportHalfDim.x = (float)sceneDesc.width / (float) sceneDesc.height * cameraData.viewportHalfDim.y;
 
     width = sceneDesc.width;
     height = sceneDesc.height;
+    //packing the camrea setting
+    cameraData.eyePos = sceneDesc.eyePos;
+    //cameraData.viewportHalfDim.y = tan( sceneDesc.fovy / 2.0 );
+    //cameraData.viewportHalfDim.x = (float)width / (float) height * cameraData.viewportHalfDim.y;
+    glm::vec2 viewportHalfDim;
+    viewportHalfDim.y =  tan( sceneDesc.fovy / 2.0 );
+    viewportHalfDim.x = (float)width / (float) height * viewportHalfDim.y;
 
+    cameraData.offset1.x = viewportHalfDim.x * 2.0f / width;
+    cameraData.offset1.y = -viewportHalfDim.y * 2.0f / height;
+    cameraData.offset2.x = ( 1.0f/width - 1 )* viewportHalfDim.x;
+    cameraData.offset2.y = (-1.0f/height+1) * viewportHalfDim.y;
+        //offset.x = cameraData.viewportHalfDim.x * ( (idx.x+0.5) / (width/2.0) - 1 );
+    //offset.y = cameraData.viewportHalfDim.y * ( 1- (idx.y+0.5) / (height/2.0)  );
     //construct the 3 orthoogonal vectors constitute a frame
     cameraData.uVec = glm::normalize( sceneDesc.up );
     cameraData.wVec = glm::normalize( sceneDesc.center - sceneDesc.eyePos );
@@ -137,7 +162,7 @@ void CudaRayTracer::packSceneDescData( const SceneDesc &sceneDesc )
         }
         //h_pPrimitives[i].transform = sceneDesc.primitives[i]->transform;
         //h_pPrimitives[i].invTrans = sceneDesc.primitives[i]->invTrans;
-        
+
     }
 
     //pack light sources
@@ -191,6 +216,24 @@ void CudaRayTracer::cleanUp()
     //    cudaErrorCheck( cudaFree( d_outputImage ) );
     //d_outputImage = 0;
 
+    //if( d_posBuffer )
+    //    cudaErrorCheck( cudaFree( d_posBuffer ) );
+    //d_posBuffer = 0;
+    //if( d_specuBuffer )
+    //    cudaErrorCheck( cudaFree( d_specuBuffer ) );
+    //d_posBuffer = 0;
+
+    //if( d_rayBuffer )
+    //    cudaErrorCheck( cudaFree( d_rayBuffer ) );
+    //d_rayBuffer = 0;
+    if( d_directIllum )
+        cudaErrorCheck( cudaFree( d_directIllum ) );
+    d_directIllum = 0;
+
+    if( d_indirectIllum )
+        cudaErrorCheck( cudaFree( d_indirectIllum ) );
+    d_indirectIllum = 0;
+
     if( d_primitives )
         cudaErrorCheck( cudaFree( d_primitives  ) );
     d_primitives = 0;
@@ -223,6 +266,11 @@ void  CudaRayTracer::init( const SceneDesc &scene )
     cudaErrorCheck( cudaMalloc( &d_primitives, sizeof( _Primitive ) * numPrimitive ) );
     cudaErrorCheck( cudaMalloc( &d_lights, sizeof( _Light ) * numLight ) );
     cudaErrorCheck( cudaMalloc( &d_materials, sizeof( _Material ) * numMaterial ) );
+    //cudaErrorCheck( cudaMalloc( &d_posBuffer, sizeof( float ) * width * height * 3 ) );
+    //cudaErrorCheck( cudaMalloc( &d_rayBuffer, sizeof( float ) * width * height * 3 ) );
+    //cudaErrorCheck( cudaMalloc( &d_specuBuffer, sizeof( float ) * width * height * 3 ) );
+    cudaErrorCheck( cudaMalloc( &d_directIllum, sizeof( float ) * width * height * 3 * MAXDEPTH ) );
+    cudaErrorCheck( cudaMalloc( &d_indirectIllum, sizeof( float ) * width * height * 3 * MAXDEPTH ) );
     //cudaErrorCheck( cudaMalloc( &d_outputImage, sizeof( unsigned char )  * width * height * 4 ) );
 
     //Send scene description data to the device
@@ -240,8 +288,14 @@ void CudaRayTracer::updateCamera( const SceneDesc &sceneDesc )
 {
     //packing the camrea setting
     cameraData.eyePos = sceneDesc.eyePos;
-    cameraData.viewportHalfDim.y = tan( sceneDesc.fovy / 2.0 );
-    cameraData.viewportHalfDim.x = (float)sceneDesc.width / (float) sceneDesc.height * cameraData.viewportHalfDim.y;
+    glm::vec2 viewportHalfDim;
+    viewportHalfDim.y =  tan( sceneDesc.fovy / 2.0 );
+    viewportHalfDim.x = (float)width / (float) height * viewportHalfDim.y;
+
+    cameraData.offset1.x = viewportHalfDim.x * 2.0f / width;
+    cameraData.offset1.y = -viewportHalfDim.y * 2.0f / height;
+    cameraData.offset2.x = ( 1.0f/width - 1 )* viewportHalfDim.x;
+    cameraData.offset2.y = (-1.0f/height+1) * viewportHalfDim.y;
 
     width = sceneDesc.width;
     height = sceneDesc.height;
@@ -251,10 +305,11 @@ void CudaRayTracer::updateCamera( const SceneDesc &sceneDesc )
     cameraData.wVec = glm::normalize( sceneDesc.center - sceneDesc.eyePos );
     cameraData.vVec = glm::normalize( glm::cross( cameraData.wVec, cameraData.uVec ) );
     cameraData.uVec = glm::normalize( glm::cross( cameraData.vVec, cameraData.wVec ) );
+
 }
 
 void CudaRayTracer::setupDevStates()
 {
-    cudaErrorCheck( cudaMalloc( (void**)&d_devStates, 16*16*sizeof(curandState) ) );
+    cudaErrorCheck( cudaMalloc( (void**)&d_devStates, 8*8*sizeof(curandState) ) );
     setupRandSeedWrapper(8,8, d_devStates ) ;
 }

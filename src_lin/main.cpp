@@ -24,7 +24,7 @@ int win_id;
 
 int main( int argc, char* argv[] )
 {
-    FreeImage_Initialise();
+    //FreeImage_Initialise();
 
     if( argc == 1 )
     {
@@ -33,8 +33,13 @@ int main( int argc, char* argv[] )
         return 1;
     }
 
-    FileParser::parse( argv[1], theScene );
-
+    if( FileParser::parse( argv[1], theScene ) != 0 )
+    {
+        cout<<"Can't read the scene file\n";
+        system( "pause" );
+        return 1;
+    }
+    //FileParser::parse( "testScene.scene", theScene );
     win_w = theScene.width;
     win_h = theScene.height;
 
@@ -46,7 +51,7 @@ int main( int argc, char* argv[] )
     glutInitContextProfile( GLUT_COMPATIBILITY_PROFILE );
 
     glutInitWindowSize( theScene.width, theScene.height );
-    win_id = glutCreateWindow( "GPU RayTracer" );
+    win_id = glutCreateWindow( "GPU Path Tracer" );
 
     GLenum errCode = glewInit();
     if( errCode != GLEW_OK )
@@ -93,10 +98,10 @@ int main( int argc, char* argv[] )
     //    degree += 1.25f;
     //}
     
-
+    
     cleanUpGL();
     delete cudaRayTracer;
-    FreeImage_DeInitialise();
+    //FreeImage_DeInitialise();
     return 0;
 }
 

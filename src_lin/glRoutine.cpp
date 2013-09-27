@@ -53,6 +53,7 @@ glm::mat4 cameraRotate(1.0f, 0.0f, 0.0f, 0.0f,
                        0.0f, 0.0f, 0.0f, 1.0f );
 glm::vec4 initialEyePos( 0.0f,0.0f, 0.0f,1.0f);
 glm::vec3 eyePosTranslate;
+int iteration = 1;
 
 void glut_display()
 {
@@ -60,7 +61,7 @@ void glut_display()
     theScene.eyePos = (cameraRotate * initialEyePos ).xyz;
     theScene.eyePos = theScene.eyePos +eyePosTranslate;
     cudaRayTracer->updateCamera( theScene );
-    cudaRayTracer->renderImage( pboResource );
+    cudaRayTracer->renderImage( pboResource, iteration++ );
 
     //render a quad to display the image
     glClearColor( 0, 0, 0, 0 );
@@ -69,7 +70,8 @@ void glut_display()
     glActiveTexture( GL_TEXTURE0 );
     glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo );
     glBindTexture( GL_TEXTURE_2D, texID );
-    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, win_w, win_h, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
+    //glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, win_w, win_h, GL_RGBA, GL_UNSIGNED_BYTE, 0 );
+    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, win_w, win_h, GL_RGBA, GL_FLOAT, 0 );
     glBindBuffer( GL_PIXEL_UNPACK_BUFFER,0 );
     
     glBindVertexArray( vao );
@@ -117,7 +119,8 @@ int initPBO()
     //create a PBO
     glGenBuffers(1, &pbo);
     glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo );
-    glBufferData( GL_PIXEL_UNPACK_BUFFER, sizeof( GLubyte) * win_w * win_h * 4, NULL, GL_STREAM_DRAW );
+    //glBufferData( GL_PIXEL_UNPACK_BUFFER, sizeof( GLubyte) * win_w * win_h * 4, NULL, GL_STREAM_DRAW );
+    glBufferData( GL_PIXEL_UNPACK_BUFFER, sizeof( GLfloat) * win_w * win_h * 4, NULL, GL_STREAM_DRAW );
     glBindBuffer( GL_PIXEL_UNPACK_BUFFER, 0 );
 
     //register with CUAD context
@@ -127,7 +130,8 @@ int initPBO()
     glActiveTexture( GL_TEXTURE0);
     glGenTextures( 1, &texID );
     glBindTexture( GL_TEXTURE_2D, texID );
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, win_w, win_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+    //glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, win_w, win_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL );
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA32F, win_w, win_h, 0, GL_BGRA, GL_FLOAT, NULL );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
     glBindTexture( GL_TEXTURE_2D, 0 );
@@ -280,6 +284,11 @@ int initGL()
     return 0;
 }
 
+void cameraEventHandler( int id )
+{
+    iteration = 1;
+}
+
 void initGLUI( int win_id )
 {
     GLUI *glui_obj = GLUI_Master.create_glui( "glui" );
@@ -288,7 +297,7 @@ void initGLUI( int win_id )
     GLUI_Master.set_glutIdleFunc( glut_idle );
     GLUI_Master.set_glutSpecialFunc( NULL );
 
-    GLUI_Rotation *view_rot = glui_obj->add_rotation( "Camera", &cameraRotate[0][0] );
+    GLUI_Rotation *view_rot = glui_obj->add_rotation( "Camera", &cameraRotate[0][0], 1, cameraEventHandler );
 	view_rot->set_spin( 0 );
 	glui_obj->add_column( false );
 
@@ -309,6 +318,8 @@ void initGLUI( int win_id )
 
 void cleanUpGL()
 {
+    GLUI_Master.close_all();
+
     if( pbo )
     {
         cudaGraphicsUnregisterResource( pboResource );
