@@ -173,6 +173,17 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
 	}
 }
 
+
+//Kernel that clears an separate buffer of ints the same size of the image
+__global__ void clearIntBuffer(glm::vec2 resolution, int* buf){
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * resolution.x);
+	if(x<=resolution.x && y<=resolution.y){
+		buf[index] = 0;
+	}
+}
+
 //Kernel that writes the image to the OpenGL PBO directly. 
 __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image){
 
@@ -251,7 +262,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig, int frame, int iterations, int* raycounts, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig, int frame, int iterations, int frameFilterCounter, int* raytotals, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
 
 	int traceDepth = rconfig->traceDepth; //determines how many bounces the raytracer traces
 	int numPixels = renderCam->resolution.x*renderCam->resolution.y;
@@ -313,7 +324,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 
 	rayState* cudaraypool = NULL;
 	cudaMalloc((void**)&cudaraypool, rayPoolSize*sizeof(rayState));
-	
+
 	//Array to hold samples per pixel (for adaptive anti-aliasing)
 	int* cudarequestedrays = NULL;
 	cudaMalloc((void**)&cudarequestedrays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
@@ -326,6 +337,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
 
+	if(frameFilterCounter == 0)
+	{
+		clearIntBuffer<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, raytotals);
+	}
+
 	//Allocate rays
 	requestRays<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, *rconfig, cudaimage, cudarequestedrays);
 
@@ -334,7 +350,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 
 
 	//Figure out which rays should go to which pixels.
-	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>((float) iterations, *rconfig, cam, cudaimage, cudaraypool, cudarequestedrays, rayPoolSize);
+
+	thrust::default_random_engine rng(hash(iterations));
+	thrust::uniform_real_distribution<float> u01(0,1);
+	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(u01(rng), *rconfig, cam, cudaimage, cudaraypool, cudarequestedrays, rayPoolSize);
 
 	if(rconfig->mode == RAYCOUNT_DEBUG)
 	{

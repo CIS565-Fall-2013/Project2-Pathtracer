@@ -68,17 +68,21 @@ int main(int argc, char** argv){
 
 	// Set up camera stuff from loaded pathtracer settings
 	iterations = 0;
+	frameFilterCounter = 0;
 	renderCam = &renderScene->renderCam;
 	width = renderCam->resolution[0];
 	height = renderCam->resolution[1];
+	//Allocate raytotals to zero
+	raytotals = new int[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
+
 
 	
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
 	renderOpts->mode = RAYCOUNT_DEBUG;
 	renderOpts->traceDepth = 1;
-	renderOpts->rayPoolSize = 0.9f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
-	renderOpts->forceOnePerPixel = true;
+	renderOpts->rayPoolSize = 1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
+	renderOpts->forceOnePerPixel = false;
 	//Note, these constants must sum to 1.
 	renderOpts->ambientLightColor = glm::vec3(1,1,1);
 	renderOpts->ambientLightIntensity = 0.05;
@@ -146,6 +150,7 @@ void runCuda(){
 	if(iterations<renderCam->iterations){
 		uchar4 *dptr=NULL;
 		iterations++;
+		frameFilterCounter++;
 		cudaGLMapBufferObject((void**)&dptr, pbo);
 
 		//pack geom and material arrays
@@ -168,7 +173,7 @@ void runCuda(){
 
 		// execute the kernel
 		
-		cudaRaytraceCore(dptr, renderCam, renderOpts, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+		cudaRaytraceCore(dptr, renderCam, renderOpts, targetFrame, iterations, frameFilterCounter, raytotals, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
 		
 		// unmap buffer object
 		cudaGLUnmapBufferObject(pbo);
@@ -277,7 +282,51 @@ void keyboard(unsigned char key, int x, int y)
 		cudaDeviceReset(); 
 		exit(0);
 		break;
+		///Mode selection options
+	case '1':
+		//Enter normal raytracing mode
+		renderOpts->mode = PATHTRACE;
+		cout << "Pathtracing Mode" <<endl;
+		break;
+	case '2':
+		//Enter distance debug mode
+		renderOpts->mode = RAYCOUNT_DEBUG;
+		cout << "Ray Count Debug Mode" <<endl;
+		break;
+	case '3':
+		//Enter normal debug mode
+		renderOpts->mode = TRACEDEPTH_DEBUG;
+		cout << "Normal Debug Mode" <<endl;
+		break;
+	case '4':
+		//Enter aliasing debug mode
+		renderOpts->mode = ALIASING_DEBUG;
+		cout << "Aliasing Debug Mode" <<endl;
+		break;
+	case 'A':
+		renderOpts->antialiasing = !renderOpts->antialiasing;
+		cout << "Antialiasing: " << renderOpts->antialiasing<< endl;
+		break;
+	case 'F':
+		renderOpts->frameFiltering = !renderOpts->frameFiltering;
+		frameFilterCounter = 0;
+		cout << "Frame Filter: " << renderOpts->frameFiltering<< endl;
+		break;
+	case 'f':
+		frameFilterCounter = 0;
+		cout << "Frame Filter Reset" << endl;
+		break;
+	case '=':
+		renderOpts->traceDepth++;
+		cout << "Trace Depth: " << renderOpts->traceDepth << endl;
+		break;
+	case '-':
+		if(renderOpts->traceDepth > 1)
+			renderOpts->traceDepth--;
+		cout << "Trace Depth: " << renderOpts->traceDepth << endl;
+		break;
 	}
+	//TODO: Add more keyboard controls here
 }
 
 #endif

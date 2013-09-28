@@ -32,6 +32,6 @@ struct rayState{
 	int matIndex;//Index of transmission medium material. -1 if in free space.
 };
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, renderOptions* rconfig, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+void cudaRaytraceCore(uchar4* pos, camera* renderCam, renderOptions* rconfig, int frame, int iterations, int frameFilterCounter, int* raytotals, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
 
 #endif

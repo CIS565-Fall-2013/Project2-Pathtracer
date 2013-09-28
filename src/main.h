@@ -51,10 +51,11 @@ using namespace std;
 
 scene* renderScene;
 camera* renderCam;
-int* rayCounts;
+int* raytotals;
 renderOptions* renderOpts;
 int targetFrame;
 int iterations;
+int frameFilterCounter;
 bool finishedRender;
 bool singleFrameMode;
 
