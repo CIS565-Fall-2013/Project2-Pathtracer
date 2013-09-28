@@ -178,10 +178,17 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
-
+	
+  //int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  //int x=-1;
+  //int y=-1;
   ray r;
+
   if (bounce==1)
   {
+	//y = (int) (index/(int)resolution.x);
+	//x = (int) (index%(int)resolution.x);
+
 	r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 	r.active = true;
 	r.pixelIndex = glm::vec2(x,y);
@@ -261,6 +268,16 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	
 }
 
+//__global__ void createBinaryArray(ray* rays,int* activeRaysArray, int lastIndex)
+//{
+//  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+//  int y = (blockIdx.y * blockDim.y) + threadIdx.y;	
+//}
+//
+//__global__ void streamCompact(ray* rays, int* activeRaysArray int lastIndex)
+//{
+//	int i;
+//}
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
@@ -269,10 +286,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   int traceDepth = 1; //determines how many bounces the raytracer traces
 
   // set up crucial magic
+  int numberOfThreads = (int)(renderCam->resolution.x)*(int)(renderCam->resolution.y);
   int tileSize = 8;
+  //dim3 threadsPerBlock(tileSize*tileSize);
+  //dim3 fullBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
   dim3 threadsPerBlock(tileSize, tileSize);
   dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
-  
+
   //send image to GPU
   glm::vec3* cudaimage = NULL;
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
