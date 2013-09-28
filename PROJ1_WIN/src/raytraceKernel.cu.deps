@@ -424,7 +424,6 @@ C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\crtdefs.h
 C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\locale.h
 C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\crtdefs.h
 C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xdebug
-C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xmemory
 C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xfacet
 C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\system_error
 C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\cerrno
@@ -435,6 +434,7 @@ c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2patht
 c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\glm/glm.hpp
 c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\glm\core/_fixes.hpp
 C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\algorithm
+C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\xmemory
 C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\sstream
 C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\vector
 c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\cudaMat4.h

@@ -14,6 +14,12 @@
 #include <cmath>
 #include "sceneStructs.h"
 
+using glm::vec3;
+using glm::normalize;
+using glm::dot;
+using glm::length;
+using glm::cross;
+
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
 #else
