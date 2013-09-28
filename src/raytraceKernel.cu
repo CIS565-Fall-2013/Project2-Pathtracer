@@ -410,6 +410,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	cudaFree( cudamaterials );
 	cudaFree( cudaraypool );
 	cudaFree( cudaraytotals);
+	cudaFree( cudarequestedrays );
 	delete [] geomList;
 
 	// make certain the kernel has completed 
