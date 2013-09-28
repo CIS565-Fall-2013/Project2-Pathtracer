@@ -1,14 +1,16 @@
 #include "cudaAlgorithms.h"
 
 template<typename DataType, typename BinaryOperation>
-__global__ exclusive_scan_kernel(DataType* datain, DataType* dataout, DataType* blockResults, int N, BinaryOperation op)
+__global__ void exclusive_scan_kernel(DataType* datain, DataType* dataout, DataType* blockResults, int N, BinaryOperation op)
 {
 	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
 	int dataIndex = threadIdx.x + blockIndex*blockDim.x;
-
-	int blockOffset = blockIndex * blockDim.x;
+	//Remember that we have two elements per thread.
+	int blockOffset = blockIndex * (blockDim.x*2);
 	
-	int fullElements = (N - blockOffset) % blockDim.x;
+	int fullElements = N - blockOffset;
+	if(fullElements > (blockDim.x*2))
+		fullElements = blockDim.x*2;
 
 	DataType blockResult = exclusive_scan_block(&datain[blockOffset], &dataout[blockOffset], fullElements, op);
 	//Wait for results to come in
@@ -23,7 +25,7 @@ __global__ exclusive_scan_kernel(DataType* datain, DataType* dataout, DataType* 
 }
 
 template<typename DataType, typename BinaryOperation>
-__global__ 	scan_reintegrate_blocks(DataType* dataout, DataType* blockResults, int N, BinaryOperation op)
+__global__ 	void scan_reintegrate_blocks(DataType* dataout, DataType* blockResults, int N, BinaryOperation op)
 {
 	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
 	int dataIndex = threadIdx.x + blockIndex*blockDim.x;
@@ -42,24 +44,25 @@ __host__ DataType exclusive_scan(DataType* datain, DataType* dataout, int N, Bin
 	//TODO: Get this dynamically
 	int blockSize = MAX_BLOCK_DIM_X;
 	dim3 threadsPerBlock(blockSize);;
+	dim3 fullBlocksPerGrid;
 
 	int numBlocks = ceil(float(N)/(blockSize*2));//2 data elements per thread
-	if(blockCount > MAX_GRID_DIM_X){
+	if(numBlocks > MAX_GRID_DIM_X){
 		fullBlocksPerGrid = dim3(MAX_GRID_DIM_X, (int)ceil( numBlocks / float(MAX_GRID_DIM_X)));
 	}else{
-		fullBlocksPerGrid = dim3(blockCount);
+		fullBlocksPerGrid = dim3(numBlocks);
 	}
 
 	//Create an array to store results from each block
 	DataType* blockResults;
-	cudaMalloc((void**)&result, numBlocks*sizeof(result));
-	exclusive_scan_kernel<<<fullBlocksPerGrid, threadsPerBlock>>>(datain, dataout, blockResults, N, op);
+	cudaMalloc((void**)&blockResults, numBlocks*sizeof(DataType));
+	exclusive_scan_kernel<<<fullBlocksPerGrid, threadsPerBlock, N*sizeof(DataType)>>>(datain, dataout, blockResults, N, op);
 
 	DataType result;
 	if(numBlocks == 1)
 	{
-		//We've reached the bottom of the stack, grab the answer.
-		cudaMemcpy( result, blockResults[0], sizeof(DataType), cudaMemcpyDeviceToHost);
+		//We've reached the bottom of the stack, grab the answer. Just one element
+		cudaMemcpy( &result, blockResults, sizeof(DataType), cudaMemcpyDeviceToHost);
 	}else{
 		result = exclusive_scan(blockResults, blockResults, numBlocks, op);
 
@@ -103,7 +106,7 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 	//Shared memory for access speed
 	//Get modified temp access
 	int ai = index;
-	int bi = index + N/2;
+	int bi = index + bdimx;
 	int bankOffsetA = CONFLICT_FREE_OFFSET(ai);
 	int bankOffsetB = CONFLICT_FREE_OFFSET(bi);
 
@@ -140,7 +143,7 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 	}
 	//Reduction step complete. 
 
-	if (index == 0) { temp[(bdimx - 1) + CONFLICT_FREE_OFFSET(bdimx-1)] = 0; } // clear the last element in prep for down scan
+	if (index == 0) { temp[(bdimx*2 - 1) + CONFLICT_FREE_OFFSET(bdimx*2-1)] = 0; } // clear the last element in prep for down scan
 
 	//
 	for (int d = 1; d < bdimx; d *= 2) // traverse down tree & build scan  
@@ -168,5 +171,8 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 
 
 	//Return last element of shared memory plus the last element of the array.
-	return total + temp[(bdimx - 1) + CONFLICT_FREE_OFFSET(bdimx-1)];
-}  
+	return total + temp[(bdimx*2 - 1) + CONFLICT_FREE_OFFSET(bdimx*2-1)];
+}
+
+///Explicit template instantiations. Do this to avoid code bloat in .h file.
+template int exclusive_scan_sum<int>(int*, int*, int);
