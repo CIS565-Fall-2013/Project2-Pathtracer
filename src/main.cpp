@@ -403,8 +403,8 @@ void initCuda(){
 	atexit(cleanupCuda);
 
 	//Temporary test
-	int size = 2048;
-	int* data = new int[2048];
+	int size = 4096;
+	int* data = new int[size];
 	for(int i = 0; i < size; i++)
 	{
 		data[i] = 2;
@@ -418,10 +418,10 @@ void initCuda(){
 	cudaMalloc((void**)&cudadataout, size*sizeof(2048));
 
 	//Perform scan
-	int result = exclusive_scan_sum(cudadata, cudadataout, size);
+	int result = exclusive_scan_sum(cudadata, cudadata, size);
 	
 	//pull result
-	cudaMemcpy( data, cudadataout, size*sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy( data, cudadata, size*sizeof(int), cudaMemcpyDeviceToHost);
 
 	cudaFree(cudadata);
 	cudaFree(cudadataout);

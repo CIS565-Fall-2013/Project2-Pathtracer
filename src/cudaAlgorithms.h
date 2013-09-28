@@ -18,10 +18,18 @@
 
 
 //For easy avoidance of bank conflicts
-#define NUM_BANKS 32  
-#define LOG_NUM_BANKS 5  
-#define CONFLICT_FREE_OFFSET(n)    ((n) >> NUM_BANKS + (n) >> (2 * LOG_NUM_BANKS))  
+#define NUM_BANKS 32
+#define LOG_NUM_BANKS 5 
 
+#define NO_BANK_CONFLICTS
+
+
+#ifdef NO_BANK_CONFLICTS
+#define CONFLICT_FREE_OFFSET(n)    \
+	(((n) >> NUM_BANKS) + ((n) >> (2 * LOG_NUM_BANKS)))  
+#else
+	#define CONFLICT_FREE_OFFSET(n)    ((n) >> NUM_BANKS)  
+#endif
 #define MAX_BLOCK_DIM_X 1024
 #define MAX_GRID_DIM_X 65535
 

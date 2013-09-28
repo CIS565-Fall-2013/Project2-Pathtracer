@@ -4,10 +4,10 @@ template<typename DataType, typename BinaryOperation>
 __global__ void exclusive_scan_kernel(DataType* datain, DataType* dataout, DataType* blockResults, int N, BinaryOperation op)
 {
 	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
-	int dataIndex = threadIdx.x + blockIndex*blockDim.x;
+	int dataIndex  = threadIdx.x + blockIndex*blockDim.x;
 	//Remember that we have two elements per thread.
 	int blockOffset = blockIndex * (blockDim.x*2);
-	
+
 	int fullElements = N - blockOffset;
 	if(fullElements > (blockDim.x*2))
 		fullElements = blockDim.x*2;
@@ -28,11 +28,18 @@ template<typename DataType, typename BinaryOperation>
 __global__ 	void scan_reintegrate_blocks(DataType* dataout, DataType* blockResults, int N, BinaryOperation op)
 {
 	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
-	int dataIndex = threadIdx.x + blockIndex*blockDim.x;
-	
-	//First block stays as is.
-	if(blockIndex > 0 && dataIndex < N){
-		dataout[dataIndex] += blockResults[blockIndex-1];
+	//Remember that we have two elements per thread.
+	int n = blockDim.x*2;
+	int blockOffset = blockIndex*(n);
+	int dataIndex1  = blockOffset + threadIdx.x;
+	int dataIndex2  = blockOffset + threadIdx.x + n/2;
+
+	//If in range, also ignore block 0, there's no data there
+	if(blockIndex > 0){
+		if(dataIndex1 < N)
+			dataout[dataIndex1] += blockResults[blockIndex];
+		if(dataIndex2 < N)
+			dataout[dataIndex2] += blockResults[blockIndex];
 	}
 }
 
@@ -56,7 +63,7 @@ __host__ DataType exclusive_scan(DataType* datain, DataType* dataout, int N, Bin
 	//Create an array to store results from each block
 	DataType* blockResults;
 	cudaMalloc((void**)&blockResults, numBlocks*sizeof(DataType));
-	exclusive_scan_kernel<<<fullBlocksPerGrid, threadsPerBlock, N*sizeof(DataType)>>>(datain, dataout, blockResults, N, op);
+	exclusive_scan_kernel<<<fullBlocksPerGrid, threadsPerBlock, (2*blockSize+2)*sizeof(DataType)>>>(datain, dataout, blockResults, N, op);
 
 	DataType result;
 	if(numBlocks == 1)
@@ -64,7 +71,13 @@ __host__ DataType exclusive_scan(DataType* datain, DataType* dataout, int N, Bin
 		//We've reached the bottom of the stack, grab the answer. Just one element
 		cudaMemcpy( &result, blockResults, sizeof(DataType), cudaMemcpyDeviceToHost);
 	}else{
+
 		result = exclusive_scan(blockResults, blockResults, numBlocks, op);
+
+		//pull result
+		DataType* blockDebug = new DataType[numBlocks];
+		cudaMemcpy( blockDebug, blockResults, numBlocks*sizeof(DataType), cudaMemcpyDeviceToHost);
+
 
 		//sum in blockResults
 		scan_reintegrate_blocks<<<fullBlocksPerGrid, threadsPerBlock>>>(dataout, blockResults, N, op);
@@ -85,7 +98,7 @@ __host__ DataType exclusive_scan_sum(DataType* datain, DataType* dataout, int N)
 template<typename DataType>
 __host__ DataType exclusive_scan_mult(DataType* datain, DataType* dataout, int N)
 {
-	
+
 	Multiply mult;
 	return exclusive_scan(datain, dataout, N, mult);
 }
@@ -95,39 +108,39 @@ __host__ DataType exclusive_scan_mult(DataType* datain, DataType* dataout, int N
 //Based on http://http.developer.nvidia.com/GPUGems3/gpugems3_ch39.html
 //Allows in place scans by setting datain == dataout
 //Only works for an array ptr to device mem.
+//TODO remove bank conflicts
 template<typename DataType, typename BinaryOperation>
 __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, int N, BinaryOperation op)
 {  
 	extern __shared__ float temp[];
 	int index = threadIdx.x;  
 	int offset = 1;  
-	int bdimx = blockDim.x;//get actual temp padded array length
-
+	int n = 2*blockDim.x;//get actual temp padding
 	//Shared memory for access speed
 	//Get modified temp access
 	int ai = index;
-	int bi = index + bdimx;
+	int bi = index + n/2;
 	int bankOffsetA = CONFLICT_FREE_OFFSET(ai);
 	int bankOffsetB = CONFLICT_FREE_OFFSET(bi);
 
 	if(ai < N){
-		temp[ai + bankOffsetA] = datain[ai]; // load input into shared memory  
+		temp[ai+bankOffsetA] = datain[ai]; // load input into shared memory  
 	}else{
-		temp[ai + bankOffsetA] = 0;
+		temp[ai+bankOffsetA] = datain[0];
 	}
 	if(bi < N){
-		temp[bi + bankOffsetB] = datain[bi];  
+		temp[bi+bankOffsetB] = datain[bi];  
 	}else{
-		temp[bi + bankOffsetB] = 0;//if out of range, pad shared memory with zeros.
+		temp[bi+bankOffsetB] = datain[0];//if out of range, pad shared memory with junk (i.e. first element).
 	}
 	__syncthreads();
-	
+
 	//Pre load last element in block in case it gets overwritten later
-	DataType total =  temp[(N - 1) + CONFLICT_FREE_OFFSET(N-1)];
+	DataType total =  temp[(N - 1)+CONFLICT_FREE_OFFSET(N-1)];
 
 	// build sum in place up the tree  
 	// d limits the number of active threads, halving it each iteration.
-	for (int d = bdimx>>1; d > 0; d >>= 1)                  
+	for (int d = n>>1; d > 0; d >>= 1)                  
 	{   
 		__syncthreads();  //Make sure previous step has completed
 		if (index < d)  
@@ -142,11 +155,11 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 		offset *= 2;  //Adjust offset
 	}
 	//Reduction step complete. 
-
-	if (index == 0) { temp[(bdimx*2 - 1) + CONFLICT_FREE_OFFSET(bdimx*2-1)] = 0; } // clear the last element in prep for down scan
+	__syncthreads();
+	if (index == 0) { temp[(n - 1)+CONFLICT_FREE_OFFSET(n-1)] = 0; } // clear the last element in prep for down scan
 
 	//
-	for (int d = 1; d < bdimx; d *= 2) // traverse down tree & build scan  
+	for (int d = 1; d < n; d *= 2) // traverse down tree & build scan  
 	{  
 		offset >>= 1;  
 		__syncthreads();  //wait for previous step to finish
@@ -154,7 +167,8 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 		{  
 			int ai2 = offset*(2*index+1)-1;  
 			int bi2 = offset*(2*index+2)-1;  
-
+			ai2 += CONFLICT_FREE_OFFSET(ai2);
+			bi2 += CONFLICT_FREE_OFFSET(bi2);
 
 			float t = temp[ai2];  
 			temp[ai2] = temp[bi2];  
@@ -169,9 +183,8 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 	if(bi < N)
 		dataout[bi] = temp[bi+bankOffsetB];  
 
-
 	//Return last element of shared memory plus the last element of the array.
-	return total + temp[(bdimx*2 - 1) + CONFLICT_FREE_OFFSET(bdimx*2-1)];
+	return total + temp[(N - 1)+CONFLICT_FREE_OFFSET(N-1)];
 }
 
 ///Explicit template instantiations. Do this to avoid code bloat in .h file.
