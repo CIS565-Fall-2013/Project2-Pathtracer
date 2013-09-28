@@ -402,27 +402,6 @@ void initCuda(){
 	// Clean up on program exit
 	atexit(cleanupCuda);
 
-	for(int i = 0; i < 1000; i++){
-		//Temporary test
-		int size = 4097;
-		float* data = new float[size];
-		for(int i = 0; i < size; i++)
-		{
-			data[i] = 2;
-		}
-
-		float* cudadata = NULL;
-		cudaMalloc((void**)&cudadata, size*sizeof(float));
-		cudaMemcpy( cudadata, data, size*sizeof(float), cudaMemcpyHostToDevice);
-
-		//Perform scan
-		float result = inclusive_scan_sum(cudadata, cudadata, size);
-
-		//pull result
-		cudaMemcpy( data, cudadata, size*sizeof(float), cudaMemcpyDeviceToHost);
-
-		cudaFree(cudadata);
-	}
 	runCuda();
 }
 
