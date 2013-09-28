@@ -73,12 +73,6 @@ __host__ DataType exclusive_scan(DataType* datain, DataType* dataout, int N, Bin
 	}else{
 
 		result = exclusive_scan(blockResults, blockResults, numBlocks, op);
-
-		//pull result
-		DataType* blockDebug = new DataType[numBlocks];
-		cudaMemcpy( blockDebug, blockResults, numBlocks*sizeof(DataType), cudaMemcpyDeviceToHost);
-
-
 		//sum in blockResults
 		scan_reintegrate_blocks<<<fullBlocksPerGrid, threadsPerBlock>>>(dataout, blockResults, N, op);
 	}
@@ -93,7 +87,7 @@ template<typename DataType>
 __global__ void copy_array_kernel(DataType* datain, DataType* dataout, int N)
 {
 	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
-	int blockOffset = blockIndex*blockDim.x*2;
+	int blockOffset = blockIndex*blockDim.x;
 	int index = blockOffset+threadIdx.x;
 
 	dataout[index] = datain[index];
@@ -112,7 +106,7 @@ __global__ void exclusive_to_inclusive_kernel(DataType* datain, DataType* dataou
 		else
 			dataout[indexOut] = result;//Last element of array
 	}
-
+	int test = dataout[indexOut];
 }
 
 
@@ -124,7 +118,7 @@ __host__ void exclusive_to_inclusive(DataType* data, int N, DataType result)
 	dim3 threadsPerBlock(blockSize);;
 	dim3 fullBlocksPerGrid;
 
-	int numBlocks = ceil(float(N)/(blockSize*2));//2 data elements per thread
+	int numBlocks = ceil(float(N)/(blockSize));//1 data elements per thread
 	if(numBlocks > MAX_GRID_DIM_X){
 		fullBlocksPerGrid = dim3(MAX_GRID_DIM_X, (int)ceil( numBlocks / float(MAX_GRID_DIM_X)));
 	}else{
@@ -135,14 +129,6 @@ __host__ void exclusive_to_inclusive(DataType* data, int N, DataType result)
 	DataType* cudatemp;
 	cudaMalloc((void**)&cudatemp, N*sizeof(DataType));
 	exclusive_to_inclusive_kernel<<<fullBlocksPerGrid, threadsPerBlock>>>(data, cudatemp, result, N);
-
-	numBlocks = ceil(float(N)/(blockSize));//1 data elements per thread
-	if(numBlocks > MAX_GRID_DIM_X){
-		fullBlocksPerGrid = dim3(MAX_GRID_DIM_X, (int)ceil( numBlocks / float(MAX_GRID_DIM_X)));
-	}else{
-		fullBlocksPerGrid = dim3(numBlocks);
-	}
-
 	copy_array_kernel<<<fullBlocksPerGrid, threadsPerBlock>>>(cudatemp, data, N);
 	cudaFree(cudatemp);
 
@@ -182,7 +168,7 @@ __host__ DataType exclusive_scan_sum(DataType* datain, DataType* dataout, int N)
 //Based on http://http.developer.nvidia.com/GPUGems3/gpugems3_ch39.html
 //Allows in place scans by setting datain == dataout
 //Only works for an array ptr to device mem.
-//TODO remove bank conflicts
+//TODO: remove bank conflicts
 template<typename DataType, typename BinaryOperation>
 __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, int N, BinaryOperation op)
 {  

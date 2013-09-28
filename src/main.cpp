@@ -76,7 +76,7 @@ int main(int argc, char** argv){
 	raytotals = new int[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
 
 
-	
+
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
 	renderOpts->mode = RAYCOUNT_DEBUG;
@@ -172,9 +172,9 @@ void runCuda(){
 		fps = 0.2*fps + 0.8*CLOCKS_PER_SEC/float(tic-toc);
 
 		// execute the kernel
-		
+
 		cudaRaytraceCore(dptr, renderCam, renderOpts, targetFrame, iterations, frameFilterCounter, raytotals, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
-		
+
 		// unmap buffer object
 		cudaGLUnmapBufferObject(pbo);
 	}else{
@@ -250,7 +250,7 @@ void display(){
 #else
 
 void display(){
-	
+
 
 	runCuda();
 
@@ -402,30 +402,27 @@ void initCuda(){
 	// Clean up on program exit
 	atexit(cleanupCuda);
 
-	//Temporary test
-	int size = 4096;
-	float* data = new float[size];
-	for(int i = 0; i < size; i++)
-	{
-		data[i] = 2;
+	for(int i = 0; i < 1000; i++){
+		//Temporary test
+		int size = 4097;
+		float* data = new float[size];
+		for(int i = 0; i < size; i++)
+		{
+			data[i] = 2;
+		}
+
+		float* cudadata = NULL;
+		cudaMalloc((void**)&cudadata, size*sizeof(float));
+		cudaMemcpy( cudadata, data, size*sizeof(float), cudaMemcpyHostToDevice);
+
+		//Perform scan
+		float result = inclusive_scan_sum(cudadata, cudadata, size);
+
+		//pull result
+		cudaMemcpy( data, cudadata, size*sizeof(float), cudaMemcpyDeviceToHost);
+
+		cudaFree(cudadata);
 	}
-
-	float* cudadata = NULL;
-	cudaMalloc((void**)&cudadata, size*sizeof(float));
-	cudaMemcpy( cudadata, data, size*sizeof(float), cudaMemcpyHostToDevice);
-	
-	float* cudadataout = NULL;
-	cudaMalloc((void**)&cudadataout, size*sizeof(float));
-
-	//Perform scan
-	float result = inclusive_scan_sum(cudadata, cudadataout, size);
-	
-	//pull result
-	cudaMemcpy( data, cudadataout, size*sizeof(float), cudaMemcpyDeviceToHost);
-
-	cudaFree(cudadata);
-	cudaFree(cudadataout);
-
 	runCuda();
 }
 
