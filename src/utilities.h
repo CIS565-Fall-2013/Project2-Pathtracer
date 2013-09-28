@@ -31,6 +31,11 @@
 #define ZERO_ABSORPTION_EPSILON     0.00001
 #define RAY_BIAS_AMOUNT             0.0002
 
+#define MIN(a,b)	((a<b)?a:b)
+#define MAX(a,b)	((a>b)?a:b)
+#define SWAP(x,y,t)    {t=x;x=y;y=t;}
+
+
 namespace utilityCore {
     extern float clamp(float f, float min, float max);
     extern bool replaceString(std::string& str, const std::string& from, const std::string& to);

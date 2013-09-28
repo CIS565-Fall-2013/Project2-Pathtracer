@@ -1,5 +1,11 @@
 #include "cudaAlgorithms.h"
 
+//For easy avoidance of bank conflicts
+#define NUM_BANKS 32  
+#define LOG_NUM_BANKS 5  
+#define CONFLICT_FREE_OFFSET(n)    ((n) >> NUM_BANKS + (n) >> (2 * LOG_NUM_BANKS))  
+
+
 
 //Does a inclusive scan in CUDA for a single block
 //Based on http://http.developer.nvidia.com/GPUGems3/gpugems3_ch39.html
@@ -12,8 +18,13 @@ __device__ DataPtr inclusive_scan_block(DataPtr datain, DataPtr dataout, int N, 
 	int offset = 1;  
 
 	//Shared memory for access speed
-	temp[2*index] = datain[2*index]; // load input into shared memory  
-	temp[2*index+1] = datain[2*index+1];  
+	int ai = index;
+	int bi = index + N/2;
+	int bankOffsetA = CONFLICT_FREE_OFFSET(ai);
+	int bankOffsetB = CONFLICT_FREE_OFFSET(bi);
+
+	temp[ai + bankOffsetA] = datain[ai]; // load input into shared memory  
+	temp[bi + bankOffsetB] = datain[bi];  
 
 	// build sum in place up the tree  
 	// d limits the number of active threads, halving it each iteration.
@@ -22,8 +33,10 @@ __device__ DataPtr inclusive_scan_block(DataPtr datain, DataPtr dataout, int N, 
 		__syncthreads();  //Make sure previous step has completed
 		if (index < d)  
 		{
-			int ai = offset*(2*index+1)-1;  
-			int bi = offset*(2*index+2)-1;  
+			ai = offset*(2*index+1)-1;  
+			bi = offset*(2*index+2)-1;  
+			ai += CONFLICT_FREE_OFFSET(ai);
+			bi += CONFLICT_FREE_OFFSET(bi);
 
 			temp[bi] = op(temp[ai], temp[bi]);  
 		}  
@@ -31,7 +44,7 @@ __device__ DataPtr inclusive_scan_block(DataPtr datain, DataPtr dataout, int N, 
 	}
 	//Reduction step complete. 
 
-	if (index == 0) { temp[N - 1] = 0; } // clear the last element in prep for down scan
+	if (index == 0) { temp[(N - 1) + CONFLICT_FREE_OFFSET(N-1)] = 0; } // clear the last element in prep for down scan
 
 	//
 	for (int d = 1; d < n; d *= 2) // traverse down tree & build scan  
@@ -52,7 +65,7 @@ __device__ DataPtr inclusive_scan_block(DataPtr datain, DataPtr dataout, int N, 
 	__syncthreads();  
 
 	//Store block scan result back to memory.
-	dataout[2*index] = temp[2*index]; // write results to device memory  
-	dataout[2*index+1] = temp[2*index+1];  
+	dataout[ai] = temp[ai+bankOffsetA]; // write results to device memory  
+	dataout[bi] = temp[bi+bankOffsetB];  
 
 }  

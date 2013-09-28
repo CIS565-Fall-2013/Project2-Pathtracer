@@ -53,6 +53,60 @@ __host__ __device__ ray raycastFromCamera(glm::vec2 resolution, float x, float y
 
 }
 
+
+
+__host__ __device__ int estimateNumSamples(int x, int y, glm::vec2 resolution, glm::vec3* colors, renderOptions rconfig)
+{
+	//TODO implement more flexible options
+
+	//Compute RMSD in local window 3x3
+	int n = 0;
+	glm::vec3 accumulator = glm::vec3(0,0,0);
+	for(int yi = MAX(0,y - 1); yi <= MIN(y + 1, resolution.y-1); ++yi)
+	{
+		for(int xi = MAX(0,x - 1); xi <= MIN(x + 1, resolution.x-1); ++xi)
+		{
+			++n;
+			int index = xi + (yi * resolution.x);
+			accumulator += colors[index];
+		}
+	}
+
+	glm::vec3 mean = accumulator/(float)n;
+	accumulator = glm::vec3(0,0,0);
+
+
+	for(int yi = MAX(0,y - 1); yi <= MIN(y + 1, resolution.y-1); ++yi)
+	{
+		for(int xi = MAX(0,x - 1); xi <= MIN(x + 1, resolution.x-1); ++xi)
+		{
+			int index = xi + (yi * resolution.x);
+			accumulator += (colors[index]-mean)*(colors[index]-mean);
+		}
+	}
+
+	glm::vec3 RMSD = glm::sqrt(accumulator/(float)n);
+
+	if(RMSD.x > rconfig.aargbThresholds.x || RMSD.y > rconfig.aargbThresholds.y || RMSD.z > rconfig.aargbThresholds.z)
+	{
+		return rconfig.maxSamplesPerPixel;
+	}
+	else
+	{
+		return 1;
+	}
+
+}
+
+__global__ void requestRays(glm::vec2 resolution, renderOptions rconfig, glm::vec3* colors, int* numRays)
+{
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * resolution.x);
+
+	numRays[index] = estimateNumSamples(x,y,resolution,colors, rconfig);
+}
+
 //Takes the number of rays requested by each pixel from the pool and allocates them stocastically from a single random number
 //scannedRayRequests is an array of ints containing the results of an inclusive scan
 //xi1 is a uniformly distributed random number from 0 to 1
@@ -197,7 +251,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig, int frame, int iterations, int* raycounts, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
 
 	int traceDepth = rconfig->traceDepth; //determines how many bounces the raytracer traces
 	int numPixels = renderCam->resolution.x*renderCam->resolution.y;
@@ -259,6 +313,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 
 	rayState* cudaraypool = NULL;
 	cudaMalloc((void**)&cudaraypool, rayPoolSize*sizeof(rayState));
+	
+	//Array to hold samples per pixel (for adaptive anti-aliasing)
+	int* cudarequestedrays = NULL;
+	cudaMalloc((void**)&cudarequestedrays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
 
 	//package camera
 	cameraData cam;
@@ -268,10 +326,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
 
+	//Allocate rays
+	requestRays<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, *rconfig, cudaimage, cudarequestedrays);
+
+
+	//Perform scan
 
 
 	//Figure out which rays should go to which pixels.
-	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>((float) iterations, *rconfig, cam, cudaimage, cudaraypool, scannedRayRequests, rayPoolSize);
+	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>((float) iterations, *rconfig, cam, cudaimage, cudaraypool, cudarequestedrays, rayPoolSize);
 
 	if(rconfig->mode == RAYCOUNT_DEBUG)
 	{
