@@ -127,7 +127,7 @@ __global__ void scaleImageIntensity(glm::vec2 resolution, glm::vec3* image, int*
 //Takes the number of rays requested by each pixel from the pool and allocates them stocastically from a single random number
 //scannedRayRequests is an array of ints containing the results of an inclusive scan
 //xi1 is a uniformly distributed random number from 0 to 1
-__global__ void allocateRayPool(float xi1, renderOptions rconfig, cameraData cam, glm::vec3* cudaimage, rayState* cudaraypool, int* scannedRayRequests, int numRays)
+__global__ void allocateRayPool(float xi1, renderOptions rconfig, cameraData cam, glm::vec3* cudaimage, rayState* cudaraypool, int* scannedRayRequests, int*  raytotals, int numRays)
 {
 	//1D blocks and 2D grid
 
@@ -156,7 +156,9 @@ __global__ void allocateRayPool(float xi1, renderOptions rconfig, cameraData cam
 			float P = float(scannedRayRequests[numPixels-1])/numRays;//compute stochastic interval
 			float start = xi1*P;
 			cudaraypool[rIndex].index = ((int)(floor(start+P*(rIndex))) % numPixels);
+			
 		}
+		atomicAdd(&raytotals[cudaraypool[rIndex].index], 1); 
 
 	}
 }
@@ -314,8 +316,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 
 	//send image to GPU
 	glm::vec3* cudaimage = NULL;
-	cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
-	cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+	cudaMalloc((void**)&cudaimage, numPixels*sizeof(glm::vec3));
+	cudaMemcpy( cudaimage, renderCam->image, numPixels*sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
 	//package geometry and materials and sent to GPU
 	staticGeom* geomList = new staticGeom[numberOfGeoms];
@@ -362,7 +364,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	if(!rconfig->frameFiltering || frameFilterCounter <= 1)
 	{
 		clearIntBuffer<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaraytotals);
-		clearImage<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage);\
+		clearImage<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage);
 		
 	}else{
 		scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, cudaraytotals, true);
@@ -378,11 +380,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 
 	thrust::default_random_engine rng(hash(iterations));
 	thrust::uniform_real_distribution<float> u01(0,1);
-	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(u01(rng), *rconfig, cam, cudaimage, cudaraypool, cudarequestedrays, rayPoolSize);
+	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(u01(rng), *rconfig, cam, cudaimage, cudaraypool, cudarequestedrays, cudaraytotals, rayPoolSize);
 	
 	if(rconfig->mode == RAYCOUNT_DEBUG)
 	{
-		displayRayCounts<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, cudaimage, cudaraypool, rayPoolSize, rconfig->maxSamplesPerPixel);
+		displayRayCounts<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, cudaimage, cudaraypool, rayPoolSize,2.0f);
 	}else{
 
 
@@ -407,6 +409,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	cudaFree( cudageoms );
 	cudaFree( cudamaterials );
 	cudaFree( cudaraypool );
+	cudaFree( cudaraytotals);
 	delete [] geomList;
 
 	// make certain the kernel has completed 
