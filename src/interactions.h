@@ -63,11 +63,10 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
                                        glm::vec3& color, glm::vec3& unabsorbedColor, material m, float randomSeed){
 
   r.origin = intersect;
+  normal = glm::normalize(normal);
   thrust::default_random_engine rng(hash(randomSeed));
   thrust::uniform_real_distribution<float> u01(0,1);
 
-  r.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal,u01(rng),u01(rng)));
-  return 0;
  
   if (m.diffuseCoefficient>0.0f && m.hasReflective)
   {

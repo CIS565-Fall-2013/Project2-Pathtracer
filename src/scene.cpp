@@ -227,7 +227,28 @@ int scene::loadMaterial(string materialid){
 	}else{
 		cout << "Loading Material " << id << "..." << endl;
 		material newMaterial;
-	
+
+		string line;
+        //load object type 
+   //     utilityCore::safeGetline(fp_in,line);
+   //     if (!line.empty() && fp_in.good()){
+   //         if(strcmp(line.c_str(), "base")==0){
+   //             cout << "Creating new base material..." << endl;
+			//	newMaterial.type = BASE;
+   //         }else if(strcmp(line.c_str(), "grid")==0){
+   //             cout << "Creating new grid material..." << endl;
+			//	newMaterial.type = GRID;
+			//}else if(strcmp(line.c_str(), "vstripe")==0){
+   //             cout << "Creating new grid material..." << endl;
+			//	newMaterial.type = VSTRIPE;
+			//}else if(strcmp(line.c_str(), "hstripe")==0){
+   //             cout << "Creating new grid material..." << endl;
+			//	newMaterial.type = HSTRIPE;
+			//}else if(strcmp(line.c_str(), "marble")==0){
+   //             cout << "Creating new grid material..." << endl;
+			//	newMaterial.type = MARBLE;
+			//}
+ 
 		//load static properties
 		for(int i=0; i<10; i++){
 			string line;
@@ -265,3 +286,4 @@ int scene::loadMaterial(string materialid){
 		return 1;
 	}
 }
+	

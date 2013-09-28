@@ -126,9 +126,9 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   if(x<=resolution.x && y<=resolution.y){
 
       glm::vec3 color;    
-      color.x = image[index].x*255.0;
-      color.y = image[index].y*255.0;
-      color.z = image[index].z*255.0;
+      color.x = image[index].x*255.0/iterations;
+      color.y = image[index].y*255.0/iterations;
+      color.z = image[index].z*255.0/iterations;
 
       if(color.x>255){
         color.x = 255;
@@ -143,44 +143,10 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
       }
       
       // Each thread writes one pixel location in the texture (textel)
-	  if (iterations == 1)
-	  {
       PBOpos[index].w = 0;
       PBOpos[index].x = color.x;     
       PBOpos[index].y = color.y;
       PBOpos[index].z = color.z;
-	  }
-
-	  else
-	  {
-		  float x = PBOpos[index].x;
-		  float y = PBOpos[index].y;
-		  float z = PBOpos[index].z;
-
-		  PBOpos[index].x = (x*(iterations-1)+color.x)/iterations;
-		  PBOpos[index].y = (y*(iterations-1)+color.y)/iterations;
-		  PBOpos[index].z = (z*(iterations-1)+color.z)/iterations;
-
-	  }
-	  //else
-	  //{
-		 // int currentIteration = iterations+1;
-		 // PBOpos[index].x *= (iterations);
-		 // PBOpos[index].y *= (iterations);
-		 // PBOpos[index].z *= (iterations);
-
-		 // float x = PBOpos[index].x;
-		 // float y = PBOpos[index].y;
-		 // float z = PBOpos[index].z;
-
-		 // x = (x*iterations + color.x)/currentIteration;
-		 // y = (y*iterations + color.y)/currentIteration;
-		 // z = (z*iterations + color.z)/currentIteration;
-		 //
-		 // PBOpos[index].x = x;
-		 // PBOpos[index].y = y;
-		 // PBOpos[index].z = z;
-	  //}
 
   }
 }
@@ -198,8 +164,9 @@ __global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec3* imag
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * resolution.x);
-    if(x<=resolution.x && y<=resolution.y && rays[index].active){
-		image[index] = glm::vec3(0,0,0);
+    if(x<=resolution.x && y<=resolution.y ){
+		if (!rays[index].active)
+			image[index]+= rays[index].rayColor;
     }
 }
 
@@ -218,11 +185,14 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 	r.active = true;
 	r.pixelIndex = glm::vec2(x,y);
-	colors[index] = glm::vec3(1,1,1); //White initially
-	rays[index].origin = r.origin;
-	rays[index].direction = r.direction;
-	rays[index].active = r.active;
+	r.rayColor = glm::vec3(1,1,1);
+	rays[index].rayColor = glm::vec3(1,1,1);
 	rays[index].pixelIndex = r.pixelIndex;
+	//rays[index].rayColor = glm::vec3(1,1,1); //White initially
+	//rays[index].origin = r.origin;
+	//rays[index].direction = r.direction;
+	//rays[index].active = r.active;
+	//rays[index].pixelIndex = r.pixelIndex;
   }
   else
   {
@@ -240,50 +210,51 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 
 	if (objId == -1)
 	{
-		r.active = false;
+		//r.active = false;
 		rays[index].active = false;
-		colors[index] = glm::vec3(0,0,0);
+		rays[index].rayColor = glm::vec3(0,0,0);
 		return;
 	}
 	material mtl = materials[geoms[objId].materialid];
 	/*if (isLight(objId,lights,numberOfLights))*/
 	if (objId == 8)
 	{
-		r.active = false;
+		//r.active = false;
 		rays[index].active = false;
-		colors[index].x *= mtl.color.x;
-		colors[index].y *= mtl.color.y;
-		colors[index].z *= mtl.color.z;
+		rays[index].rayColor.x *= mtl.color.x*mtl.emittance;
+		rays[index].rayColor.y *= mtl.color.y*mtl.emittance;
+		rays[index].rayColor.z *= mtl.color.z*mtl.emittance;
 		return;
 	}
 
 	glm::vec3 emittedColor;
 	glm::vec3 unabsorbedColor;
-	int bsdf = calculateBSDF(r,intersectionPoint,intersectionNormal,emittedColor,colors[index],unabsorbedColor,mtl,index);
+	int bsdf = calculateBSDF(r,intersectionPoint,intersectionNormal,emittedColor,colors[index],unabsorbedColor,mtl,bounce*time*index);
 	
 	if (bsdf == 0)
 	{		
-		colors[index].x *= mtl.color.x;
-		colors[index].y *= mtl.color.y;
-		colors[index].z *= mtl.color.z;
+		r.rayColor.x *= mtl.color.x;
+		r.rayColor.y *= mtl.color.y;
+		r.rayColor.z *= mtl.color.z;
 	}
 	else if(bsdf == 1)
 	{
-		colors[index].x *= mtl.specularColor.x;
-		colors[index].y *= mtl.specularColor.y;
-		colors[index].z *= mtl.specularColor.z;
+		r.rayColor.x *= mtl.specularColor.x;
+		r.rayColor.y *= mtl.specularColor.y;
+		r.rayColor.z *= mtl.specularColor.z;
 	}
 	else if (bsdf == 2)
 	{
-		colors[index].x = mtl.color.x;
-		colors[index].y = mtl.color.y;
-		colors[index].z = mtl.color.z;
+		r.rayColor.x = mtl.color.x;
+		r.rayColor.y = mtl.color.y;
+		r.rayColor.z = mtl.color.z;
 	}
 
 	rays[index].origin = r.origin + 0.001f*r.direction;
 	rays[index].direction = r.direction;
 	rays[index].active = r.active;
 	rays[index].pixelIndex = r.pixelIndex;
+	rays[index].rayColor = r.rayColor;
 	//colors[index] = glm::abs(r.direction);
     //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
    }
@@ -355,7 +326,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.fov = renderCam->fov;
 
   //kernel launches
-  for(int bounce = 1; bounce <= 4; ++bounce)
+  for(int bounce = 1; bounce <= 3; ++bounce)
   {
 	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays);
   }
@@ -365,7 +336,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-  clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaimage);
+  //clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaimage);
   //free up stuff, or else we'll leak memory like a madman
   cudaFree( cudaimage );
   cudaFree( cudageoms );

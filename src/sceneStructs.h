@@ -19,6 +19,7 @@ struct ray {
 	glm::vec3 direction;
 	bool active;
 	glm::vec2 pixelIndex;
+	glm::vec3 rayColor;
 };
 
 struct geom {
