@@ -273,11 +273,20 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	
 }
 
-//__global__ void createBinaryArray(ray* rays,int* activeRaysArray, int lastIndex)
-//{
-//  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-//  int y = (blockIdx.y * blockDim.y) + threadIdx.y;	
-//}
+__global__ void createBinaryActiveArray(glm::vec2 resolution,ray* rays,int* activeRaysArray, int* lastIndex)
+{
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+	if (index <= lastIndex[0])
+	{
+		activeRaysArray[index] = rays[index].active?1:0;
+	}
+}
+
+__host__ void parallelScanActiveArray(int* cudaActiveArray,int* lastIndex)
+{
+	int i;
+}
 //
 //__global__ void streamCompact(ray* rays, int* activeRaysArray int lastIndex)
 //{
@@ -306,10 +315,18 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
    //package lights
   std::vector<int> lightsVector;
 
-  ray* rays = new ray[ (int)renderCam->resolution.x*(int)renderCam->resolution.y];
+  //ray* rays = new ray[ (int)renderCam->resolution.x*(int)renderCam->resolution.y];
   ray* cudarays = NULL;
   cudaMalloc((void**)&cudarays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
-  cudaMemcpy( cudarays, rays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray), cudaMemcpyHostToDevice);
+  //cudaMemcpy( cudarays, rays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray), cudaMemcpyHostToDevice);
+
+  int* cudaActiveArray = NULL;
+  cudaMalloc((void**)&cudaActiveArray, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
+  
+  int* streamCompactionLastIndex = NULL;
+  int hLastIndex = numberOfThreads - 1;
+  cudaMalloc((void**)&streamCompactionLastIndex,sizeof(int));
+  cudaMemcpy( streamCompactionLastIndex, initialIndex, sizeof(int));
 
   //package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
@@ -354,6 +371,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   for(int bounce = 1; bounce <= 3; ++bounce)
   {
 	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays);
+	//createBinaryActiveArray<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays,cudaActiveArray,streamCompactionLastIndex);
+	//parallelScanActiveArray(cudaActiveArray,hLastIndex);
   }
   clearActiveRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays, cudaimage);
   
@@ -369,7 +388,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree(cudalights);
   cudaFree(cudarays);
   delete [] geomList;
-  delete [] rays;
+  //delete [] rays;
 
   // make certain the kernel has completed 
   cudaThreadSynchronize();
