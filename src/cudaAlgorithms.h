@@ -46,13 +46,11 @@ __host__ __device__ float operator() (float a, float b) {return (a*b);}
 
 template<typename DataType>
 __host__ DataType exclusive_scan_sum(DataType* datain, DataType* dataout, int N);
-
-template<typename DataType>
-__host__ DataType exclusive_scan_mult(DataType* datain, DataType* dataout, int N);
-
-
 template<typename DataType, typename BinaryOperation>
 __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, int N, BinaryOperation op);
 
+
+template<typename DataType>
+__host__ DataType inclusive_scan_sum(DataType* datain, DataType* dataout, int N);
 
 #endif

@@ -43,7 +43,7 @@ __global__ 	void scan_reintegrate_blocks(DataType* dataout, DataType* blockResul
 	}
 }
 
-//Generic 
+//Generic exclusive scan algorithm
 template<typename DataType, typename BinaryOperation>
 __host__ DataType exclusive_scan(DataType* datain, DataType* dataout, int N, BinaryOperation op)
 {
@@ -88,19 +88,93 @@ __host__ DataType exclusive_scan(DataType* datain, DataType* dataout, int N, Bin
 }
 
 
+
+template<typename DataType>
+__global__ void copy_array_kernel(DataType* datain, DataType* dataout, int N)
+{
+	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
+	int blockOffset = blockIndex*blockDim.x*2;
+	int index = blockOffset+threadIdx.x;
+
+	dataout[index] = datain[index];
+}
+
+template<typename DataType>
+__global__ void exclusive_to_inclusive_kernel(DataType* datain, DataType* dataout, DataType result, int N)
+{
+	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
+	int blockOffset = blockIndex*blockDim.x;
+	int indexOut = blockOffset+threadIdx.x;
+
+	if(indexOut < N){
+		if(indexOut < N - 1)
+			dataout[indexOut] = datain[indexOut+1];
+		else
+			dataout[indexOut] = result;//Last element of array
+	}
+
+}
+
+
+//Shift exclusive to inclusive results
+template<typename DataType>
+__host__ void exclusive_to_inclusive(DataType* data, int N, DataType result)
+{
+	int blockSize = MAX_BLOCK_DIM_X;
+	dim3 threadsPerBlock(blockSize);;
+	dim3 fullBlocksPerGrid;
+
+	int numBlocks = ceil(float(N)/(blockSize*2));//2 data elements per thread
+	if(numBlocks > MAX_GRID_DIM_X){
+		fullBlocksPerGrid = dim3(MAX_GRID_DIM_X, (int)ceil( numBlocks / float(MAX_GRID_DIM_X)));
+	}else{
+		fullBlocksPerGrid = dim3(numBlocks);
+	}
+
+	//TODO: avoid the copy step.
+	DataType* cudatemp;
+	cudaMalloc((void**)&cudatemp, N*sizeof(DataType));
+	exclusive_to_inclusive_kernel<<<fullBlocksPerGrid, threadsPerBlock>>>(data, cudatemp, result, N);
+
+	numBlocks = ceil(float(N)/(blockSize));//1 data elements per thread
+	if(numBlocks > MAX_GRID_DIM_X){
+		fullBlocksPerGrid = dim3(MAX_GRID_DIM_X, (int)ceil( numBlocks / float(MAX_GRID_DIM_X)));
+	}else{
+		fullBlocksPerGrid = dim3(numBlocks);
+	}
+
+	copy_array_kernel<<<fullBlocksPerGrid, threadsPerBlock>>>(cudatemp, data, N);
+	cudaFree(cudatemp);
+
+}
+
+
+template<typename DataType, typename BinaryOperation>
+__host__ DataType inclusive_scan(DataType* datain, DataType* dataout, int N, BinaryOperation op)
+{
+	//Run exclusive scan
+	DataType result = exclusive_scan(datain, dataout, N, op);
+
+	//Shift result
+	exclusive_to_inclusive(dataout, N, result);
+
+	return result;
+}
+
+
+
+template<typename DataType>
+__host__ DataType inclusive_scan_sum(DataType* datain, DataType* dataout, int N)
+{
+	Add add;
+	return inclusive_scan(datain, dataout, N, add);
+}
+
 template<typename DataType>
 __host__ DataType exclusive_scan_sum(DataType* datain, DataType* dataout, int N)
 {
 	Add add;
 	return exclusive_scan(datain, dataout, N, add);
-}
-
-template<typename DataType>
-__host__ DataType exclusive_scan_mult(DataType* datain, DataType* dataout, int N)
-{
-
-	Multiply mult;
-	return exclusive_scan(datain, dataout, N, mult);
 }
 
 
@@ -190,3 +264,6 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 ///Explicit template instantiations. Do this to avoid code bloat in .h file.
 template int exclusive_scan_sum<int>(int*, int*, int);
 template float exclusive_scan_sum<float>(float*, float*, int);
+
+template int inclusive_scan_sum<int>(int*, int*, int);
+template float inclusive_scan_sum<float>(float*, float*, int);
