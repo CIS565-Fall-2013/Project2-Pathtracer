@@ -107,6 +107,23 @@ __global__ void requestRays(glm::vec2 resolution, renderOptions rconfig, glm::ve
 	numRays[index] = estimateNumSamples(x,y,resolution,colors, rconfig);
 }
 
+
+
+__global__ void scaleImageIntensity(glm::vec2 resolution, glm::vec3* image, int* scaleFactor, bool scaleUp)
+{
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * resolution.x);
+	float sf = scaleFactor[index];
+
+	if(!scaleUp)
+		sf = 1.0f/scaleFactor[index];
+
+	if(x<resolution.x && y<resolution.y){
+		image[index] = sf*image[index];
+	}
+}
+
 //Takes the number of rays requested by each pixel from the pool and allocates them stocastically from a single random number
 //scannedRayRequests is an array of ints containing the results of an inclusive scan
 //xi1 is a uniformly distributed random number from 0 to 1
@@ -327,7 +344,12 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 
 	//Array to hold samples per pixel (for adaptive anti-aliasing)
 	int* cudarequestedrays = NULL;
-	cudaMalloc((void**)&cudarequestedrays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
+	cudaMalloc((void**)&cudarequestedrays, numPixels*sizeof(int));
+
+	//Array to hold accumulated ray totals
+	int* cudaraytotals = NULL;
+	cudaMalloc((void**)&cudaraytotals, numPixels*sizeof(int));
+	cudaMemcpy( cudaraytotals, raytotals, numPixels*sizeof(int), cudaMemcpyHostToDevice);
 
 	//package camera
 	cameraData cam;
@@ -337,37 +359,48 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
 
-	if(frameFilterCounter == 0)
+	if(!rconfig->frameFiltering || frameFilterCounter <= 1)
 	{
-		clearIntBuffer<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, raytotals);
+		clearIntBuffer<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaraytotals);
+		clearImage<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage);\
+		
+	}else{
+		scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, cudaraytotals, true);
 	}
-
+	
 	//Allocate rays
 	requestRays<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, *rconfig, cudaimage, cudarequestedrays);
-
-
+	
 	//Perform scan
-
-
+	inclusive_scan_sum(cudarequestedrays, cudarequestedrays, numPixels);
+	
 	//Figure out which rays should go to which pixels.
 
 	thrust::default_random_engine rng(hash(iterations));
 	thrust::uniform_real_distribution<float> u01(0,1);
 	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(u01(rng), *rconfig, cam, cudaimage, cudaraypool, cudarequestedrays, rayPoolSize);
-
+	
 	if(rconfig->mode == RAYCOUNT_DEBUG)
 	{
-		clearImage<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(cam.resolution, cudaimage);
 		displayRayCounts<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, cudaimage, cudaraypool, rayPoolSize, rconfig->maxSamplesPerPixel);
 	}else{
 
 
 	}
+	
+
+	if(rconfig->frameFiltering)
+	{
+		scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, cudaraytotals, false);
+	}
+
+	
+	//retrieve image from GPU
+	cudaMemcpy( renderCam->image, cudaimage, numPixels*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+	cudaMemcpy( raytotals, cudaraytotals, numPixels*sizeof(int), cudaMemcpyDeviceToHost);
 
 	sendImageToPBO<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(PBOpos, renderCam->resolution, cudaimage);
 
-	//retrieve image from GPU
-	cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
 	//free up stuff, or else we'll leak memory like a madman
 	cudaFree( cudaimage );
@@ -378,6 +411,5 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 
 	// make certain the kernel has completed 
 	cudaThreadSynchronize();
-
 	checkCUDAError("Kernel failed!");
 }

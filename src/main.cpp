@@ -73,16 +73,16 @@ int main(int argc, char** argv){
 	width = renderCam->resolution[0];
 	height = renderCam->resolution[1];
 	//Allocate raytotals to zero
-	raytotals = new int[(int)renderCam->resolution.x*(int)renderCam->resolution.y];
-
+	raytotals = new int[(int)renderCam->resolution.x*(int)renderCam->resolution.y]();
+	
 
 
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
 	renderOpts->mode = RAYCOUNT_DEBUG;
 	renderOpts->traceDepth = 1;
-	renderOpts->rayPoolSize = 1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
-	renderOpts->forceOnePerPixel = false;
+	renderOpts->rayPoolSize = 2.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
+	renderOpts->forceOnePerPixel = true;
 	//Note, these constants must sum to 1.
 	renderOpts->ambientLightColor = glm::vec3(1,1,1);
 	renderOpts->ambientLightIntensity = 0.05;
