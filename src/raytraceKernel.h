@@ -27,5 +27,6 @@ void cudaFreeMemory();
 
 void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool& clear);
 
+void cudaStreamCompaction(dim3& rayPoolBlocks, dim3 rayPoolThreads, int tileSize, int imageSize, int tracDepth, int& numRays, int currTraceDepth);
 
 #endif
