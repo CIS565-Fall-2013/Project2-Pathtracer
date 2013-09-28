@@ -104,9 +104,10 @@ void runCuda(){
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  
+
   if(iterations<renderCam->iterations){
     uchar4 *dptr=NULL;
+	
     iterations++;
     cudaGLMapBufferObject((void**)&dptr, pbo);
   
@@ -123,7 +124,7 @@ void runCuda(){
     
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size());
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -142,8 +143,9 @@ void runCuda(){
       
       gammaSettings gamma;
       gamma.applyGamma = true;
-      gamma.gamma = 1.0;
-      gamma.divisor = 1.0; //renderCam->iterations;
+      gamma.gamma = 1.0/2.2;
+      //gamma.divisor = renderCam->iterations;
+	  gamma.divisor = 1;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -201,7 +203,7 @@ void runCuda(){
 	void display(){
 		runCuda();
 
-		string title = "565PathTracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
+		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
 		glutSetWindowTitle(title.c_str());
 
 		glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);

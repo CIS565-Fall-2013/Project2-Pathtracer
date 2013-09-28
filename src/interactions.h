@@ -8,16 +8,54 @@
 
 #include "intersections.h"
 
+struct Fresnel {
+  float reflectionCoefficient;
+  float transmissionCoefficient;
+};
+
+struct AbsorptionAndScatteringProperties{
+    glm::vec3 absorptionCoefficient;
+    float reducedScatteringCoefficient;
+};
+
 //forward declaration
+__host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2);
-__host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2);
+__host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance);
+__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident);
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
-__host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance);
+__host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2);
 
-// TODO: Calculate Transmission
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance) {
   return glm::vec3(0,0,0);
+}
+
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
+                                                        glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3){
+  return false;
+}
+
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR) {
+  return glm::vec3(0,0,0);
+}
+
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
+ 
+  return incident - 2.0f * normal * glm::dot(incident, normal);
+}
+
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
+  Fresnel fresnel;
+
+  fresnel.reflectionCoefficient = 1;
+  fresnel.transmissionCoefficient = 0;
+  return fresnel;
 }
 
 //LOOK: This function demonstrates cosine weighted random direction generation in a sphere!
@@ -45,30 +83,16 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
     glm::vec3 perpendicularDirection2 = glm::normalize(glm::cross(normal, perpendicularDirection1));
     
     return ( up * normal ) + ( cos(around) * over * perpendicularDirection1 ) + ( sin(around) * over * perpendicularDirection2 );
-    
 }
-
-// Compute reflected direction
-__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
- 
-  return incident - 2.0f * normal * glm::dot(incident, normal);
-}
-
-// TODO: Compute Fresnel refraction
-__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
-  Fresnel fresnel;
-
-  fresnel.reflectionCoefficient = 1;
-  fresnel.transmissionCoefficient = 0;
-  return fresnel;
-}
-
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Now that you know how cosine weighted direction generation works, try implementing non-cosine (uniform) weighted random direction generation.
 //This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
-__host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
-  	float theta = 2.0f * PI * xi1;
+//Note that here, xi1 and xi2 are random numbers in the range of (0,1)
+//http://mathworld.wolfram.com/SpherePointPicking.html
+__host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) 
+{
+	float theta = 2.0f * PI * xi1;
 	float phi = acosf(2 * xi2 - 1);
 
 	float x = sin(phi) * sin(theta);
@@ -77,5 +101,14 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 
 	return glm::normalize(glm::vec3(x,y,z));
 }
+
+//TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
+//returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
+__host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
+                                       AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
+                                       glm::vec3& color, glm::vec3& unabsorbedColor, material m){
+
+  return 1;
+};
 
 #endif

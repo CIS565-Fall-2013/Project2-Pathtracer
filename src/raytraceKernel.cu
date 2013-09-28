@@ -8,13 +8,27 @@
 #include <stdio.h>
 #include <cuda.h>
 #include <cmath>
+#include <vector>
+#include <vector>
+#include <time.h>
 #include "sceneStructs.h"
+#include "glm/glm.hpp"
 #include "utilities.h"
 #include "raytraceKernel.h"
 #include "intersections.h"
 #include "interactions.h"
-#include <vector>
-#include "glm/glm.hpp"
+
+using glm::vec3;
+using glm::cross;
+using glm::length;
+using glm::dot;
+using glm::normalize;
+
+#if CUDA_VERSION >= 5000
+    #include <helper_math.h>
+#else
+    #include <cutil_math.h>
+#endif
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -26,6 +40,7 @@ void checkCUDAError(const char *msg) {
 
 //LOOK: This function demonstrates how to use thrust for random number generation on the GPU!
 //Function that generates static.
+//Thrust doc: https://developer.nvidia.com/thrust
 __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolution, float time, int x, int y){
   int index = x + (y * resolution.x);
    
@@ -35,10 +50,11 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
   return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
 }
 
-//Kernel that does the initial raycast from the camera.
-__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
-
-	  ray r;
+//TODO: IMPLEMENT THIS FUNCTION
+//Function that does the initial raycast from the camera
+__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
+{
+  ray r;
   float width = resolution.x;
   float height = resolution.y;
   vec3 M = eye + view;
@@ -53,40 +69,6 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
   r.origin = P;
   r.direction = DN;
   return r;
-
-  //int index = x + (y * resolution.x);
-  // 
-  //thrust::default_random_engine rng(hash(index*time));
-  //thrust::uniform_real_distribution<float> u01(0,1);
-  //
-  ////standard camera raycast stuff
-  //glm::vec3 E = eye;
-  //glm::vec3 C = view;
-  //glm::vec3 U = up;
-  //float fovx = fov.x;
-  //float fovy = fov.y;
-  //
-  //float CD = glm::length(C);
-  //
-  //glm::vec3 A = glm::cross(C, U);
-  //glm::vec3 B = glm::cross(A, C);
-  //glm::vec3 M = E+C;
-  //glm::vec3 H = (A*float(CD*tan(fovx*(PI/180))))/float(glm::length(A));
-  //glm::vec3 V = (B*float(CD*tan(-fovy*(PI/180))))/float(glm::length(B));
-  //
-  //float sx = (x)/(resolution.x-1);
-  //float sy = (y)/(resolution.y-1);
-  //
-  //glm::vec3 P = M + (((2*sx)-1)*H) + (((2*sy)-1)*V);
-  //glm::vec3 PmE = P-E;
-  //glm::vec3 R = E + (float(200)*(PmE))/float(glm::length(PmE));
-  //
-  //glm::vec3 direction = glm::normalize(R);
-  ////major performance cliff at this point, TODO: find out why!
-  //ray r;
-  //r.origin = eye;
-  //r.direction = direction;
-  //return r;
 }
 
 //Kernel that blacks out a given image buffer
@@ -99,21 +81,28 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
     }
 }
 
-//Kernel that writes the image to the OpenGL PBO directly. 
+//Kernel that writes the image to the OpenGL PBO directly.
 __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolution, glm::vec3* image, glm::vec3* imageAccumd){
   
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
   
-  if(x<=resolution.x && y<=resolution.y){
+  if(x<=resolution.x && y<=resolution.y)
+  {
+      glm::vec3 color;
 
-      glm::vec3 color;      
 	  imageAccumd[index] = (imageAccumd[index] * (iteration - 1) + image[index]) / iteration;
 
       color.x = imageAccumd[index].x*255.0;
       color.y = imageAccumd[index].y*255.0;
       color.z = imageAccumd[index].z*255.0;
+
+
+
+      //color.x = image[index].x*255.0;
+      //color.y = image[index].y*255.0;
+      //color.z = image[index].z*255.0;
 
       if(color.x>255){
         color.x = 255;
@@ -129,7 +118,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
       
       // Each thread writes one pixel location in the texture (textel)
       PBOpos[index].w = 0;
-      PBOpos[index].x = color.x;     
+      PBOpos[index].x = color.x;
       PBOpos[index].y = color.y;
       PBOpos[index].z = color.z;
   }
@@ -142,7 +131,8 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
 //		   ray r: the ray that is to be intersected with all the geometry
 // Output: vec3 isectPoint: holders the intersection point.
 //		   vec3 isectNormal: holds the normal at the intersection point.
-//		   int matId: the index of the material of the intersected geometry	   
+//		   int matId: the index of the material of the intersected geometry
+//		   
 __device__ float intersectionTest(staticGeom* geoms, int numberOfGeoms, ray r, vec3 &isectPoint, vec3 &isectNormal, int &matId)
 {
 	float t = FLT_MAX;
@@ -226,7 +216,7 @@ __device__ vec3 shadowFeeler(staticGeom* geoms, int numberOfGeoms, material* mat
 
 		t = intersectionTest(geoms, numberOfGeoms, shadowRay, shadowRayIsectPoint, shadowRayIsectNormal, shadowRayIsectMatId);
 
-		if (t != -1)
+		if (t != FLT_MAX)
 			hitLight += materials[shadowRayIsectMatId].emittance / (materials[shadowRayIsectMatId].emittance + eps);
 	}
 
@@ -255,11 +245,11 @@ __device__ void raytraceRay(ray r, float ssratio, int index, int rayDepth, glm::
 	vec3 isectPoint = vec3(0,0,0);
 	vec3 isectNormal = vec3(0,0,0);
 	int matId = -1;
-	float t = -1;
+	float t = FLT_MAX;
 
 	t = intersectionTest(geoms, numberOfGeoms, r, isectPoint, isectNormal, matId); 
 
-	if (t != -1)
+	if (t != FLT_MAX)
 	{
 		material isectMat = cudamat[matId];
 		
@@ -276,6 +266,10 @@ __device__ void raytraceRay(ray r, float ssratio, int index, int rayDepth, glm::
 			vec3 reflectedIsectNormal = vec3(0,0,0);
 			int reflectedMatId = -1;
 			float rt = intersectionTest(geoms, numberOfGeoms, reflectedRay, reflectedIsectPoint, reflectedIsectNormal, reflectedMatId);
+			 
+			//if (rt != FLT_MAX)
+			//	reflectedColor = isectMat.hasReflective * cudamat[reflectedMatId].color;
+			// end temp
 
 			// recurse
 			raytraceRay(reflectedRay, ssratio, index, rayDepth+1, colors, cam, geoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, ti);
@@ -322,11 +316,44 @@ __device__ void raytraceRay(ray r, float ssratio, int index, int rayDepth, glm::
 	}
 
 	colors[index] = color;
+
+	  ////////////////
+	  // debug code //
+	  ////////////////
+
+	  // debugging normal
+	  //colors[index] = isectNormal * isectNormal;
+
+
+	  // intersection check
+	  //if (t != FLT_MAX)
+	  //{
+		 // if (t == -100) // no normal was calculated.
+			//  colors[index] = vec3(0,0,0);
+		 // else
+			//  colors[index] = cudamat[matId].color;
+	  //}
+	  //else
+	  //{
+		 // colors[index] = vec3(0.5,0.5,0.5);
+	  //}
+
+	  // material check
+	  //if (numberOfMat == 7)
+		 // colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+	  //else
+		 // colors[index] = vec3(0,0,0);
+
+	  // light check
+	  //if (cudalights[0].emittance == 1 && cudalights[1].emittance == 15)
+		 // colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+	  //else
+		 // colors[index] = vec3(0,0,0);
 }
 
-// TODO: Figure out what bounce is used for.
+
 // Calls Core raytracer kernel starting from eye
-__global__ void launchRaytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec3* colors,
+__global__ void launchRaytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms, material* cudamat, int numberOfMat, int* cudalightIndex, int numberOfLights)
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -354,94 +381,111 @@ __global__ void launchRaytraceRay(glm::vec2 resolution, float time, float bounce
 	colors[index] = color;
 }
 
-//TODO: FINISH THIS FUNCTION
+
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
-  
-	int traceDepth = 1; //determines how many bounces the raytracer traces
-  
-	// increase stack size so recursion can be used.
-	cudaDeviceSetLimit(cudaLimitStackSize, 5000*sizeof(int)); 
-  
-	// set up crucial magic
-	int tileSize = 8;
-	dim3 threadsPerBlock(tileSize, tileSize);
-	dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
-  
-	//send image to GPU
-	glm::vec3* cudaimage = NULL;
-	cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
-	cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
-	 
-	//package geometry and materials and sent to GPU
-	int numberOfLights = 0;
-	std::vector<int> lightIndices;
-	staticGeom* geomList = new staticGeom[numberOfGeoms];
-	for(int i=0; i<numberOfGeoms; i++){
-		staticGeom newStaticGeom;
-		newStaticGeom.type = geoms[i].type;
-		newStaticGeom.materialid = geoms[i].materialid;
-		newStaticGeom.translation = geoms[i].translations[frame];
-		newStaticGeom.rotation = geoms[i].rotations[frame];
-		newStaticGeom.scale = geoms[i].scales[frame];
-		newStaticGeom.transform = geoms[i].transforms[frame];
-		newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
-		geomList[i] = newStaticGeom;
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
+{
 
-		if (materials[newStaticGeom.materialid].emittance != 0)
-		{
-			numberOfLights++;
-			lightIndices.push_back(i);
-		}
-	}
+  // increase stack size so recursion can be used.
+  cudaDeviceSetLimit(cudaLimitStackSize, 5000*sizeof(int)); 
+
   
-	staticGeom* cudageoms = NULL;
-	cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
-	cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+  int traceDepth = 1; //determines how many bounces the raytracer traces
+
+  // set up crucial magic
+  int tileSize = 8;
+  dim3 threadsPerBlock(tileSize, tileSize);
+  dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
   
-	material* cudamaterials = NULL;
-	cudaMalloc((void**)&cudamaterials, numberOfMaterials*sizeof(material));
-	cudaMemcpy( cudamaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
+  //send image to GPU
+  glm::vec3* cudaimage = NULL;
+  cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
+  cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+  
+  //package geometry and materials and sent to GPU
+  int numberOfLights = 0;
+  std::vector<int> lightIndices;
 
-	// set up lights indices to pass to cuda
-	int* cudalightIndex = NULL;
-	cudaMalloc((void**) &cudalightIndex, numberOfLights * sizeof(int));
-	cudaMemcpy(cudalightIndex, &(lightIndices[0]), numberOfLights * sizeof(int), cudaMemcpyHostToDevice);
+  staticGeom* geomList = new staticGeom[numberOfGeoms];
+  for(int i=0; i<numberOfGeoms; i++){
+    staticGeom newStaticGeom;
+    newStaticGeom.type = geoms[i].type;
+    newStaticGeom.materialid = geoms[i].materialid;
+    newStaticGeom.translation = geoms[i].translations[frame];
+    newStaticGeom.rotation = geoms[i].rotations[frame];
+    newStaticGeom.scale = geoms[i].scales[frame];
+    newStaticGeom.transform = geoms[i].transforms[frame];
+    newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+    geomList[i] = newStaticGeom;
 
-	//package camera
-	cameraData cam;
-	cam.resolution = renderCam->resolution;
-	cam.position = renderCam->positions[frame];
-	cam.view = renderCam->views[frame];
-	cam.up = renderCam->ups[frame];
-	cam.fov = renderCam->fov;
-
-	//kernel launches
-	for(int bounce = 1; bounce <= 1; ++bounce)
+	if (materials[newStaticGeom.materialid].emittance != 0)
 	{
-		launchRaytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalightIndex, numberOfLights);
+		numberOfLights++;
+		lightIndices.push_back(i);
 	}
+  }
+  
+  staticGeom* cudageoms = NULL;
+  cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
+  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
 
-	// setting up previous image accumulation
-	vec3* imageAccum = NULL;
-	cudaMalloc((void**)&imageAccum,(int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
-	cudaMemcpy(imageAccum, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+  // check number of materials
+  int numberOfMat = 0;
 
-	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, iterations, renderCam->resolution, cudaimage, imageAccum);
+  for (int i = 0 ; i < numberOfMaterials ; ++i)
+  {
+	numberOfMat++;
+  }
 
-	//retrieve image from GPU
-	cudaMemcpy( renderCam->image, imageAccum, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+  // set up lights indices to pass to cuda
+ int* cudalightIndex = NULL;
+ cudaMalloc((void**) &cudalightIndex, numberOfLights * sizeof(int));
+ cudaMemcpy(cudalightIndex, &(lightIndices[0]), numberOfLights * sizeof(int), cudaMemcpyHostToDevice);
 
-	//free up stuff, or else we'll leak memory like a madman
-	cudaFree( cudaimage );
-	cudaFree( cudageoms );
-	cudaFree( cudamaterials );
-	cudaFree( imageAccum );
-	cudaFree( cudalightIndex );
-	delete [] geomList;
+  // Regaring (void**) ...
+  // All CUDA API functions return an error code (or cudaSuccess if no error occured). 
+  // All other parameters are passed by reference. However, in plain C you cannot have references, 
+  // that's why you have to pass an address of the variable that you want the return information to be stored. 
+  // Since you are returning a pointer, you need to pass a double-pointer.
+  material* cudamat = NULL;
+  cudaMalloc((void**)&cudamat, numberOfMat * sizeof(material));
+  cudaMemcpy(cudamat, materials, numberOfMat * sizeof(material), cudaMemcpyHostToDevice);
+  
+  //package camera
+  //Q: Why don't we need to use cudaMalloc and cudaMemcpy here?
+  //A: During kernel execution, the value cam will be put onto GPU memory stack since this value is not being passed by reference.
+  cameraData cam;
+  cam.resolution = renderCam->resolution;
+  cam.position = renderCam->positions[frame];
+  cam.view = renderCam->views[frame];
+  cam.up = renderCam->ups[frame];
+  cam.fov = renderCam->fov;
 
-	// make certain the kernel has completed 
-	cudaThreadSynchronize();
+  //kernel launch
+  launchRaytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights);
+ 
+  // setting up previous image accumulation
+  vec3* imageAccum = NULL;
+  cudaMalloc((void**)&imageAccum,(int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
+  cudaMemcpy(imageAccum, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+  
+  //kernel launch
+  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, (float)iterations, renderCam->resolution, cudaimage, imageAccum);
 
-	checkCUDAError("Kernel failed!");
+  //retrieve image from GPU
+  cudaMemcpy( renderCam->image, imageAccum, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+
+  //free up stuff, or else we'll leak memory like a madman
+  cudaFree( cudaimage );
+  cudaFree( cudageoms );
+  cudaFree( imageAccum );
+  cudaFree( cudamat );
+  cudaFree( cudalightIndex );
+  delete geomList;
+
+  // make certain the kernel has completed
+  cudaThreadSynchronize();
+
+  checkCUDAError("Kernel failed!");
 }
+
