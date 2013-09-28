@@ -323,10 +323,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   int* cudaActiveArray = NULL;
   cudaMalloc((void**)&cudaActiveArray, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
   
-  int* streamCompactionLastIndex = NULL;
-  int hLastIndex = numberOfThreads - 1;
-  cudaMalloc((void**)&streamCompactionLastIndex,sizeof(int));
-  cudaMemcpy( streamCompactionLastIndex, initialIndex, sizeof(int));
 
   //package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
