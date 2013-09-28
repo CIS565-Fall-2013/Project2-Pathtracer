@@ -170,7 +170,7 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 			ai2 += CONFLICT_FREE_OFFSET(ai2);
 			bi2 += CONFLICT_FREE_OFFSET(bi2);
 
-			float t = temp[ai2];  
+			DataType t = temp[ai2];  
 			temp[ai2] = temp[bi2];  
 			temp[bi2] = op(temp[bi2], t);   
 		}  
@@ -189,3 +189,4 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 
 ///Explicit template instantiations. Do this to avoid code bloat in .h file.
 template int exclusive_scan_sum<int>(int*, int*, int);
+template float exclusive_scan_sum<float>(float*, float*, int);

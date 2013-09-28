@@ -403,25 +403,25 @@ void initCuda(){
 	atexit(cleanupCuda);
 
 	//Temporary test
-	int size = 4096;
-	int* data = new int[size];
+	int size = 4097;
+	float* data = new float[size];
 	for(int i = 0; i < size; i++)
 	{
 		data[i] = 2;
 	}
 
-	int* cudadata = NULL;
-	cudaMalloc((void**)&cudadata, size*sizeof(2048));
-	cudaMemcpy( cudadata, data, size*sizeof(int), cudaMemcpyHostToDevice);
+	float* cudadata = NULL;
+	cudaMalloc((void**)&cudadata, size*sizeof(float));
+	cudaMemcpy( cudadata, data, size*sizeof(float), cudaMemcpyHostToDevice);
 	
-	int* cudadataout = NULL;
-	cudaMalloc((void**)&cudadataout, size*sizeof(2048));
+	float* cudadataout = NULL;
+	cudaMalloc((void**)&cudadataout, size*sizeof(float));
 
 	//Perform scan
-	int result = exclusive_scan_sum(cudadata, cudadata, size);
+	float result = exclusive_scan_sum(cudadata, cudadataout, size);
 	
 	//pull result
-	cudaMemcpy( data, cudadata, size*sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy( data, cudadataout, size*sizeof(float), cudaMemcpyDeviceToHost);
 
 	cudaFree(cudadata);
 	cudaFree(cudadataout);
