@@ -117,18 +117,19 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
 }
 
 //Kernel that writes the image to the OpenGL PBO directly. 
-__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image, int iterations){
+__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image, ray* rays,int iterations){
   
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int x = rays[index].pixelIndex.x;
+	int y = rays[index].pixelIndex.y;
+	int pixelIndex = x + (y * resolution.x);
   
   if(x<=resolution.x && y<=resolution.y){
 
       glm::vec3 color;    
-      color.x = image[index].x*255.0/iterations;
-      color.y = image[index].y*255.0/iterations;
-      color.z = image[index].z*255.0/iterations;
+      color.x = image[pixelIndex].x*255.0/iterations;
+      color.y = image[pixelIndex].y*255.0/iterations;
+      color.z = image[pixelIndex].z*255.0/iterations;
 
       if(color.x>255){
         color.x = 255;
@@ -161,12 +162,16 @@ __device__ bool isLight(int objId, int* lights, int numberOfLights)
 
 //Kernel that blacks out a given image buffer
 __global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec3* image){
-    int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-    int index = x + (y * resolution.x);
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int x = rays[index].pixelIndex.x;
+	int y = rays[index].pixelIndex.y;
+	int pixelIndex = x + (y * resolution.x);
+    //int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+    //int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+    //int index = x + (y * resolution.x);
     if(x<=resolution.x && y<=resolution.y ){
 		if (!rays[index].active)
-			image[index]+= rays[index].rayColor;
+			image[pixelIndex]+= rays[index].rayColor;
     }
 }
 
@@ -175,19 +180,19 @@ __global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec3* imag
 __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec3* colors, 
                             staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, int* lights, int numberOfLights,ray* rays){
 
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
+  //int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  //int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  //int index = x + (y * resolution.x);
 	
-  //int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-  //int x=-1;
-  //int y=-1;
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int x=-1;
+  int y=-1;
   ray r;
 
   if (bounce==1)
   {
-	//y = (int) (index/(int)resolution.x);
-	//x = (int) (index%(int)resolution.x);
+	y = (int) (index/(int)resolution.x);
+	x = (int) (index%(int)resolution.x);
 
 	r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 	r.active = true;
@@ -288,11 +293,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   // set up crucial magic
   int numberOfThreads = (int)(renderCam->resolution.x)*(int)(renderCam->resolution.y);
   int tileSize = 8;
-  //dim3 threadsPerBlock(tileSize*tileSize);
-  //dim3 fullBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
-  dim3 threadsPerBlock(tileSize, tileSize);
+  dim3 threadsPerBlock(tileSize*tileSize);
+  dim3 fullBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
+ /* dim3 threadsPerBlock(tileSize, tileSize);
   dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
-
+*/
   //send image to GPU
   glm::vec3* cudaimage = NULL;
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
@@ -352,7 +357,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   }
   clearActiveRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays, cudaimage);
   
-  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage,iterations);
+  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage,cudarays,iterations);
 
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
