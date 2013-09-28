@@ -104,7 +104,7 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   2
+EMITTANCE   15
 
 CAMERA
 RES         600 600
@@ -112,7 +112,7 @@ FOVY        25
 ITERATIONS  1
 FILE        test.png
 frame 0
-EYE         0 4.5 25
+EYE         0 4.5 12
 VIEW        0 0 -1
 UP          0 1 0
 
@@ -122,7 +122,11 @@ material 0
 frame 0
 TRANS       0 0 0
 ROTAT       0 0 90
-SCALE       .01 10 10
+SCALE       .01 10 10 
+frame 1
+TRANS       0 0 0
+ROTAT       0 0 90
+SCALE       .01 10 10 
 
 OBJECT 1
 cube
@@ -130,12 +134,20 @@ material 0
 frame 0
 TRANS       0 5 -5
 ROTAT       0 90 0
-SCALE       .01 10 10
+SCALE       .01 10 10 
+frame 1
+TRANS       0 5 -5
+ROTAT       0 90 0
+SCALE       .01 10 10 
 
 OBJECT 2
 cube
 material 0
 frame 0
+TRANS       0 10 0
+ROTAT       0 0 90
+SCALE       .01 10 10
+frame 1
 TRANS       0 10 0
 ROTAT       0 0 90
 SCALE       .01 10 10
@@ -147,11 +159,19 @@ frame 0
 TRANS       -5 5 0
 ROTAT       0 0 0
 SCALE       .01 10 10
+frame 1
+TRANS       -5 5 0
+ROTAT       0 0 0
+SCALE       .01 10 10
 
 OBJECT 4
 cube
 material 2
 frame 0
+TRANS       5 5 0
+ROTAT       0 0 0
+SCALE       .01 10 10
+frame 1
 TRANS       5 5 0
 ROTAT       0 0 0
 SCALE       .01 10 10
@@ -163,11 +183,19 @@ frame 0
 TRANS       0 2 0
 ROTAT       0 180 0
 SCALE       3 3 3
+frame 1
+TRANS       0 2 0
+ROTAT       0 180 0
+SCALE       3 3 3
 
 OBJECT 6
 sphere
 material 3
 frame 0
+TRANS       2 5 2
+ROTAT       0 180 0
+SCALE       2.5 2.5 2.5
+frame 1
 TRANS       2 5 2
 ROTAT       0 180 0
 SCALE       2.5 2.5 2.5
@@ -179,11 +207,19 @@ frame 0
 TRANS       -2 5 -2
 ROTAT       0 180 0
 SCALE       3 3 3
+frame 1
+TRANS       -2 5 -2
+ROTAT       0 180 0
+SCALE       3 3 3
 
 OBJECT 8
 cube
 material 8 
 frame 0
+TRANS       0 10 0
+ROTAT       0 0 90
+SCALE       .3 3 3
+frame 1
 TRANS       0 10 0
 ROTAT       0 0 90
 SCALE       .3 3 3
