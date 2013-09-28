@@ -13,6 +13,7 @@
 #include <cuda.h>
 #include <cmath>
 #include "sceneStructs.h"
+#include "cudaAlgorithms.h"
 
 
 #if CUDA_VERSION >= 5000
