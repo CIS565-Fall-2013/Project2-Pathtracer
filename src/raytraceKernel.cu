@@ -261,9 +261,10 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
   __shared__ int sqrtLights;
   __shared__ float stepSize;
  
-  __shared__ glm::vec3 colourBlock [blockDim.x] [blockDim.y];
-  __shared__ glm::vec3 primArrayBlock [blockDim.x] [blockDim.y];
-  __shared__ ray rayPoolBlock [blockDim.x] [blockDim.y];
+  extern __shared__ glm::vec3 arrayPool [];
+  __shared__ glm::vec3 *colourBlock; 
+  __shared__ bool *primArrayBlock;
+  __shared__ ray *rayPoolBlock;
 
   if ((threadIdx.x == 0) && (threadIdx.y == 0))
   {
@@ -277,33 +278,36 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 	  lightPos = lightPosition;
 	  lightCol = RenderParams->lightCol;
 
-	  for (int i = 0; i < blockDim.y; i ++)
-		  for (int j = 0; j < blockDim.x; j ++)
-		  {
-			  // We have a 1-D array of blocks in the grid. From a thread's perspective, it is a 2-D array.
-			  // Ray pool is a massive 1-D array, so we need to compute the index of the element of ray pool
-			  // that each thread will handle.
-			  int index = (blockIdx.x * blockDim.x) + j +			// X-part: straightforward
-						  (i * (int)(blockDim.x * ceil (rayPoolLength / (blockDim.x*blockDim.y))));  // Y-part: as below:
-			  // No. of blocks in the grid = ceil (rayPoolLength / (blockDim.x*blockDim.y))
-			  // Multiplying that with the no. threads in a block gives the no. of threads in a single row of grid.
-			  // Multiplying that with row number (threadIdx.y) and adding the x offset (X-part) gives the index.
-			  primArrayBlock [i][j] = primaryArrayOnDevice [index];
-			  rayPoolBlock [i][j] = rayPoolOnDevice [index];
+	  colourBlock = arrayPool;
+	  primArrayBlock = (bool *) &colourBlock [blockDim.x * blockDim.y];
+	  rayPoolBlock = (ray *) &primArrayBlock [blockDim.x * blockDim.y];
+	  //for (int i = 0; i < blockDim.y; i ++)
+		 // for (int j = 0; j < blockDim.x; j ++)
+		 // {
+			//  // We have a 1-D array of blocks in the grid. From a thread's perspective, it is a 2-D array.
+			//  // Ray pool is a massive 1-D array, so we need to compute the index of the element of ray pool
+			//  // that each thread will handle.
+			//  int index = (blockIdx.x * blockDim.x) + j +			// X-part: straightforward
+			//			  (i * (int)(blockDim.x * ceil ((float)rayPoolLength / (float)(blockDim.x*blockDim.y))));  // Y-part: as below:
+			//  // No. of blocks in the grid = ceil (rayPoolLength / (blockDim.x*blockDim.y))
+			//  // Multiplying that with the no. threads in a block gives the no. of threads in a single row of grid.
+			//  // Multiplying that with row number (threadIdx.y) and adding the x offset (X-part) gives the index.
+			//  primArrayBlock [i][j] = primaryArrayOnDevice [index];
+			//  rayPoolBlock [i][j] = rayPoolOnDevice [index];
 
-			  // We recompute the index for the colour array since it represents a frame
-			  // and each index represents a pixel. If we don't, stream compaction would 
-			  // mess things up.
-			  index = rayPoolBlock [i][j].y*cam.resolution.x + rayPoolBlock [i][j].x;
- 			  colourBlock [i][j] = colors [index];
-			  // colourBlock [i][j] therefore represents colour computed by ray through the pixel (x,y)
-		  }
+			//  // We recompute the index for the colour array since it represents a frame
+			//  // and each index represents a pixel. If we don't, stream compaction would 
+			//  // mess things up.
+			//  index = rayPoolBlock [i][j].y*cam.resolution.x + rayPoolBlock [i][j].x;
+ 		//	  colourBlock [i][j] = colors [index];
+			//  // colourBlock [i][j] therefore represents colour computed by ray through the pixel (x,y)
+		 // }
   }
   __syncthreads ();
 
 
   int threadID = (blockIdx.x * blockDim.x) + threadIdx.x +			
-				 (threadIdx.y * (int)(blockDim.x * ceil (rayPoolLength / (blockDim.x*blockDim.y))));
+				 (threadIdx.y * (int)(blockDim.x * ceil ((float)rayPoolLength / (float)(blockDim.x*blockDim.y))));
 
   glm::vec3 shadedColour = glm::vec3 (0);
 
@@ -311,8 +315,8 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
   {
 //    ray castRay = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov, 
 //					ProjectionParams.centreProj, ProjectionParams.halfVecH, ProjectionParams.halfVecV);
-
-	ray currentRay = rayPoolBlock [threadIdx.y][threadIdx.x];
+	threadID = threadIdx.y*blockDim.x + threadIdx.x;
+	ray currentRay = rayPoolBlock [threadID];//rayPoolBlock [threadIdx.y][threadIdx.x];
 	interceptInfo theRightIntercept = getIntercept (geoms, objectCountInfo, currentRay, textureArray);
 	glm::vec3 lightVec; 
 		
@@ -320,19 +324,20 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 	shadedColour += calcShade (theRightIntercept, lightVec, cam.position, currentRay, textureArray, ks, kd, lightCol);
 
 	if ((theRightIntercept.intrMaterial.emittance > 0) || (theRightIntercept.interceptVal < 0))
-		primArrayBlock [threadIdx.y][threadIdx.x] = false;	// Ray did not hit anything or it hit light, so kill it.
+		primArrayBlock [threadID] = false;//primArrayBlock [threadIdx.y][threadIdx.x] = false;	// Ray did not hit anything or it hit light, so kill it.
 	else
 		calculateBSDF  (currentRay, 
 						currentRay.origin + currentRay.direction * theRightIntercept.interceptVal, 
 						theRightIntercept.intrNormal, glm::vec3 (0), AbsorptionAndScatteringProperties (), 
 						time, theRightIntercept.intrMaterial.color, glm::vec3 (0), theRightIntercept.intrMaterial);
 
-	rayPoolBlock [threadIdx.y][threadIdx.x] = currentRay;
+//	rayPoolBlock [threadIdx.y][threadIdx.x] = currentRay;
+	rayPoolBlock [threadID] = currentRay;
 
-	if (colourBlock [threadIdx.y][threadIdx.x].length () > 0)
-		colourBlock [threadIdx.y][threadIdx.x] *= shadedColour;			// Add computed shade to shadedColour.
+	if (colourBlock [threadID]/*[threadIdx.y][threadIdx.x]*/.length () > 0)
+		colourBlock [threadID]/*[threadIdx.y][threadIdx.x]*/ *= shadedColour;			// Add computed shade to shadedColour.
 	else
-		colourBlock [threadIdx.y][threadIdx.x] = shadedColour;
+		colourBlock [threadID] /*[threadIdx.y][threadIdx.x]*/ = shadedColour;
   }
 
   __syncthreads ();
@@ -344,13 +349,15 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 		  {
 			  // Calculate the index.
 			  int index = (blockIdx.x * blockDim.x) + j +												// X-part
-						  (i * (int)(blockDim.x * ceil (rayPoolLength / (blockDim.x*blockDim.y))));		// Y-part
-			  primaryArrayOnDevice [index] = primArrayBlock [i][j];
-			  rayPoolOnDevice [index] = rayPoolBlock [i][j];
+						  (i * (int)(blockDim.x * ceil ((float)rayPoolLength / (float)(blockDim.x*blockDim.y))));		// Y-part
+
+			  threadID = i*blockDim.x + j;
+			  primaryArrayOnDevice [index] = primArrayBlock [threadID];
+			  rayPoolOnDevice [index] = rayPoolBlock [threadID];
 
 			  // Recalculate the index for colour array.
-			  index = rayPoolBlock [i][j].y*cam.resolution.x + rayPoolBlock [i][j].x;
-			  colors [index] = colourBlock [i][j];
+			  index = rayPoolBlock [threadID].y*cam.resolution.x + rayPoolBlock [threadID].x;
+			  colors [index] = colourBlock [threadID];
 		  }
   }
 }
@@ -389,7 +396,7 @@ __device__ bool isShadowRayBlocked (ray r, glm::vec3 lightPos, staticGeom *geoms
 
 __global__ void		accumulateIterationColour (glm::vec3* accumulator, glm::vec3* iterationColour, glm::vec2 resolution)
 {
-	int index = (blockDim.y*blockIdx.y + threadIdx.y) * resolution.y + 
+	int index = (blockDim.y*blockIdx.y + threadIdx.y) * resolution.x + 
 				(blockDim.x*blockIdx.x + threadIdx.x);
 	accumulator [index] += iterationColour [index];
 }
@@ -558,7 +565,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   // Guard against shallow copying here.. Materials has a pointer pointing to Texture data.
   int sizeOfMaterialsArr = numberOfMaterials * (sizeof (material));
   cudaError_t returnCode1 = cudaMalloc((void**)&materialColours, numberOfMaterials*sizeof(material));
-  onDeviceErrorExit (returnCode1, cudaimage, cudageoms, materialColours, numberOfMaterials);
+  onDeviceErrorExit (returnCode1, cudaFinalImage, cudageoms, materialColours, numberOfMaterials);
   cudaMemcpy (materialColours, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
 
   // TODO: Texture mapping: Use index to a texture array.
@@ -693,8 +700,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  bool *primaryArrayOnDevice = NULL;
 	  cudaMalloc ((void **)&primaryArrayOnDevice, rayPoolLength * sizeof (bool));
 	  cudaMemset (primaryArrayOnDevice, true, rayPoolLength * sizeof (bool)); // (primaryArrayOnDevice, primaryArray, rayPoolLength * sizeof (bool), cudaMemcpyHostToDevice);
+	  
 	  int *secondaryArray = new int [rayPoolLength];
 	  memset (secondaryArray, 0, rayPoolLength * sizeof (int));
+
 //	  int *secondaryArrayOnDevice = NULL;
 //	  cudaMalloc ((void **)&secondaryArrayOnDevice, rayPoolLength * sizeof (int));
 //	  cudaMemset (secondaryArrayOnDevice, 0, rayPoolLength * sizeof (int)); // (primaryArrayOnDevice, primaryArray, rayPoolLength * sizeof (bool), cudaMemcpyHostToDevice);
@@ -705,8 +714,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  {
 		// kernel launches
 		fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/threadsPerBlock.x)); 
-		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>((float)iterations, cam, traceDepth, cudaimage, cudageoms, 
-			materialColours, RenderParamsOnDevice, primCounts, primaryArrayOnDevice, rayPoolOnDevice, lightPos);
+		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock, threadsPerBlock.x*threadsPerBlock.y*(sizeof(glm::vec3) + sizeof (bool) + sizeof(ray))>>>
+			((float)iterations, cam, traceDepth, cudaimage, cudageoms, materialColours, RenderParamsOnDevice, 
+			 primCounts, primaryArrayOnDevice, rayPoolOnDevice, rayPoolLength, lightPos);
 		cudaThreadSynchronize(); // Wait for Kernel to finish, because we don't want a race condition between successive kernel launches.
 
 		// Inefficient. Grossly inefficient. Need to look over and change as required.
@@ -744,7 +754,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  cudaimage = NULL;
 
 	  fullBlocksPerGrid = dim3 (ceil (cam.resolution.x / (float) threadsPerBlock.x), ceil(cam.resolution.y / (float) threadsPerBlock.y));
-	  accumulateColours<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaFinalImage, cudaimage);
+	  accumulateIterationColour<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaFinalImage, cudaimage, cam.resolution);
 	  std::cout << "\rRendering.. " <<  ceil ((float)i/(RenderParams.nLights-1) * 100) << " percent complete.";
   }
 
@@ -757,7 +767,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMemcpy( renderCam->image, cudaFinalImage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
   //free up stuff, or else we'll leak memory like a madman
-   if (cudaimage)
+   if (cudaFinalImage)
 		cudaFree( cudaFinalImage );
    if (cudageoms)
 		cudaFree( cudageoms );
