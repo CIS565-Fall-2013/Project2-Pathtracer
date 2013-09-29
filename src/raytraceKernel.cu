@@ -20,6 +20,7 @@ void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
   if( cudaSuccess != err) {
     fprintf(stderr, "Cuda error: %s: %s.\n", msg, cudaGetErrorString( err) ); 
+	//std::cin.get();
     exit(EXIT_FAILURE); 
   }
 } 
@@ -117,22 +118,59 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   }
 }
 
+__global__ void finalizeraycolor(glm::vec2 resolution,glm::vec3* colBounce,glm::vec3* colIters,glm::vec3* colors,float iters, ray* r)
+{
+  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  int index = x + (y * resolution.x);
+  int xx = r[index].x;
+  int yy = r[index].y;
+  int newindex =  xx + (yy * resolution.x);
+  if(iters < 0.05)
+	  iters = 1.0f;
+  if((x<=resolution.x && y<=resolution.y)){
+	  colIters[index] = colIters[index] + colBounce[index];
+	  colIters[index][0] = ((colIters[index][0] * (iters - 1)) + colBounce[index][0])  / iters ;
+	  colIters[index][1] = ((colIters[index][1] * (iters - 1)) + colBounce[index][1])  / iters ;
+	  colIters[index][2] = ((colIters[index][2] * (iters - 1)) + colBounce[index][2])  / iters ;
+	  colors[index] = colIters[newindex] ; //colBounce[index] ;//
+	  colBounce[index] = glm::vec3(1,1,1);
+  }
+}
+
+__global__ void initializeray(glm::vec2 resolution, float time,cameraData cam, ray* r,glm::vec3* colBounce,glm::vec3* colIters){
+  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  int index = x + (y * resolution.x);
+  if((x<=resolution.x && y<=resolution.y)){
+  ray rnew = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+  r[index].direction = rnew.direction;
+  r[index].origin = rnew.origin;
+  r[index].x = x ;
+  r[index].y = y ;
+  r[index].life = true ;
+  colBounce[index] = glm::vec3(1,1,1);
+  colIters[index] = glm::vec3(0,0,0);
+  }
+}
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec3* colors, 
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
+                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials,ray* newr, glm::vec3* colBounce){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
 
-  ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
-
+  //ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+  ray r = newr[index];
+  glm::vec3 curIps;
+  glm::vec3 curNorm;
   if((x<=resolution.x && y<=resolution.y)){
-
+	
     float MAX_DEPTH = 100000000000000000;
     float depth = MAX_DEPTH;
-
+	int geoIndex = -1; 
     for(int i=0; i<numberOfGeoms; i++){
         glm::vec3 intersectionPoint;
         glm::vec3 intersectionNormal;
@@ -147,10 +185,39 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
         }
         if(depth<MAX_DEPTH && depth>-EPSILON){
           MAX_DEPTH = depth;
-          colors[index] = materials[geoms[i].materialid].color;
+		  geoIndex = i;
+		  curIps  =  intersectionPoint;
+		  curNorm =  intersectionNormal;
         }
     }
 
+	if(geoIndex != -1 && materials[geoms[geoIndex].materialid].emittance < 0.01f && (r.life == true))
+	{
+	
+	thrust::default_random_engine rng (hash (time * index));
+	thrust::uniform_real_distribution<float> xi1(0,1);
+    thrust::uniform_real_distribution<float> xi2(0,1);
+
+	
+	newr[index].direction =  glm::normalize(calculateRandomDirectionInHemisphere(glm::normalize(curNorm),  (float)xi1(rng),(float)xi2(rng)));
+	newr[index].origin    =  curIps + newr[index].direction  * 0.001f ; //glm::vec3 neyep = dips + ref1 * 0.001f ;
+	//colors[index] = materials[geoms[geoIndex].materialid].color;
+	colBounce[index] = colBounce[index] * materials[geoms[geoIndex].materialid].color;
+	}
+	else if(geoIndex != -1 && materials[geoms[geoIndex].materialid].emittance > 0.01f && (r.life == true))
+	{
+	colBounce[index] = colBounce[index] * materials[geoms[geoIndex].materialid].emittance ;
+	newr[index].life == false ;
+	}
+	else if(geoIndex != -1 && materials[geoms[geoIndex].materialid].emittance > 0.01f && (r.life == false))
+	{
+	colBounce[index] = colBounce[index];
+	}
+	else
+	{
+	colBounce[index] = colBounce[index] * glm::vec3(0,0,0);
+	}
+	//colBounce[index] = glm::vec3(0.01,0.01,0.01) ;//colors[index] = glm::vec3(0,0,0);
 
 
     //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
@@ -167,7 +234,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   // set up crucial magic
   int tileSize = 8;
   dim3 threadsPerBlock(tileSize, tileSize);
-  dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
+  dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)) , (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
   
   //send image to GPU
   glm::vec3* cudaimage = NULL;
@@ -204,11 +271,30 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
 
+   //Allocate memory for ray pool
+  ray* raypool = NULL;
+  cudaMalloc((void**)&raypool, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
+ 
+  //Allocate memory to store color for bounces
+  glm::vec3* colorBounce = NULL;
+  cudaMalloc((void**)&colorBounce, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
+
+  //Allocate memory to store color for each iteration accumulation
+  glm::vec3* colorIters = NULL;
+  cudaMalloc((void**)&colorIters , (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
+
+  //Initialize the ray values
+  initializeray<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,(float)iterations,cam,raypool,colorBounce,colorIters);
+  cudaThreadSynchronize();
   //kernel launches
-  for(int bounce = 1; bounce <= 1; ++bounce)
+  for(int bounce = 1; bounce <=5; ++bounce)
   {
-  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials,raypool,colorBounce);
+  cudaThreadSynchronize();
   }
+
+  finalizeraycolor<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,colorBounce,colorIters,cudaimage,(float)iterations,raypool);
+  cudaThreadSynchronize();
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
   //retrieve image from GPU
@@ -218,6 +304,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudaimage );
   cudaFree( cudageoms );
   cudaFree( cudamaterials );
+  cudaFree(colorBounce);
+  //cudaFree(colorIters);
+  cudaFree(raypool);
   delete [] geomList;
 
   // make certain the kernel has completed 

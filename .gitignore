@@ -1,0 +1,10 @@
+PROJ1_WIN/565Pathtracer/Debug/
+PROJ1_WIN/565Pathtracer/Release/
+PROJ1_WIN/Debug/
+PROJ1_WIN/Release/
+PROJ1_WIN/ipch/565pathtracer-beee273d/565pathtracer-d00238b4.ipch
+PROJ1_WIN/565Pathtracer/tmpxft_00001eac_00000000-6_raytraceKernel.cpp3.o
+*.opensdf
+*.sdf
+*.obj
+*.pdb
