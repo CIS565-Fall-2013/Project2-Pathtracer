@@ -105,7 +105,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   int index = x + (y * resolution.x);
   
   if(x<=resolution.x && y<=resolution.y){
-//	  image [index] /= nLights;
+	  image [index] /= nLights;
       glm::vec3 color;
       color.x = image[index].x*255.0;
       color.y = image[index].y*255.0;
@@ -224,7 +224,7 @@ __device__ glm::vec3 getColour (material Material, glm::vec2 UVcoords)
 
 // Calclates the direct lighting at a given point, which is calculated from castRay and interceptVal of theRightIntercept. 
 __device__ glm::vec3 calcShade (interceptInfo theRightIntercept, glm::vec3 lightVec, glm::vec3 eye, ray castRay, 
-								material* textureArray, float ks, float kd, glm::vec3 lightCol, float emittance, int rayDepth)
+								material* textureArray, float ks, float kd, glm::vec3 lightCol)
 {
 	glm::vec3 shadedColour = glm::vec3 (0,0,0);
 	if ((theRightIntercept.interceptVal > 0))
@@ -246,8 +246,8 @@ __device__ glm::vec3 calcShade (interceptInfo theRightIntercept, glm::vec3 light
 		//if ((theRightIntercept.intrMaterial.emittance > 0) && (interceptValue > 0))
 		//	shadedColour = glm::vec3 (1,1,1);
 		//else 
-		if ((rayDepth >= 5) && (theRightIntercept.intrMaterial.emittance < 1))
-			shadedColour = glm::vec3 (0);
+//		if ((rayDepth >= 5) && (theRightIntercept.intrMaterial.emittance < 1))
+//			shadedColour = glm::vec3 (0);
 	}
 
 	return	shadedColour;
@@ -319,7 +319,7 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 
   int threadID = (blockIdx.x * blockDim.x) + threadIdx.x +			
 				 (threadIdx.y * (int)(blockDim.x * ceil ((float)rayPoolLength / (float)(blockDim.x*blockDim.y))));
-  int threadID2 = threadID;
+  int randomSeed = threadID*time;
   glm::vec3 shadedColour = glm::vec3 (0);
   if (threadID < rayPoolLength)
   {
@@ -329,7 +329,7 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 	glm::vec3 lightVec; 
 		
 	lightVec = glm::normalize (lightPosition - (currentRay.origin + (currentRay.direction*theRightIntercept.interceptVal)));
-	shadedColour += calcShade (theRightIntercept, lightVec, cam.position, currentRay, textureArray, ks, kd, lightCol, lightEmittance, rayDepth);
+	shadedColour += (calcShade (theRightIntercept, lightVec, cam.position, currentRay, textureArray, ks, kd, lightCol))*lightEmittance;
 
 	if ((theRightIntercept.intrMaterial.emittance > 0) || (theRightIntercept.interceptVal < 0))
 		primArrayBlock [threadID] = false;	// Ray did not hit anything or it hit light, so kill it.
@@ -337,7 +337,7 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 		calculateBSDF  (currentRay, 
 						currentRay.origin + currentRay.direction * theRightIntercept.interceptVal, 
 						theRightIntercept.intrNormal, glm::vec3 (0), AbsorptionAndScatteringProperties (), 
-						threadID2*time, theRightIntercept.intrMaterial.color, glm::vec3 (0), theRightIntercept.intrMaterial);
+						randomSeed, theRightIntercept.intrMaterial.color, glm::vec3 (0), theRightIntercept.intrMaterial);
 
 	rayPoolBlock [threadID] = currentRay;
 	
@@ -621,7 +621,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   renderInfo	RenderParams, *RenderParamsOnDevice = NULL;
   RenderParams.ks = 0.4;
   RenderParams.kd = 1 - RenderParams.ks;
-  RenderParams.nLights = 100;
+  RenderParams.nLights = 1000;
   RenderParams.sqrtLights = sqrt ((float)RenderParams.nLights);
   RenderParams.lightStepSize = 1.0/(RenderParams.sqrtLights-1);
   RenderParams.lightPos = glm::vec3 (0, -0.6, 0);
@@ -749,10 +749,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		cudaMemcpy (rayPoolOnDevice, rayPool, rayPoolLength * sizeof (ray), cudaMemcpyHostToDevice);
 		cudaMemset (primaryArrayOnDevice, true, rayPoolLength * sizeof (bool));
 	  }
-//      fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
+      fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
 	  // At this point, since stream compaction has already taken place,
 	  // it means that rayPoolOnDevice contains only rays that are still alive.
-//	  addNoise<<<fullBlocksPerGrid,threadsPerBlock>>>(cudaimage, rayPoolOnDevice, rayPoolLength, cam.resolution);
+	  addNoise<<<fullBlocksPerGrid,threadsPerBlock>>>(cudaimage, rayPoolOnDevice, rayPoolLength, cam.resolution);
 
 	  fullBlocksPerGrid = dim3 ((int)ceil(float(cam.resolution.x)/threadsPerBlock.x), (int)ceil(float(cam.resolution.y)/threadsPerBlock.y));
 	  accumulateIterationColour<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaFinalImage, cudaimage, cam.resolution);
