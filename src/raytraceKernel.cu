@@ -167,35 +167,25 @@ __host__ __device__ float testGeomIntersection(staticGeom* geoms, int numberOfGe
 
 }
 
-__global__ void streamCompact(int numRays, int* compactIn, int* compactOut, int maxDepth, int d){
+
+__global__ void streamCompact(int numRays, int* compactIn, int* compactOut, int d){
 
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
 	if(index < numRays){
 		
+		int valIn = compactIn[index];
+
 		if( index >= d){
-			compactOut[index] = compactIn[index - d] + compactIn[index];
+			compactOut[index] = compactIn[index - d] + valIn;
 		}
 		else{
-			compactOut[index] = compactIn[index];
+			compactOut[index] = valIn;
 		}
 	}
 
-	__syncthreads(); 
+	//__syncthreads(); 
 }
-
-
-__global__ void shiftRight(int* compactIn, int* compactOut, int numRays){
-
-	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-	
-	if(index == 0)
-		compactOut[0] = 0;
-	else if (index < numRays)
-		compactOut[index] = compactIn[index - 1];
-
-}
-
 
 __global__ void buildRayPool(int* compactIn, rayBounce* rayTempPass, rayBounce* rayPass, int numRays){
 
@@ -203,18 +193,18 @@ __global__ void buildRayPool(int* compactIn, rayBounce* rayTempPass, rayBounce* 
 
 	if(index < numRays){
 		if(!rayTempPass[index].dead)
-			rayPass[index] = rayTempPass[compactIn[index]];
+			rayPass[compactIn[index] - 1] = rayTempPass[index];
 	}
 
 }
 
 //creates and stores first bounce rays, always at depth 1
-__global__ void createRay(glm::vec2 resolution, cameraData cam, staticGeom* geoms, int numberOfGeoms, material* materials, 
-						 int numLights, int* lightID, rayBounce* firstPass, int maxDepth, int* compactIn, int numRays, glm::vec3* colors){
+__global__ void createRay(glm::vec2 resolution, cameraData cam, int maxDepth, int time, staticGeom* geoms, int numberOfGeoms, material* materials, 
+						 int numLights, int* lightID, rayBounce* firstPass, int* compactIn, int numRays, glm::vec3* colors){
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int index = x + (y * cam.resolution.x);
+	int index = x + (y * resolution.x);
 	
 	glm::vec3 intersection;
 	glm::vec3 normal;
@@ -222,35 +212,40 @@ __global__ void createRay(glm::vec2 resolution, cameraData cam, staticGeom* geom
 	if(index < numRays){
 
 		ray firstRay = raycastFromCameraKernel(resolution, x, y, cam.position, cam.view, cam.up, cam.fov); 
+
+		////DOF and antialiasing setup
+		float focalLength = cam.focalLength;
+		float aperture = cam.aperture;
 		
-		//DOF and antialiasing setup
-		//float focalLength = cam.focalLength;
-		//float aperture = cam.aperture;
-		//
-		//glm::vec3 focalPoint = firstRay.origin + focalLength * firstRay.direction;
+		glm::vec3 focalPoint = firstRay.origin + focalLength * firstRay.direction;
 
-		////jitter camera
-		//glm::vec3 jitterVal = 2.0f * aperture * generateRandomNumberFromThread(resolution, time, x, y);
-		//jitterVal -= glm::vec3(aperture);
-		//firstRay.origin += jitterVal;
+		//jitter camera
+		glm::vec3 jitterVal = 2.0f * aperture * generateRandomNumberFromThread(resolution, time, x, y);
+		jitterVal -= glm::vec3(aperture);
+		firstRay.origin += jitterVal;
 
-		////find new direction
-		//firstRay.direction = glm::normalize(focalPoint - firstRay.origin);
+		//find new direction
+		firstRay.direction = glm::normalize(focalPoint - firstRay.origin);
 
-		////antialias sample per pixel
-		//jitterVal = generateRandomNumberFromThread(resolution, time, x, y);
-		//jitterVal -= glm::vec3(0.5f, 0.5f, 0.5f);
-		//firstRay.direction += 0.0015f* jitterVal; 
+		//antialias sample per pixel
+		jitterVal = generateRandomNumberFromThread(resolution, time, x, y);
+		jitterVal -= glm::vec3(0.5f, 0.5f, 0.5f);
+		firstRay.direction += 0.0015f* jitterVal; 
 
 		//do intersection test
 		int objID = -1;
 		float len = testGeomIntersection(geoms, numberOfGeoms, firstRay, intersection, normal, objID);
-			
+		
+		//start building the first pool of rays
+		rayBounce firstBounce = rayBounce();
+		firstBounce.pixID = index;
+		firstBounce.thisRay = firstRay;
+		firstBounce.objID = objID;
+
 		//if no intersection, return
 		if(objID == -1){
-			firstPass[index] = rayBounce();
-			firstPass[index].dead = true;
-			firstPass[index].pixID = index;
+			firstBounce.dead = true;
+			firstPass[index] = firstBounce;
 			compactIn[index] = 0;
 			return;	
 		}
@@ -258,105 +253,90 @@ __global__ void createRay(glm::vec2 resolution, cameraData cam, staticGeom* geom
 		int matID = geoms[objID].materialid;
 		
 		//save the first bounce information
-		if(materials[matID].hasReflective == 1){
-			firstPass[index] = rayBounce();
-			firstPass[index].intersectPt = intersection;
-			firstPass[index].normal = normal;
-			firstPass[index].matID = matID;
-			firstPass[index].thisRay.origin = firstRay.origin;
-			firstPass[index].thisRay.direction = firstRay.direction;
-			firstPass[index].dead = false;
-			firstPass[index].pixID = index;
-			compactIn[index] = 1;
+		firstBounce.normal = normal;
+		firstBounce.matID = matID;
+		firstBounce.intersectPt = intersection;
 
-			//glm::vec3 surfColor = materials[matID].color;
-			////output final color
+		if(materials[matID].hasReflective == 1){
+
+			firstBounce.dead = false;
+			compactIn[index] = 1;
+			
+			firstBounce.thisRay.direction = glm::normalize(firstRay.direction - 2.0f*glm::dot(firstRay.direction, normal)*normal);
+			firstBounce.thisRay.origin = intersection + 0.0001f * firstRay.direction;
+
+			//output final color
 			//colors[index] += materials[matID].color;	
 		}
 		else{
-			firstPass[index] = rayBounce();
-			firstPass[index].dead = true;
-			firstPass[index].pixID = index;
+			firstBounce.dead = true;
 			compactIn[index] = 0;
 
+			//calculate diffuse color
+
+			colors[index] += materials[matID].color;	
 		}
+
+		firstPass[index] = firstBounce;
 	}
 
 }
 
 __global__ void rayParallelTrace(glm::vec2 resolution, float time, cameraData cam, int maxDepth, glm::vec3* colors, staticGeom* geoms, int numberOfGeoms, 
-								material* materials, int numLights, int* lightID, int numRays, int* compactIn, int* compactOut, rayBounce* rayPass){
+								material* materials, int numLights, int* lightID, int numRays, int* compactIn, rayBounce* rayPass){
 
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int index = x + (y * resolution.x);
+	//find the index in 1D
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
-	glm::vec3 intersection;
-	glm::vec3 normal;
-	glm::vec3 surfColor;
-
-	//int currDepth = 1;
-
-	//rayBounce currBounce = rayPass[10];
-	//colors[currBounce.pixID] = glm::vec3(1,0,0);
-	
 	if(index < numRays){
 		
-		compactIn[index] = 0;
-		compactOut[index] = 0;
-
+		//get the bounce at this index
 		rayBounce currBounce = rayPass[index];
-
-		//normal = currBounce.normal;
-		//glm::vec3 testColor (abs(normal[0]), abs(normal[1]), abs(normal[2]));
-		//colors[index] += testColor;
-		//colors[index] += glm::vec3(1,0,0);
-		if(!currBounce.dead)
-			colors[currBounce.pixID] += glm::vec3(1, 0, 0);
-		else
-			colors[currBounce.pixID] += glm::vec3(0, 0, 1);
-
-		//ray firstRay = rayPass[index].thisRay;
-		//firstRay.direction = glm::normalize(firstRay.direction - 2.0f*glm::dot(firstRay.direction, normal)*normal);
-		//offsect a little to prevent intersection
-		//firstRay.origin = intersection + 0.0001f * firstRay.direction;
 		
-		//glm::vec3 finalColor(1,1,1);
-		
+		//get the ray information at this index
+		ray currRay = currBounce.thisRay;
+		glm::vec3 intersection;
+		glm::vec3 normal;
+
 		//do intersection test
-		//int objID = -1;
+		int objID = -1;
+		float len = testGeomIntersection(geoms, numberOfGeoms, currRay, intersection, normal, objID);
+		
+		//start building the first pool of rays
+		currBounce.objID = objID;
 
-		//float len = testGeomIntersection(geoms, numberOfGeoms, firstRay, intersection, normal, objID);
+		//if no intersection, return
+		if(objID == -1){
+			currBounce.dead = true;
+			rayPass[index] = currBounce;
+			compactIn[index] = 0;
+			return;	
+		}
+		
+		int matID = geoms[objID].materialid;
+		
+		//save the first bounce information
+		currBounce.normal = normal;
+		currBounce.matID = matID;
+		currBounce.intersectPt = intersection;
 
-		////if no intersection, return
-		//if(objID == -1){
-		//	rayPass[index].dead = true;
-		//	compactIn[index] = 1;
-		//	return;	
-		//}
-		//
-		//int matID = geoms[objID].materialid;
-		//
-		////save the first bounce information
-		//if(materials[matID].hasReflective == 1){
-		//	rayPass[index].intersectPt = intersection;
-		//	rayPass[index].normal = normal;
-		//	rayPass[index].matID = matID;
-		//	rayPass[index].thisRay.origin = firstRay.origin;
-		//	rayPass[index].thisRay.direction = firstRay.direction;
-		//	rayPass[index].dead = false;
-		//	rayPass[index].pixID = index;
-		//	compactIn[index] = 1;
+		if(materials[matID].hasReflective == 1){
 
-		//	surfColor = materials[matID].color;
-		//	//output final color
-		//	colors[index] += surfColor;		
-		//}
-		//else{
-		//	rayPass[index].dead = true;
-		//	rayPass[index].pixID = index;
-		//	compactIn[index] = 1;
-		//}
+			currBounce.dead = false;
+			compactIn[index] = 1;
+			
+			currBounce.thisRay.direction = glm::normalize(currRay.direction - 2.0f*glm::dot(currRay.direction, normal)*normal);
+			currBounce.thisRay.origin = intersection + 0.0001f * currRay.direction;
+
+			//output final color
+			//colors[index] += materials[matID].color;	
+		}
+		else{
+			colors[currBounce.pixID] += materials[matID].color;	
+			currBounce.dead = true;
+			compactIn[index] = 0;
+		}
+
 	}
 
 }
@@ -561,7 +541,7 @@ void cudaFreeMemory(){
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool& clear){
   
-  int traceDepth = 1; //determines how many bounces the raytracer traces
+  int traceDepth = 3; //determines how many bounces the raytracer traces
 
   // set up crucial magic
   int tileSize = 8;
@@ -622,8 +602,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.focalLength = renderCam->focalLengths[frame];
   cam.aperture = renderCam->apertures[frame];
 
+
+  //start parallel raytrace
   int imageSize = (int)renderCam->resolution.x * (int)renderCam->resolution.y;
   int numRays = imageSize;
+  int tileSquare = tileSize * tileSize;
+ 
+  dim3 threadsPerBlockRayPool(tileSquare);			//each block has 8 * 8 threads
+  dim3 fullBlocksPerGridRayPool((int)ceil(float(numRays) / tileSquare));	//numRays/tilesquare blocks, decreases as there are less rays
 
   //clear image if camera has been moved
   if(clear){
@@ -631,40 +617,38 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  clear = false;
   }
   else{
-	  //first pass, get rays for first bounce
-	  //if(iterations == 1) {
-		  createRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cam, cudageoms, numberOfGeoms, cudaMaterials, 
-															numLights, cudaLights, cudaFirstPass, traceDepth, cudaCompactA, numRays, cudaimage);
-	  //}
+	  //build rays for the first iteration
+	  //if(iterations == 1)
+		  createRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cam.resolution, cam, traceDepth, iterations, cudageoms, numberOfGeoms, cudaMaterials, 
+															numLights, cudaLights, cudaRayPool, cudaCompactA, numRays, cudaimage);
 
-	  dim3 threadsPerBlockRayPool(tileSize*tileSize);			//each block has 64 * 1 threads
-	  dim3 fullBlocksPerGridRayPool;
-
-	  cudaMemcpy(cudaTempRayPool, cudaFirstPass, imageSize*sizeof(rayBounce), cudaMemcpyDeviceToDevice);		//copy new rays to the ray pool	  
-	  cudaMemcpy(cudaRayPool, cudaFirstPass, imageSize*sizeof(rayBounce), cudaMemcpyDeviceToDevice);
-
-	  for(int depthCount = 1; depthCount <= traceDepth; ++depthCount){  
-		  
-		  cudaStreamCompaction(fullBlocksPerGridRayPool, threadsPerBlockRayPool, tileSize, imageSize, traceDepth, numRays, depthCount);
-
-		  //reset compaction matrices for next iteration
-		  dim3 resetBlocksPerGrid((int)ceil(imageSize/float(tileSize)/float(tileSize)));
-		  dim3 resetThreadsPerBlock(tileSize * tileSize);
-		  //resetCompactVals<<<resetBlocksPerGrid, threadsPerBlockRayPool>>>(cudaCompactA, cudaCompactB, imageSize);
-
-		  //run raytrace in parallel
-		  rayParallelTrace<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, 
-															cudaMaterials, numLights, cudaLights, numRays, cudaCompactA, cudaCompactB, cudaRayPool);
-
+		  //copy the first pass of rays to the temporary ray pool
 		  cudaMemcpy(cudaTempRayPool, cudaRayPool, imageSize*sizeof(rayBounce), cudaMemcpyDeviceToDevice);
-	 	  checkCUDAError("building raypool failed!");
-	  }
-  }
+		  //cudaMemcpy(cudaRayPool, cudaFirstPass, imageSize*sizeof(rayBounce), cudaMemcpyDeviceToDevice);
+		  //cudaMemcpy(cudaTempRayPool, cudaFirstPass, imageSize*sizeof(rayBounce), cudaMemcpyDeviceToDevice);
 
-  //reset compaction matrices for next iteration
-  dim3 resetBlocksPerGrid((int)ceil(imageSize/float(tileSize)/float(tileSize)));
-  dim3 resetThreadsPerBlock(tileSize * tileSize);
-  resetCompactVals<<<resetBlocksPerGrid, resetThreadsPerBlock>>>(cudaCompactA, cudaCompactB, imageSize);
+		  //stream compact the temporary ray pool, then copy the result to the current ray pool
+		  for(int currDepth = 1; currDepth <= traceDepth; ++currDepth){
+
+			  //do stream compaction using double buffers compact A and B, in 1D
+			  cudaStreamCompaction(fullBlocksPerGridRayPool, threadsPerBlockRayPool, imageSize, traceDepth, numRays);
+
+			  if(numRays == 0)
+				  break;
+
+			  //update the number of blocks you need
+			  fullBlocksPerGridRayPool = dim3((int)ceil(float(numRays) / tileSquare));
+
+			  //raytrace with new number of blocks and rays
+			  rayParallelTrace<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cam.resolution, iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, 
+																					cudaMaterials, numLights, cudaLights, numRays, cudaCompactA, cudaRayPool);
+
+			  //copy new raypool info into tempRaypool so that you can update raypool later
+			  cudaMemcpy(cudaTempRayPool, cudaRayPool, numRays*sizeof(rayBounce), cudaMemcpyDeviceToDevice);
+			
+		  }
+
+  }
 
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);
 
@@ -686,68 +670,61 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   checkCUDAError("Kernel failed!");
 }
 
-void cudaStreamCompaction(dim3& fullBlocksPerGridRayPool, dim3 threadsPerBlockRayPool, int tileSize, int imageSize, int traceDepth, int& numRays, int currTraceDepth){
 
-	int compactDepth = (int)ceil(log((float)imageSize) / log(2.0f));
-	int compactStart = 0;
+void cudaStreamCompaction(dim3 fullBlocksPerGridRayPool, dim3 threadsPerBlockRayPool, int imageSize, int traceDepth, int& numRays){
 
-	fullBlocksPerGridRayPool = ((int)ceil(imageSize/float(tileSize)/float(tileSize)));
+	int compactDepth = (int)ceil(log((float)numRays)/log(2.0f));		//total number of times you have to compact to get the final sums
+	int currCompactDepth = 0;
+	int finalDepth = 0;
 
-	for(int d = 1; d <= compactDepth; ++d){
-		compactStart = pow(2.0f, d-1);
-		//swap buffers every iteration
-		if(d % 2 == 1){
-			streamCompact<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(numRays, cudaCompactA, cudaCompactB, traceDepth, compactStart);
-			cudaThreadSynchronize();
-			//std::cout<<testNum[0]<<std::endl;
-		}
-		else{
-			streamCompact<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(numRays, cudaCompactB, cudaCompactA, traceDepth, compactStart);
-			cudaThreadSynchronize();
-			//std::cout<<testNum[0]<<std::endl;
-		}
-		checkCUDAError("compact failed!");
+	for( int d = 1; d <= compactDepth; ++d){
+		finalDepth = d;
+		currCompactDepth = pow(2.0f, d-1);
+
+		//run compaction for all threads in parallel
+		//if(d % 2 ==1){		//if depth is odd, use A as input
+		//	streamCompact<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(numRays, cudaCompactA, cudaCompactB, currCompactDepth);
+		//}
+		//else{								//if depth is even, use B as input
+		//	streamCompact<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(numRays, cudaCompactB, cudaCompactA, currCompactDepth);
+		//}
+		
+		streamCompact<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(numRays, cudaCompactA, cudaCompactB, currCompactDepth);
+		int* tempCompact = cudaCompactA;
+		cudaCompactA = cudaCompactB;
+		cudaCompactB = tempCompact;
 	}
 
-	int* newNumRays = new int[640000];
+	checkCUDAError("compact failed!");
+	
+	int newNumRays = 0;
 
-	if(compactStart %2 == 1){	
-		shiftRight<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cudaCompactB, cudaCompactA, numRays);
-		buildRayPool<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cudaCompactA, cudaTempRayPool, cudaRayPool, numRays);
-		
-		//cudaMemcpy(newNumRays, cudaCompactB, imageSize*sizeof(int), cudaMemcpyDeviceToHost);
-		//numRays= newNumRays[imageSize-1];
-		
-		//find how many blocks you need now that you've killed rays
-		//fullBlocksPerGridRayPool = ((int)ceil(numRays/float(tileSize)/float(tileSize)));
+	//update the number of rays you have left
+	//if(finalDepth % 2 == 1){
+	//	//use B as the final sum result
+	//	cudaMemcpy(&newNumRays, &cudaCompactB[numRays-1], sizeof(int), cudaMemcpyDeviceToHost);
+	//	
+	//	//shift compacted sum to the right using the old number of rays
+	//	
+	//	//A contains the final result with the shifted values, so use A to build the ray pool
+	//	buildRayPool<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cudaCompactB, cudaTempRayPool, cudaRayPool, numRays);
+	//}
+	//else{
+	//	//use A as the final sum result
+	//	cudaMemcpy(&newNumRays, &cudaCompactA[numRays-1], sizeof(int), cudaMemcpyDeviceToHost);
 
-		//std::cout<<numRays<<std::endl;
-	}
-	else{
+	//	//shift compacted sum to the right using the old number of rays
 
-		//cudaMemcpy(newNumRays, cudaCompactA, imageSize*sizeof(int), cudaMemcpyDeviceToHost);
-		//numRays= newNumRays[imageSize-1];
-			
-		//std::cout<<numRays<<std::endl;
-			
-		//fullBlocksPerGridRayPool = ((int)ceil(numRays/float(tileSize)/float(tileSize)));
+	//	//B contains the final result with the shifted values, so use B to build the ray pool
+	//	buildRayPool<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cudaCompactA, cudaTempRayPool, cudaRayPool, numRays);
+	//}
 
-		shiftRight<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cudaCompactA, cudaCompactB, numRays);
-		buildRayPool<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cudaCompactB, cudaTempRayPool, cudaRayPool, numRays);
+	cudaMemcpy(&newNumRays, &cudaCompactA[numRays-1], sizeof(int), cudaMemcpyDeviceToHost);
+	buildRayPool<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cudaCompactA, cudaTempRayPool, cudaRayPool, numRays);
 
-	}
+	//update the number of rays only after you have shifted and built the new pool
+	numRays = newNumRays;
 
-	//int count = 0;
-	//for(int i =0 ; i< numRays; ++i)
-	//	if(newNumRays[i] > 1){
-	//		count++;
-	//		//std::cout<<newNumRays[i]<<" ";
-	//	}
-
-	//std::cout<<count<<std::endl;
-
-	delete [] newNumRays;
-		
 	checkCUDAError("building raypool failed!");
 
 }
