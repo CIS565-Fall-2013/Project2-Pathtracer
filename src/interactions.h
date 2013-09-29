@@ -18,6 +18,8 @@ struct AbsorptionAndScatteringProperties{
 	float reducedScatteringCoefficient;
 };
 
+enum BounceType{DIFFUSE, REFLECT, TRANSMIT};
+
 //forward declaration
 //__host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2);
@@ -26,33 +28,34 @@ __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, g
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident);
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2);
+__host__ __device__ BounceType bounceRay(rayState& r, glm::vec3 intersect, glm::vec3 normal, material* mats, int mhitIndex, float xi0/*for bounce type*/, float xi1/*for importance sampling*/,float xi2/*for importance sampling*/);
 
 //LOOK: This function demonstrates cosine weighted random direction generation in a sphere!
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2) {
-    
-    //crucial difference between this and calculateRandomDirectionInSphere: THIS IS COSINE WEIGHTED!
-    
-    float up = sqrt(xi1); // cos(theta)
-    float over = sqrt(1 - up * up); // sin(theta)
-    float around = xi2 * TWO_PI;
-    
-    //Find a direction that is not the normal based off of whether or not the normal's components are all equal to sqrt(1/3) or whether or not at least one component is less than sqrt(1/3). Learned this trick from Peter Kutz.
-    
-    glm::vec3 directionNotNormal;
-    if (abs(normal.x) < SQRT_OF_ONE_THIRD) {
-      directionNotNormal = glm::vec3(1, 0, 0);
-    } else if (abs(normal.y) < SQRT_OF_ONE_THIRD) {
-      directionNotNormal = glm::vec3(0, 1, 0);
-    } else {
-      directionNotNormal = glm::vec3(0, 0, 1);
-    }
-    
-    //Use not-normal direction to generate two perpendicular directions
-    glm::vec3 perpendicularDirection1 = glm::normalize(glm::cross(normal, directionNotNormal));
-    glm::vec3 perpendicularDirection2 = glm::normalize(glm::cross(normal, perpendicularDirection1));
-    
-    return ( up * normal ) + ( cos(around) * over * perpendicularDirection1 ) + ( sin(around) * over * perpendicularDirection2 );
-    
+
+	//crucial difference between this and calculateRandomDirectionInSphere: THIS IS COSINE WEIGHTED!
+
+	float up = sqrt(xi1); // cos(theta)
+	float over = sqrt(1 - up * up); // sin(theta)
+	float around = xi2 * TWO_PI;
+
+	//Find a direction that is not the normal based off of whether or not the normal's components are all equal to sqrt(1/3) or whether or not at least one component is less than sqrt(1/3). Learned this trick from Peter Kutz.
+
+	glm::vec3 directionNotNormal;
+	if (abs(normal.x) < SQRT_OF_ONE_THIRD) {
+		directionNotNormal = glm::vec3(1, 0, 0);
+	} else if (abs(normal.y) < SQRT_OF_ONE_THIRD) {
+		directionNotNormal = glm::vec3(0, 1, 0);
+	} else {
+		directionNotNormal = glm::vec3(0, 0, 1);
+	}
+
+	//Use not-normal direction to generate two perpendicular directions
+	glm::vec3 perpendicularDirection1 = glm::normalize(glm::cross(normal, directionNotNormal));
+	glm::vec3 perpendicularDirection2 = glm::normalize(glm::cross(normal, perpendicularDirection1));
+
+	return ( up * normal ) + ( cos(around) * over * perpendicularDirection1 ) + ( sin(around) * over * perpendicularDirection2 );
+
 }
 
 //Generates a random uniform direction in sphere. Note that this is a radially uniform distribution
@@ -72,21 +75,17 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 }
 
 
-__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
+__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float n1/*incidentIOR*/, float n2/*transmittedIOR*/) {
 	Fresnel fresnel;
-	if(utilityCore::epsilonCheck(glm::length(transmissionDirection), 0.0f))
-	{
-		//total internal reflection
-		fresnel.reflectionCoefficient = 1;
-		fresnel.transmissionCoefficient = 0;
 
-	}else{
-
+	float cos_i = glm::dot(normal,incident);
+	float eta  = n1/n2;
+	float sin2_tht = (eta*eta)*(1-cos_i*cos_i);
+	//Check if transmission possible
+	if(sin2_tht < 1.0f){
+		//Transmission possible, compute coefficients
 		//Assume unpolarized light
-		float cos_t = glm::dot(-normal, transmissionDirection);
-		float cos_i = glm::dot(normal, incident);
-		float n1 = incidentIOR;
-		float n2 = transmittedIOR;
+		float cos_t = glm::sqrt(1-sin2_tht);
 		float Rdenom = (n1*cos_i+n2*cos_t);
 		Rdenom *= Rdenom;//Squared
 
@@ -97,6 +96,10 @@ __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 inciden
 
 		fresnel.reflectionCoefficient = (Rp+Rs)/2;
 		fresnel.transmissionCoefficient = 1-fresnel.reflectionCoefficient;
+	}else{
+		//total internal reflection
+		fresnel.reflectionCoefficient = 1;
+		fresnel.transmissionCoefficient = 0;
 	}
 	return fresnel;
 }
@@ -126,15 +129,62 @@ __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm
 }
 
 
-//TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
-//returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
-__host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
-									  AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
-									  glm::vec3& color, glm::vec3& unabsorbedColor, material m){
+//returns type of bounce that was performed
+//Takes three random numbers to use in sampling
+//Do not call this function if ray hit a light source.
+__host__ __device__ BounceType bounceRay(rayState& r, glm::vec3 intersect, glm::vec3 normal, material* mats, int mhitIndex, float xi0/*for bounce type*/, float xi1/*for importance sampling*/,float xi2/*for importance sampling*/)
+{
+	material m = mats[mhitIndex];//material we hit
+	material mLast = mats[r.matIndex];//material we were traveling through
 
-	
+	//phong inspired light model.
+	float ks = clamp(MAX(m.hasReflective, m.hasRefractive), 0.0f,1.0f);
+	//float kd = 1.0f-ks; //not actually needed, but implicit in this definition
 
-										  return 1;
+	BounceType bounceType;
+	//Specular or diffuse?
+	if(xi1 <= ks)
+	{
+		//Specular. Determine if reflective or transmited
+		if(m.hasReflective && m.hasRefractive){
+			//both, compute fresnel
+			Fresnel f = calculateFresnel(normal, r.r.direction, mLast.indexOfRefraction, m.indexOfRefraction);
+
+			//scale our random number by ks
+			//0 <= xi1 <= ks, therefore 0 <= xi1/ks <= 1
+			if(xi1/ks <= f.reflectionCoefficient)
+			{
+				//reflect
+				bounceType = REFLECT;
+			}else{
+				//transmit
+				bounceType = TRANSMIT;
+			}
+
+		}else if(m.hasReflective){
+			bounceType = REFLECT;
+
+		}else{
+			//Refractive only
+			bounceType = TRANSMIT;
+		}
+	}else{
+		//Diffuse 
+		bounceType = DIFFUSE;
+	}
+
+	//at this point we know what type of bounce has occured. Perform bounce
+	switch(bounceType)
+	{
+	case DIFFUSE:
+		break;
+	case REFLECT:
+		break;
+	case TRANSMIT:
+		break;
+	}
+
+	return bounceType;
 };
 
 

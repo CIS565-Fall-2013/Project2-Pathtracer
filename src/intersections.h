@@ -42,6 +42,60 @@ __host__ __device__ bool epsilonCheck(float a, float b){
     }
 }
 
+
+//Generic intersection wrapper that dispatches the correct test based on the geometry type
+__host__ __device__ float geomIntersectionTest(staticGeom geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
+{
+	switch(geom.type)
+	{
+	case SPHERE:
+		return sphereIntersectionTest(geom, r, intersectionPoint, normal); 
+	case CUBE:
+		return boxIntersectionTest(geom, r, intersectionPoint, normal); 
+		//return -1;
+	}
+
+	return -1;
+}
+
+
+//Function that traverses scene searching for collisions. Traces ray to first impact. Returns index of first geometry hit or -1 if no collision
+__host__ __device__ int firstIntersect(staticGeom* geoms, int numberOfGeoms, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, float& distance)
+{
+	//Index of the first hit geometry
+	int firstGeomInd = -1;
+	distance = -1;
+	//Best intersection points stored in output params as minimums encountered. Limits temporary variables..
+	r.origin += r.direction*RAY_BIAS_AMOUNT;//March along ray a tiny bit to fix floating point errors
+
+
+	//for each geometry object
+	//TODO create better scene graph to improve collision detection for more complicated scenes. (Octtree)
+	for(int i = 0; i < numberOfGeoms; ++i)
+	{
+		//Temporary return variables
+		glm::vec3 intersectionPointTemp;
+		glm::vec3 normalTemp;
+
+		//Test for collision
+		float dist = geomIntersectionTest(geoms[i], r, intersectionPointTemp, normalTemp);
+		if(dist > 0){
+			//Impact detected
+			if(distance < 0 || dist < distance)
+			{
+				//First hit or closer hit
+				distance = dist;
+				firstGeomInd = i;
+				intersectionPoint = intersectionPointTemp;
+				normal = normalTemp;
+			}
+		}
+	}
+
+	return firstGeomInd;
+}
+
+
 //Self explanatory
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t){
   return r.origin + float(t-.0001)*glm::normalize(r.direction);

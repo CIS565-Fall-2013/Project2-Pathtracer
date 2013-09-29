@@ -19,6 +19,14 @@ struct ray {
 	glm::vec3 direction;
 };
 
+
+struct rayState{
+	ray r;//Current ray
+	int index;//pixel to contribute to
+	glm::vec3 T;//accumulated light attenuation by color
+	int matIndex;//Index of transmission medium material. -1 if in free space.
+};
+
 struct geom {
 	enum GEOMTYPE type;
 	int materialid;

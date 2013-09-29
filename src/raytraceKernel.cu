@@ -196,29 +196,13 @@ __global__ void traceRayFirstHit(cameraData cam, renderOptions rconfig, float ti
 		{
 			//valid pixel index
 			ray r = raypool[rIndex].r;
-
-			float MAX_DEPTH = 100000000000000000;
-			float depth = MAX_DEPTH;
-			glm::vec3 color = glm::vec3(0,0,0);
-			for(int i=0; i<numberOfGeoms; i++){
-				glm::vec3 intersectionPoint;
-				glm::vec3 intersectionNormal;
-				if(geoms[i].type==SPHERE){
-					depth = sphereIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
-				}else if(geoms[i].type==CUBE){
-					depth = boxIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
-				}else if(geoms[i].type==MESH){
-					//triangle tests go here
-				}else{
-					//lol?
-				}
-				if(depth<MAX_DEPTH && depth>-EPSILON){
-					MAX_DEPTH = depth;
-					color = materials[geoms[i].materialid].color;
-				}
-
-			}
-			colors[pixelIndex] += color;
+			
+			float dist;
+			glm::vec3 intersectionPoint;
+			glm::vec3 normal;
+			int ind = firstIntersect(geoms, numberOfGeoms, r, intersectionPoint, normal, dist);
+			if(ind >= 0)
+				colors[pixelIndex] += materials[geoms[ind].materialid].color;
 		}	
 	}
 }
@@ -242,30 +226,16 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 		if(pixelIndex >= 0 && pixelIndex < (int)cam.resolution.x*(int)cam.resolution.y)
 		{
 			//valid pixel index
-			ray r = raypool[rIndex].r;
+			rayState rstate = raypool[rIndex];
+			
 
-			float MAX_DEPTH = 100000000000000000;
-			float depth = MAX_DEPTH;
-			glm::vec3 color = glm::vec3(0,0,0);
-			for(int i=0; i<numberOfGeoms; i++){
-				glm::vec3 intersectionPoint;
-				glm::vec3 intersectionNormal;
-				if(geoms[i].type==SPHERE){
-					depth = sphereIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
-				}else if(geoms[i].type==CUBE){
-					depth = boxIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
-				}else if(geoms[i].type==MESH){
-					//triangle tests go here
-				}else{
-					//lol?
-				}
-				if(depth<MAX_DEPTH && depth>-EPSILON){
-					MAX_DEPTH = depth;
-					color = materials[geoms[i].materialid].color;
-				}
+			//Find first collision
+			float dist;
+			glm::vec3 intersectionPoint;
+			glm::vec3 normal;
+			int ind = firstIntersect(geoms, numberOfGeoms, rstate.r, intersectionPoint, normal, dist);
 
-			}
-			colors[pixelIndex] += color;
+
 		}	
 	}
 }

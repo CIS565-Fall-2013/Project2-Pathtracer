@@ -27,9 +27,9 @@
 #define TWO_PI                      6.2831853071795864769252867665590057683943
 #define SQRT_OF_ONE_THIRD           0.5773502691896257645091487805019574556476
 #define E                           2.7182818284590452353602874713526624977572
-#define EPSILON                     .000000001
-#define ZERO_ABSORPTION_EPSILON     0.00001
-#define RAY_BIAS_AMOUNT             0.0002
+#define EPSILON                     0.000000001f
+#define ZERO_ABSORPTION_EPSILON     0.00001f
+#define RAY_BIAS_AMOUNT             0.0002f
 
 #define MIN(a,b)	((a<b)?a:b)
 #define MAX(a,b)	((a>b)?a:b)

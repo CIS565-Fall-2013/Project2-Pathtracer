@@ -26,12 +26,6 @@
 	#include "cuda_profiler_api."h
 #endif
 
-struct rayState{
-	ray r;//Current ray
-	int index;//pixel to contribute to
-	glm::vec3 T;//accumulated light attenuation by color
-	int matIndex;//Index of transmission medium material. -1 if in free space.
-};
 
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig, int frame, int iterations, int frameFilterCounter, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
 
