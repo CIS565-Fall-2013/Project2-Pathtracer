@@ -47,10 +47,13 @@ void printDevProp(cudaDeviceProp devProp)
 
 	printf("Concurrent copy and execution: %s\n",  (devProp.deviceOverlap ? "Yes" : "No"));
 
+	printf("Unified Addressing enabled:    %s\n",  (devProp.unifiedAddressing? "Yes" : "No"));
+
 	printf("Number of multiprocessors:     %d\n",  devProp.multiProcessorCount);
 
 	printf("Kernel execution timeout:      %s\n",  (devProp.kernelExecTimeoutEnabled ? "Yes" : "No"));
 
+	printf("\n:");
 	return;
 
 }
@@ -191,7 +194,7 @@ void runCuda(){
       gammaSettings gamma;
       gamma.applyGamma = true;
       gamma.gamma = 1.0/2.2;
-      gamma.divisor = renderCam->iterations;
+      gamma.divisor = 1;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -247,9 +250,18 @@ void runCuda(){
 #else
 
 	void display(){
+		
+		if(glutGet(GLUT_ELAPSED_TIME) - timeSinceLastFrame > 1000)
+		{			
+			fps = frames;
+			timeSinceLastFrame = glutGet(GLUT_ELAPSED_TIME);
+			frames = 0;
+		}
+		++frames;
+		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations | FPS: " + utilityCore::convertIntToString(fps);
+
 		runCuda();
 
-		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
 		glutSetWindowTitle(title.c_str());
 
 		glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);
@@ -309,6 +321,9 @@ void runCuda(){
 		glutInitWindowSize(width, height);
 		glutCreateWindow("565Raytracer");
 
+		timeSinceLastFrame = glutGet(GLUT_ELAPSED_TIME);
+		fps = 0;
+		frames = 0;
 		// Init GLEW
 		glewInit();
 		GLenum err = glewInit();

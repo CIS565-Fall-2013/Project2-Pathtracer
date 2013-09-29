@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\src\stb_image\stb_image.c">
+      <Filter>stb_image</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\stb_image\stb_image_write.c">
+      <Filter>stb_image</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\glslUtility.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\image.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\scene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\utilities.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\stb_image\stb_image_write.h">
+      <Filter>stb_image</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\stb_image\stb_image.h">
+      <Filter>stb_image</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\cudaMat4.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\glslUtility.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\image.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\interactions.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\intersections.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\main.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\raytraceKernel.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\scene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\utilities.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\sceneStructs.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="..\..\src\raytraceKernel.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="stb_image">
+      <UniqueIdentifier>{011aa553-95e8-4e59-b7ff-1bb89aebe21d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Headers">
+      <UniqueIdentifier>{acc26eb9-7b5b-4540-b5b4-aee43f5a6096}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{417e01b4-4823-48f2-86cb-fb49182d90a6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" />
+    <None Include="..\..\scenes\sampleScene.txt" />
+  </ItemGroup>
+</Project>

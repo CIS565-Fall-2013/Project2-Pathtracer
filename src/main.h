@@ -22,6 +22,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <windows.h>
 #include "glslUtility.h"
 #include "sceneStructs.h"
 #include "glm/glm.hpp"
@@ -78,6 +79,11 @@ int main(int argc, char** argv);
 //-------------------------------
 //---------RUNTIME STUFF---------
 //-------------------------------
+
+int timeSinceLastFrame;
+int frames;
+int fps;
+
 
 void runCuda();
 

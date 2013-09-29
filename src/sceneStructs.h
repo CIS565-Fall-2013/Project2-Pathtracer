@@ -16,6 +16,8 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	glm::vec3 accumulatedColor;
+	int index;
 //	__host__ __device__ ray(){}
 //	__host__ __device__ ray(glm::vec3 start, glm::vec3 dir) : origin(start), direction(dir){}
 };

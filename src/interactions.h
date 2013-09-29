@@ -22,40 +22,75 @@ struct AbsorptionAndScatteringProperties{
 __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2);
 __host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance);
-__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR);
-__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident);
+__host__ __device__ glm::vec3 calculateTransmissionDirection(const glm::vec3 &incidentDir, const glm::vec3 &surfaceNormal, const float incidentIOR, const float transmittedIOR, float &nextIndexOfRefraction);
+__host__ __device__ glm::vec3 calculateReflectionDirection(const glm::vec3 &incidentDir, const glm::vec3 &surfaceNormal);
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2);
 
 //TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance) {
-  return glm::vec3(0,0,0);
+    return glm::vec3(0,0,0);
 }
 
 //TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
                                                         glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3){
-  return false;
+    return false;
 }
 
 //TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR) {
-  return glm::vec3(0,0,0);
-}
+__host__ __device__ Fresnel calculateFresnel(glm::vec3 surfaceNormal, glm::vec3 incidentDir, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
+  
+	Fresnel fresnel;
 
-//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
-  //nothing fancy here
-  return glm::vec3(0,0,0);
-}
+    glm::vec3 normal = glm::normalize(surfaceNormal);
+    glm::vec3 inDir = glm::normalize(incidentDir);
 
-//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
-  Fresnel fresnel;
+    float cosIncidentAngle = glm::dot(inDir, -normal);
+	float sinIncidentAngle = glm::length(glm::cross(inDir, normal));
+	float cosTransmitAngle;
+		
+	//	printf("refractionIndex1: %f refractionIndex2: %f\n", refractionIndex1, refractionIndex2);
+	//	printf("%f %f %f\n", normal.x, normal.y, normal.z);
+	if(incidentIOR < transmittedIOR) // from air to glass
+	{
+		cosTransmitAngle = cos(asin(incidentIOR / transmittedIOR * sinIncidentAngle));
+//		printf("\nincidentIOR: %f, transmittedIOR: %f, cosIncidentAngle: %f, cosTransmitAngle: %f\n", incidentIOR, transmittedIOR, cosIncidentAngle, cosTransmitAngle);
+		fresnel.reflectionCoefficient  = pow(abs((incidentIOR * cosIncidentAngle - transmittedIOR * cosTransmitAngle) 
+			                                   / (incidentIOR * cosIncidentAngle + transmittedIOR * cosTransmitAngle)), 2);
+		fresnel.reflectionCoefficient += pow(abs((incidentIOR * cosTransmitAngle - transmittedIOR * cosIncidentAngle) 
+			                                   / (incidentIOR * cosTransmitAngle + transmittedIOR * cosIncidentAngle)), 2);
+		fresnel.reflectionCoefficient /= 2.0f;
+//		printf("reflectionCoefficient: %f\n\n", fresnel.reflectionCoefficient);
+		//		printf("refraDirection: %f %f %f\n", refraDirection.x, refraDirection.y, refraDirection.z);
+	}
+	else                                    // from glass to air
+	{
+		//		printf("from glass to air\n");
+		float sinCriticalAngle = transmittedIOR / incidentIOR;
+		//		printf("IncidentAngle: %f, CriticalAngle: %f\n", glm::degrees(asin(sinIncidentAngle)), glm::degrees(asin(sinCriticalAngle)));
+		if(sinIncidentAngle > sinCriticalAngle) 
+		{
+			//	printf("internal reflection\n");
+			fresnel.reflectionCoefficient = 1.0f;
+		}
+		else
+		{
+			cosTransmitAngle = cos(asin(incidentIOR / transmittedIOR * sinIncidentAngle));
+			fresnel.reflectionCoefficient  = pow(abs((incidentIOR * cosIncidentAngle - transmittedIOR * cosTransmitAngle) 
+				/ (incidentIOR * cosIncidentAngle + transmittedIOR * cosTransmitAngle)), 2);
+//			printf("\nincidentIOR: %f, transmittedIOR: %f, cosIncidentAngle: %f, cosTransmitAngle: %f\n", incidentIOR, transmittedIOR, cosIncidentAngle, cosTransmitAngle);
+			fresnel.reflectionCoefficient += pow(abs((incidentIOR * cosTransmitAngle - transmittedIOR * cosIncidentAngle) 
+				/ (incidentIOR * cosTransmitAngle + transmittedIOR * cosIncidentAngle)), 2);
+//			printf("reflectionCoefficient: %f\n", fresnel.reflectionCoefficient);
+			fresnel.reflectionCoefficient /= 2.0f;
+//			printf("reflectionCoefficient: %f\n\n", fresnel.reflectionCoefficient);
+		}
+		
+	}
 
-  fresnel.reflectionCoefficient = 1;
-  fresnel.transmissionCoefficient = 0;
-  return fresnel;
+    fresnel.transmissionCoefficient = 1 - fresnel.reflectionCoefficient;
+    return fresnel;
 }
 
 //LOOK: This function demonstrates cosine weighted random direction generation in a sphere!
@@ -103,7 +138,8 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
     return 1;
 };
 
-__host__ __device__ glm::vec3 reflectedRay(const glm::vec3 &incidentDir, const glm::vec3 &surfaceNormal)
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ glm::vec3 calculateReflectionDirection(const glm::vec3 &incidentDir, const glm::vec3 &surfaceNormal)
 {
 	glm::vec3 normal = glm::normalize(surfaceNormal);
 //	printf("%f %f %f\n", normal.x, normal.y, normal.z);
@@ -111,13 +147,14 @@ __host__ __device__ glm::vec3 reflectedRay(const glm::vec3 &incidentDir, const g
 	return refDirection;
 }
 
-__host__ __device__ glm::vec3 refractedRay(const glm::vec3 &incidentDir, const glm::vec3 &surfaceNormal, const float refractionIndex1, const float refractionIndex2, float &nextIndexOfRefraction)
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ glm::vec3 calculateTransmissionDirection(const glm::vec3 &incidentDir, const glm::vec3 &surfaceNormal, const float refractionIndex1, const float refractionIndex2, float &nextIndexOfRefraction)
 {
 	glm::vec3 normal = glm::normalize(surfaceNormal);
 	glm::vec3 inDir = glm::normalize(incidentDir);
-	glm::vec3 refDirection = reflectedRay(inDir, surfaceNormal);	
+	glm::vec3 refDirection = calculateReflectionDirection(inDir, surfaceNormal);	
 	glm::vec3 refraDirection;
-	float sinIncidentAngle = glm::length(glm::cross(inDir, surfaceNormal));
+	float sinIncidentAngle = glm::length(glm::cross(inDir, normal));
 //	printf("sinIncidentAngle: %f\n",sinIncidentAngle);
 	float transmitAngle;
 //	printf("refractionIndex1: %f refractionIndex2: %f\n", refractionIndex1, refractionIndex2);
