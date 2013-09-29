@@ -29,7 +29,7 @@
 //#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ < 200)
 //#define  printf(f, ...) ((void)(f, __VA_ARGS__),0)  
 //#endif
-
+#define DEPTH_OF_FIELD
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -75,6 +75,16 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
   glm::vec3 P = M + (float)(2.0*sx - 1)*H + (float)(1 - 2.0*sy)*V;
   r.direction = P-eye;
   r.direction = glm::normalize(r.direction);
+
+#ifdef DEPTH_OF_FIELD
+  //Depth of field  
+  thrust::uniform_real_distribution<float> u02(-0.3,0.3);
+  glm::vec3 aimPoint = r.origin + (float)DOFLENGTH * r.direction;
+  r.origin += glm::vec3(u02(rng),u02(rng),u02(rng));
+  r.direction = aimPoint - r.origin;
+  r.direction = glm::normalize(r.direction);
+#endif
+ 
   return r;
 }
 

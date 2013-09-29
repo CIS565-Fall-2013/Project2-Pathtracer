@@ -37,6 +37,7 @@
 #define sampleNum					100
 #define BOUNCE_DEPTH				10
 #define INTEROFFSET					0.01f
+#define DOFLENGTH					10
 namespace utilityCore {
     extern float clamp(float f, float min, float max);
     extern bool replaceString(std::string& str, const std::string& from, const std::string& to);

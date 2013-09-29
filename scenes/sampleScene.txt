@@ -121,7 +121,7 @@ EMITTANCE   0
 CAMERA
 RES         800 800
 FOVY        25
-ITERATIONS  3000
+ITERATIONS  6000
 FILE        pathTracer.bmp
 frame 0
 EYE         0 4.5 12
