@@ -90,6 +90,7 @@ int main(int argc, char** argv){
 	renderOpts->aargbThresholds = glm::vec3(0.01,0.01,0.01);
 
 	renderOpts->frameFiltering = true;
+	renderOpts->backgroundColor = glm::vec3(137, 207, 240)/255.0f;//sky blue
 
 
 

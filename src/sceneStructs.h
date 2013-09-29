@@ -85,7 +85,7 @@ struct material{
 
 struct renderOptions{
 	enum RENDERMODE mode;
-	float distanceShadeRange;
+	glm::vec3 backgroundColor;
 	int traceDepth;
 	float rayPoolSize;
 	bool stocasticRayAssignment;

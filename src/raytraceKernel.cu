@@ -203,6 +203,8 @@ __global__ void traceRayFirstHit(cameraData cam, renderOptions rconfig, float ti
 			int ind = firstIntersect(geoms, numberOfGeoms, r, intersectionPoint, normal, dist);
 			if(ind >= 0)
 				colors[pixelIndex] += materials[geoms[ind].materialid].color;
+			else
+				colors[pixelIndex] += rconfig.backgroundColor;
 		}	
 	}
 }
@@ -234,8 +236,14 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 			glm::vec3 intersectionPoint;
 			glm::vec3 normal;
 			int ind = firstIntersect(geoms, numberOfGeoms, rstate.r, intersectionPoint, normal, dist);
+			
+			if(ind >= 0){
+				//if we hit something
+				colors[pixelIndex] += materials[geoms[ind].materialid].color;
+			}else{
+				//retire ray, add background color.
 
-
+			}
 		}	
 	}
 }
