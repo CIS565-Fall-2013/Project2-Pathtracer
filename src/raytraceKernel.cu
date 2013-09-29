@@ -726,28 +726,28 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		cudaThreadSynchronize(); // Wait for Kernel to finish, because we don't want a race condition between successive kernel launches.
 		checkCUDAError("raytraceRay Kernel failed!");
 
-		//// Inefficient. Grossly inefficient. Need to look over and change as required.
-		//cudaMemcpy (primaryArray, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
-		//cudaMemcpy (rayPool, rayPoolOnDevice, rayPoolLength * sizeof (ray), cudaMemcpyDeviceToHost);
+		// Inefficient. Grossly inefficient. Need to look over and change as required.
+		cudaMemcpy (primaryArray, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
+		cudaMemcpy (rayPool, rayPoolOnDevice, rayPoolLength * sizeof (ray), cudaMemcpyDeviceToHost);
 
-		//// Stream compaction:
-		//secondaryArray [0] = 0;
-		//for (int k = 1; k < rayPoolLength; ++ k)
-		//	secondaryArray [k] = secondaryArray [k-1] + primaryArray [k-1];
+		// Stream compaction:
+		secondaryArray [0] = 0;
+		for (int k = 1; k < rayPoolLength; ++ k)
+			secondaryArray [k] = secondaryArray [k-1] + primaryArray [k-1];
 
-		//int count = 0;
-		//for (int k = 0; k < rayPoolLength; ++ k)
-		//{
-		//	if (primaryArray [k])
-		//	{
-		//		rayPool [count] = rayPool [secondaryArray [k]];
-		//		++ count;
-		//	}
-		//}
+		int count = 0;
+		for (int k = 0; k < rayPoolLength; ++ k)
+		{
+			if (primaryArray [k])
+			{
+				rayPool [secondaryArray [k]] = rayPool [k];
+				++ count;
+			}
+		}
 
-		//rayPoolLength = count;
-		//cudaMemcpy (rayPoolOnDevice, rayPool, rayPoolLength * sizeof (ray), cudaMemcpyHostToDevice);
-		//cudaMemset (primaryArrayOnDevice, true, rayPoolLength * sizeof (bool));
+		rayPoolLength = count;
+		cudaMemcpy (rayPoolOnDevice, rayPool, rayPoolLength * sizeof (ray), cudaMemcpyHostToDevice);
+		cudaMemset (primaryArrayOnDevice, true, rayPoolLength * sizeof (bool));
 	  }
 //      fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
 	  // At this point, since stream compaction has already taken place,
