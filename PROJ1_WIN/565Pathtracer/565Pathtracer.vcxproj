@@ -75,7 +75,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="..\Build\CUDA 4.0.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 5.5.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -109,7 +109,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include;C:\ProgramData\NVIDIA Corporation\NVIDIA GPU Computing SDK 4.0\C\common\inc;../shared/glew/include;../shared/freeglut/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(NVCUDASAMPLES_ROOT)\common\inc;$(CudaToolkitIncludeDir);../shared/glew/include;../shared/freeglut/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -122,7 +122,8 @@
     </Link>
     <CudaCompile>
       <CompileOut>$(ProjectDir)$(Platform)/$(Configuration)/%(Filename)%(Extension).obj</CompileOut>
-      <Include>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include;C:/ProgramData/NVIDIA Corporation/NVIDIA GPU Computing SDK 4.0/C/common/inc;../shared/glew/includes;../shared/freeglut/includes</Include>
+      <Include>$(CudaToolkitIncludeDir);$(NVCUDASAMPLES_ROOT)\common\inc;../shared/glew/includes;../shared/freeglut/includes</Include>
+      <CodeGeneration>compute_20,sm_20</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug (v5.5)|Win32'">
@@ -132,7 +133,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include;C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc;../shared/glew/include;../shared/freeglut/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(NVCUDASAMPLES_ROOT)\common\inc;$(CudaToolkitIncludeDir);../shared/glew/include;../shared/freeglut/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -145,7 +146,8 @@
     </Link>
     <CudaCompile>
       <CompileOut>$(ProjectDir)$(Platform)/$(Configuration)/%(Filename)%(Extension).obj</CompileOut>
-      <Include>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include;C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc;../shared/glew/includes;../shared/freeglut/includes</Include>
+      <Include>$(CudaToolkitIncludeDir);$(NVCUDASAMPLES_ROOT)\common\inc;../shared/glew/includes;../shared/freeglut/includes</Include>
+      <CodeGeneration>compute_20,sm_20</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -182,7 +184,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include;C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc;../shared/glew/include;../shared/freeglut/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(NVCUDASAMPLES_ROOT)\common\inc;$(CudaToolkitIncludeDir);../shared/glew/include;../shared/freeglut/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -195,11 +197,12 @@
     </Link>
     <CudaCompile>
       <CompileOut>$(ProjectDir)$(Platform)/$(Configuration)/%(Filename)%(Extension).obj</CompileOut>
-      <Include>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include;C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc;../shared/glew/includes;../shared/freeglut/includes</Include>
+      <Include>$(CudaToolkitIncludeDir);$(NVCUDASAMPLES_ROOT)\common\inc;../shared/glew/includes;../shared/freeglut/includes</Include>
+      <CodeGeneration>compute_20,sm_20</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="..\Build\CUDA 4.0.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 5.5.targets" />
   </ImportGroup>
 </Project>

@@ -52,6 +52,8 @@ int targetFrame;
 int iterations;
 bool finishedRender;
 bool singleFrameMode;
+glm::vec3 *preColors;
+
 
 //-------------------------------
 //------------GL STUFF-----------

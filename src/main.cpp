@@ -53,6 +53,8 @@ int main(int argc, char** argv){
   width = renderCam->resolution[0];
   height = renderCam->resolution[1];
 
+  preColors = new glm::vec3[width * height];
+
   if(targetFrame>=renderCam->frames){
     cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
     targetFrame = 0;
@@ -104,7 +106,6 @@ void runCuda(){
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  
   if(iterations<renderCam->iterations){
     uchar4 *dptr=NULL;
     iterations++;
@@ -122,8 +123,9 @@ void runCuda(){
     }
     
   
+
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+	cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), preColors);
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -136,14 +138,14 @@ void runCuda(){
       for(int x=0; x<renderCam->resolution.x; x++){
         for(int y=0; y<renderCam->resolution.y; y++){
           int index = x + (y * renderCam->resolution.x);
-          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
+		  outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);//sijie
         }
       }
       
       gammaSettings gamma;
-      gamma.applyGamma = true;
-      gamma.gamma = 1.0;
-      gamma.divisor = 1.0; //renderCam->iterations;
+      gamma.applyGamma = false;
+      gamma.gamma = 1.0 / 2.0;
+	  gamma.divisor = realSample;//renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -166,7 +168,7 @@ void runCuda(){
       targetFrame++;
       iterations = 0;
       for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
-        renderCam->image[i] = glm::vec3(0,0,0);
+			renderCam->image[i] = glm::vec3(0,0,0);
       }
       cudaDeviceReset(); 
       finishedRender = false;

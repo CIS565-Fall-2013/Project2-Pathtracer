@@ -1,0 +1,14 @@
+﻿Build started 9/22/2013 3:52:14 PM.
+     1>Project "D:\Class\565\Project2\Project2-Pathtracer\PROJ1_WIN\565Pathtracer\565Pathtracer.vcxproj" on node 2 (Build target(s)).
+     1>PrepareForBuild:
+         Creating directory "D:\Class\565\Project2\Project2-Pathtracer\PROJ1_WIN\Debug\".
+       InitializeBuildStatus:
+         Creating "Debug\565Pathtracer.unsuccessfulbuild" because "AlwaysCreate" was specified.
+       AddCudaCompileDeps:
+         D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\cl.exe /E /nologo /showIncludes /TP /Iinclude /I"D:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" /I../shared/glew/includes /I../shared/freeglut/includes /Ibin /Iinclude /I. /FIcuda_runtime.h /c D:\Class\565\Project2\Project2-Pathtracer\src\raytraceKernel.cu 
+     1>D:\Class\565\Project2\Project2-Pathtracer\PROJ1_WIN\Build\CUDA 4.0.targets(245,9): error : The CUDA Toolkit v4.0 directory '' does not exist.  Please verify the CUDA Toolkit is installed properly or define the CudaToolkitDir property to resolve this error.
+     1>Done Building Project "D:\Class\565\Project2\Project2-Pathtracer\PROJ1_WIN\565Pathtracer\565Pathtracer.vcxproj" (Build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:06.78
