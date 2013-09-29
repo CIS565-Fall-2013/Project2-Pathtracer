@@ -179,6 +179,51 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 	}
 }
 
+__global__ void traceRayFirstHit(cameraData cam, renderOptions rconfig, float time, int bounce, glm::vec3* colors, 
+						 rayState* raypool, int numRays, staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials)
+{
+	//Compute ray index
+	int blockId   = blockIdx.y * gridDim.x + blockIdx.x;			 	
+	int rIndex = blockId * blockDim.x + threadIdx.x; 
+
+
+	//Pixel index of -1 indicates the ray's contribution has been recorded and is no longer in flight
+	if(rIndex < numRays)
+	{
+		//Thread has a ray, check if ray has a pixel
+		int pixelIndex = raypool[rIndex].index;
+		if(pixelIndex >= 0 && pixelIndex < (int)cam.resolution.x*(int)cam.resolution.y)
+		{
+			//valid pixel index
+			ray r = raypool[rIndex].r;
+
+			float MAX_DEPTH = 100000000000000000;
+			float depth = MAX_DEPTH;
+			glm::vec3 color = glm::vec3(0,0,0);
+			for(int i=0; i<numberOfGeoms; i++){
+				glm::vec3 intersectionPoint;
+				glm::vec3 intersectionNormal;
+				if(geoms[i].type==SPHERE){
+					depth = sphereIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
+				}else if(geoms[i].type==CUBE){
+					depth = boxIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
+				}else if(geoms[i].type==MESH){
+					//triangle tests go here
+				}else{
+					//lol?
+				}
+				if(depth<MAX_DEPTH && depth>-EPSILON){
+					MAX_DEPTH = depth;
+					color = materials[geoms[i].materialid].color;
+				}
+
+			}
+			colors[pixelIndex] += color;
+		}	
+	}
+}
+
+
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
 __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int bounce, glm::vec3* colors, 
@@ -310,11 +355,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	thrust::uniform_real_distribution<float> u01(0,1);
 	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(u01(rng), *rconfig, cam, cudaimage, cudaraypool, rayPoolSize);
 
-	if(rconfig->mode == RAYCOUNT_DEBUG)
+	switch(rconfig->mode)
 	{
-		displayRayCounts<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, cudaimage, cudaraypool, rayPoolSize,ceil(float(rayPoolSize)/numPixels));
-
-	}else if(rconfig->mode == PATHTRACE){
+	case PATHTRACE:
 		raycastFromCameraKernel<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(iterations, frame, cam, *rconfig, cudaraypool, rayPoolSize);
 
 		for(int bounce = 0; bounce < traceDepth; bounce++)
@@ -324,6 +367,17 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 
 		}
 
+		break;
+	case RAYCOUNT_DEBUG:
+		displayRayCounts<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, cudaimage, cudaraypool, rayPoolSize,ceil(float(rayPoolSize)/numPixels));
+		break;
+	case FIRST_HIT_DEBUG:
+		raycastFromCameraKernel<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(iterations, frame, cam, *rconfig, cudaraypool, rayPoolSize);
+
+		traceRayFirstHit<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, iterations, 0, cudaimage, 
+				cudaraypool, rayPoolSize, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+
+		break;
 	}
 
 

@@ -293,9 +293,14 @@ void keyboard(unsigned char key, int x, int y)
 	case '3':
 		//Enter normal debug mode
 		renderOpts->mode = TRACEDEPTH_DEBUG;
-		cout << "Normal Debug Mode" <<endl;
+		cout << "Trace Depth Debug Mode" <<endl;
 		break;
-
+	case '4':
+		//Enter normal debug mode
+		renderOpts->mode = FIRST_HIT_DEBUG;
+		cout << "First Hit Debug Mode" <<endl;
+		break;
+		
 	case 'A':
 		renderOpts->antialiasing = !renderOpts->antialiasing;
 		cout << "Antialiasing: " << renderOpts->antialiasing<< endl;
