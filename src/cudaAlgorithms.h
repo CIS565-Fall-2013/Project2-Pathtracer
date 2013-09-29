@@ -48,6 +48,9 @@ template<typename DataType>
 __host__ DataType exclusive_scan_sum(DataType* datain, DataType* dataout, int N);
 template<typename DataType, typename BinaryOperation>
 __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, int N, BinaryOperation op);
+template<typename DataType, typename BinaryOperation>
+__device__ DataType inclusive_scan_block(DataType* datain, DataType* dataout, int N, BinaryOperation op);
+
 
 
 template<typename DataType>

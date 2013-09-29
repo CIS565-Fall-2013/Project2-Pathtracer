@@ -74,15 +74,15 @@ int main(int argc, char** argv){
 	height = renderCam->resolution[1];
 	//Allocate raytotals to zero
 	raytotals = new int[(int)renderCam->resolution.x*(int)renderCam->resolution.y]();
-	
+
 
 
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
 	renderOpts->mode = RAYCOUNT_DEBUG;
 	renderOpts->traceDepth = 1;
-	renderOpts->rayPoolSize = 1.25f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
-	renderOpts->forceOnePerPixel = true;
+	renderOpts->rayPoolSize = 1.5f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
+	renderOpts->forceOnePerPixel = false;
 	//Note, these constants must sum to 1.
 	renderOpts->ambientLightColor = glm::vec3(1,1,1);
 	renderOpts->ambientLightIntensity = 0.05;
@@ -401,6 +401,28 @@ void initCuda(){
 
 	// Clean up on program exit
 	atexit(cleanupCuda);
+
+	for(int i = 0; i < 1000; i++){
+		//Temporary test
+		int size = 4096;
+		float* data = new float[size];
+		for(int i = 0; i < size; i++)
+		{
+			data[i] = 2;
+		}
+
+		float* cudadata = NULL;
+		cudaMalloc((void**)&cudadata, size*sizeof(float));
+		cudaMemcpy( cudadata, data, size*sizeof(float), cudaMemcpyHostToDevice);
+
+		//Perform scan
+		float result = inclusive_scan_sum(cudadata, cudadata, size);
+
+		//pull result
+		cudaMemcpy( data, cudadata, size*sizeof(float), cudaMemcpyDeviceToHost);
+
+		cudaFree(cudadata);
+	}
 
 	runCuda();
 }
