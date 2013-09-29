@@ -15,6 +15,7 @@
 #include "intersections.h"
 #include "interactions.h"
 #include <vector>
+#include "glm/gtc/matrix_transform.hpp"
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
@@ -173,7 +174,7 @@ __global__ void streamCompact(int numRays, int* compactIn, int* compactOut, int 
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
 	if(index < numRays){
-		
+
 		int valIn = compactIn[index];
 
 		if( index >= d){
@@ -192,8 +193,106 @@ __global__ void buildRayPool(int* compactIn, rayBounce* rayTempPass, rayBounce* 
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
 	if(index < numRays){
-		if(!rayTempPass[index].dead)
+		if(!rayTempPass[index].dead){
 			rayPass[compactIn[index] - 1] = rayTempPass[index];
+		}
+	}
+}
+
+
+
+__host__ __device__ cudaMat4 buildTransformationMatrix(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale){
+ 
+	glm::mat4 translationMat = glm::translate(glm::mat4(), translation);
+  glm::mat4 rotationMat = glm::rotate(glm::mat4(), rotation.x, glm::vec3(1,0,0));
+  rotationMat = rotationMat*glm::rotate(glm::mat4(), rotation.y, glm::vec3(0,1,0));
+  rotationMat = rotationMat*glm::rotate(glm::mat4(), rotation.z, glm::vec3(0,0,1));
+  glm::mat4 scaleMat = glm::scale(glm::mat4(), scale);
+
+  glm::mat4 transform = translationMat*rotationMat*scaleMat;
+    cudaMat4 m; 
+	transform = glm::transpose(transform);
+    m.x = transform[0];
+    m.y = transform[1];
+    m.z = transform[2];
+    m.w = transform[3];
+    return m;
+
+}
+
+//creates and stores first bounce rays, always at depth 1
+__global__ void pathTrace(glm::vec2 resolution, cameraData cam, int maxDepth, int time, staticGeom* geoms, int numberOfGeoms, material* materials, 
+						 int numLights, int* lightID, glm::vec3* colors){
+
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * resolution.x);
+
+	glm::vec3 intersection;
+	glm::vec3 normal;
+	glm::vec3 surfColor;
+
+	int currDepth = 1;
+
+	if((x<=resolution.x && y<=resolution.y)){
+
+		ray firstRay = raycastFromCameraKernel(resolution, x, y, cam.position, cam.view, cam.up, cam.fov); 
+		glm::vec3 finalColor(1,1,1);
+		
+		while(currDepth <= maxDepth){
+	
+			//do intersection test
+			int objID = -1;
+			float len = testGeomIntersection(geoms, numberOfGeoms, firstRay, intersection, normal, objID);
+
+			//if no intersection, return
+			if(objID == -1){
+				colors[index] += glm::vec3(0);			//set to black
+				return;	
+			}
+
+			int matID = geoms[objID].materialid;
+			material firstMat = materials[matID];
+
+			//check if material is light
+			if(materials[matID].emittance > 0){
+				colors[index] += finalColor * firstMat.color * firstMat.emittance; 
+				return;
+			}
+
+			if(materials[matID].hasReflective == 1){
+				firstRay.direction = glm::normalize(firstRay.direction - 2.0f*glm::dot(firstRay.direction, normal)*normal);
+			}
+
+			else{
+				//calculate diffuse direction
+				//staticGeom testSphere = staticGeom();
+				//testSphere.type = SPHERE;
+				//testSphere.rotation = glm::vec3(0);
+				//testSphere.scale = glm::vec3(1);
+				//testSphere.translation = intersection;
+				//testSphere.transform = buildTransformationMatrix(testSphere.translation, testSphere.rotation, testSphere.scale);
+
+				//glm::vec3 newDir = getRandomPointOnSphere(testSphere, time*index) - intersection;
+				//
+				//if(glm::dot(newDir, normal) < 0)
+				//	newDir = glm::normalize(-1.0f*newDir);
+
+				//firstRay.direction = newDir;
+
+				glm::vec3 seed = generateRandomNumberFromThread(resolution, time*currDepth, x, y);
+				firstRay.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, seed.x, seed.y));
+			}
+
+			currDepth++;
+			
+			//offset a little to prevent self intersection
+			firstRay.origin = intersection + 0.0001f * firstRay.direction;
+		
+			//store the color
+			finalColor *= firstMat.color;
+		}
+
 	}
 
 }
@@ -205,7 +304,7 @@ __global__ void createRay(glm::vec2 resolution, cameraData cam, int maxDepth, in
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * resolution.x);
-	
+
 	glm::vec3 intersection;
 	glm::vec3 normal;
 
@@ -235,14 +334,13 @@ __global__ void createRay(glm::vec2 resolution, cameraData cam, int maxDepth, in
 		//do intersection test
 		int objID = -1;
 		float len = testGeomIntersection(geoms, numberOfGeoms, firstRay, intersection, normal, objID);
-		
+
 		//start building the first pool of rays
 		rayBounce firstBounce = rayBounce();
 		firstBounce.pixID = index;
 		firstBounce.thisRay = firstRay;
-		firstBounce.objID = objID;
 		firstBounce.currDepth = 1;
-		firstBounce.color = glm::vec3(1,1,1);		//always start as white!!
+		firstBounce.color = glm::vec3(1);
 
 		//if no intersection, return
 		if(objID == -1){
@@ -252,19 +350,15 @@ __global__ void createRay(glm::vec2 resolution, cameraData cam, int maxDepth, in
 			compactIn[index] = 0;
 			return;	
 		}
-		
+
 		int matID = geoms[objID].materialid;
 		material firstMat = materials[matID];
-		
-		//save the first bounce information
-		firstBounce.normal = normal;
-		firstBounce.matID = matID;
-		firstBounce.intersectPt = intersection;
 
 		//check if material is light
 		if(materials[matID].emittance > 0){
 			colors[index] += firstMat.color * firstMat.emittance; 
 			firstBounce.dead = true;
+			firstPass[index] = firstBounce;
 			compactIn[index] = 0;
 			return;
 		}
@@ -272,29 +366,144 @@ __global__ void createRay(glm::vec2 resolution, cameraData cam, int maxDepth, in
 		if(materials[matID].hasReflective == 1){
 			firstBounce.dead = false;
 			compactIn[index] = 1;
-			firstBounce.thisRay.direction = glm::normalize(firstRay.direction - 2.0f*glm::dot(firstRay.direction, normal)*normal);
+			firstRay.direction = glm::normalize(firstRay.direction - 2.0f*glm::dot(firstRay.direction, normal)*normal);
 		}
 		else{
 			firstBounce.dead = false;
 			compactIn[index] = 1;
 
 			//calculate diffuse direction
-			glm::vec3 seed = generateRandomNumberFromThread(resolution, time, x, y);
-			firstBounce.thisRay.direction = calculateRandomDirectionInHemisphere(normal, seed.x, seed.y);
+			glm::vec3 seed = generateRandomNumberFromThread(resolution, time*firstBounce.currDepth, x, y);
+			firstRay.direction = calculateRandomDirectionInHemisphere(normal, seed.x, seed.y);
 		}
 
 		//offset a little to prevent self intersection
+		firstBounce.thisRay.direction = firstRay.direction;
 		firstBounce.thisRay.origin = intersection + 0.0001f * firstRay.direction;
-		
+
 		//store the color
 		firstBounce.color *= firstMat.color;
-		
+
 		//store first bounce
 		firstPass[index] = firstBounce;
-
 	}
 
 }
+
+////creates and stores first bounce rays, always at depth 1
+//__global__ void createRay(glm::vec2 resolution, cameraData cam, int maxDepth, int time, staticGeom* geoms, int numberOfGeoms, material* materials, 
+//						 int numLights, int* lightID, rayBounce* firstPass, int* compactIn, int numRays, glm::vec3* colors){
+//
+//	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+//	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+//	int index = x + (y * resolution.x);
+//	
+//	glm::vec3 intersection;
+//	glm::vec3 normal;
+//
+//	if(index < numRays){
+//
+//		ray firstRay = raycastFromCameraKernel(resolution, x, y, cam.position, cam.view, cam.up, cam.fov); 
+//
+//		////DOF and antialiasing setup
+//		//float focalLength = cam.focalLength;
+//		//float aperture = cam.aperture;
+//		//
+//		//glm::vec3 focalPoint = firstRay.origin + focalLength * firstRay.direction;
+//
+//		////jitter camera
+//		//glm::vec3 jitterVal = 2.0f * aperture * generateRandomNumberFromThread(resolution, time, x, y);
+//		//jitterVal -= glm::vec3(aperture);
+//		//firstRay.origin += jitterVal;
+//
+//		////find new direction
+//		//firstRay.direction = glm::normalize(focalPoint - firstRay.origin);
+//
+//		////antialias sample per pixel
+//		//jitterVal = generateRandomNumberFromThread(resolution, time, x, y);
+//		//jitterVal -= glm::vec3(0.5f, 0.5f, 0.5f);
+//		//firstRay.direction += 0.0015f* jitterVal; 
+//
+//		//do intersection test
+//		int objID = -1;
+//		float len = testGeomIntersection(geoms, numberOfGeoms, firstRay, intersection, normal, objID);
+//		
+//		//start building the first pool of rays
+//		rayBounce firstBounce = rayBounce();
+//		firstBounce.pixID = index;
+//		firstBounce.thisRay = firstRay;
+//		firstBounce.objID = objID;
+//		firstBounce.currDepth = 1;
+//
+//		//if no intersection, return
+//		if(objID == -1){
+//			firstBounce.color = glm::vec3(0,0,0);
+//			colors[index] += firstBounce.color;			//set to black
+//			firstBounce.dead = true;
+//			firstPass[index] = firstBounce;
+//			compactIn[index] = 0;
+//			return;	
+//		}
+//		
+//		int matID = geoms[objID].materialid;
+//		material firstMat = materials[matID];
+//		
+//		//save the first bounce information
+//		firstBounce.normal = normal;
+//		firstBounce.matID = matID;
+//		firstBounce.intersectPt = intersection;
+//
+//		//check if material is light
+//		if(materials[matID].emittance > 0){
+//			firstBounce.color = firstMat.color * firstMat.emittance;
+//			colors[index] += firstBounce.color; 
+//			firstBounce.dead = true;
+//			compactIn[index] = 0;
+//			return;
+//		}
+//
+//		if(materials[matID].hasReflective == 1){
+//			firstBounce.dead = false;
+//			compactIn[index] = 1;
+//			firstBounce.thisRay.direction = glm::normalize(firstRay.direction - 2.0f*glm::dot(firstRay.direction, normal)*normal);
+//		}
+//		else{
+//			firstBounce.dead = false;
+//			compactIn[index] = 1;
+//
+//			//calculate diffuse direction
+//
+//			//staticGeom testSphere = staticGeom();
+//			//testSphere.type = SPHERE;
+//			//testSphere.rotation = glm::vec3(0);
+//			//testSphere.scale = glm::vec3(1);
+//			//testSphere.translation = intersection;
+//			//testSphere.transform = buildTransformationMatrix(testSphere.translation, testSphere.rotation, testSphere.scale);
+//
+//			//glm::vec3 newDir = getRandomPointOnSphere(testSphere, time*index) - intersection;
+//			//	
+//			//if(glm::dot(newDir, normal) < 0)
+//			//	newDir = glm::normalize(-1.0f*newDir);
+//
+//			//firstBounce.thisRay.direction= newDir;
+//
+//			glm::vec3 seed = generateRandomNumberFromThread(resolution, time, x, y);
+//			firstBounce.thisRay.direction = calculateRandomDirectionInHemisphere(normal, seed.x, seed.y);
+//		}
+//
+//		//offset a little to prevent self intersection
+//		firstBounce.thisRay.origin = intersection + 0.0001f * firstRay.direction;
+//		
+//		//store the color
+//		firstBounce.color = firstMat.color;
+//		
+//		//store first bounce
+//		firstPass[index] = firstBounce;
+//
+//	}
+//
+//}
+
 
 __global__ void rayParallelTrace(glm::vec2 resolution, float time, cameraData cam, int maxDepth, glm::vec3* colors, staticGeom* geoms, int numberOfGeoms, 
 								material* materials, int numLights, int* lightID, int numRays, int* compactIn, rayBounce* rayPass){
@@ -303,7 +512,7 @@ __global__ void rayParallelTrace(glm::vec2 resolution, float time, cameraData ca
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
 	if(index < numRays){
-		
+
 		//get the bounce at this index
 		rayBounce currBounce = rayPass[index];
 		currBounce.currDepth++;
@@ -316,9 +525,6 @@ __global__ void rayParallelTrace(glm::vec2 resolution, float time, cameraData ca
 		//do intersection test
 		int objID = -1;
 		float len = testGeomIntersection(geoms, numberOfGeoms, currRay, intersection, normal, objID);
-		
-		//start building the first pool of rays
-		currBounce.objID = objID;
 
 		//if no intersection, return
 		if(objID == -1){
@@ -328,44 +534,125 @@ __global__ void rayParallelTrace(glm::vec2 resolution, float time, cameraData ca
 			compactIn[index] = 0;
 			return;	
 		}
-		
+
 		int matID = geoms[objID].materialid;
 		material currMat = materials[matID];
-		
+
 		//check if material is light
 		if(materials[matID].emittance > 0){
 			colors[currBounce.pixID] += currBounce.color * currMat.color * currMat.emittance;
 			currBounce.dead = true;
+			rayPass[index] = currBounce;
 			compactIn[index] = 0;
 			return;
 		}
 
-		//update bounce information
-		currBounce.normal = normal;
-		currBounce.matID = matID;
-		currBounce.intersectPt = intersection;
-
 		if(materials[matID].hasReflective == 1){
 			currBounce.dead = false;
 			compactIn[index] = 1;
-			currBounce.thisRay.direction = glm::normalize(currRay.direction - 2.0f*glm::dot(currRay.direction, normal)*normal);
+			currRay.direction = glm::normalize(currRay.direction - 2.0f*glm::dot(currRay.direction, normal)*normal);
 		}
 		else{
-			//generate new rand direction
-			glm::vec3 seed = generateRandomNumberFromThread(resolution, time, index, threadIdx.x);
-			currBounce.thisRay.direction = calculateRandomDirectionInHemisphere(normal, seed.x, seed.y);
+			//find new direction
+			glm::vec3 seed = generateRandomNumberFromThread(resolution, time, index*currBounce.currDepth, threadIdx.x);
+			currRay.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, seed.x, seed.y));
 			currBounce.dead = false;
 			compactIn[index] = 1;
 		}
 
-		currBounce.color *= currMat.color;	
+		currBounce.color *= currMat.color;
+		currBounce.thisRay.direction = currRay.direction;
 		currBounce.thisRay.origin = intersection + 0.0001f * currRay.direction;
 
-		//if(currBounce.currDepth > maxDepth)
-		//	colors[currBounce.pixID] += currBounce.color;
+		rayPass[index] = currBounce;
+		//colors[currBounce.pixID] += glm::abs(currBounce.thisRay.direction)/5.0f;
 	}
 
 }
+
+//__global__ void rayParallelTrace(glm::vec2 resolution, float time, cameraData cam, int maxDepth, glm::vec3* colors, staticGeom* geoms, int numberOfGeoms, 
+//								material* materials, int numLights, int* lightID, int numRays, int* compactIn, rayBounce* rayPass){
+//
+//	//find the index in 1D
+//	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+//
+//	if(index < numRays){
+//		
+//		//get the bounce at this index
+//		rayBounce currBounce = rayPass[index];
+//		currBounce.currDepth++;
+//
+//		//get the ray information at this index
+//		ray currRay = currBounce.thisRay;
+//		glm::vec3 intersection;
+//		glm::vec3 normal;
+//
+//		//do intersection test
+//		int objID = -1;
+//		float len = testGeomIntersection(geoms, numberOfGeoms, currRay, intersection, normal, objID);
+//		
+//		//start building the first pool of rays
+//		currBounce.objID = objID;
+//
+//		//if no intersection, return
+//		if(objID == -1){
+//			colors[currBounce.pixID] += glm::vec3(0,0,0);
+//			currBounce.dead = true;
+//			rayPass[index] = currBounce;
+//			compactIn[index] = 0;
+//			return;	
+//		}
+//		
+//		int matID = geoms[objID].materialid;
+//		material currMat = materials[matID];
+//		
+//		//check if material is light
+//		if(materials[matID].emittance > 0){
+//			colors[currBounce.pixID] += currBounce.color * currMat.color * currMat.emittance;
+//			currBounce.dead = true;
+//			compactIn[index] = 0;
+//			return;
+//		}
+//
+//		//update bounce information
+//		currBounce.normal = normal;
+//		currBounce.matID = matID;
+//		currBounce.intersectPt = intersection;
+//
+//		if(materials[matID].hasReflective == 1){
+//			currBounce.dead = false;
+//			compactIn[index] = 1;
+//			currBounce.thisRay.direction = glm::normalize(currRay.direction - 2.0f*glm::dot(currRay.direction, normal)*normal);
+//		}
+//		else{
+//			//generate new rand direction
+//			//staticGeom testSphere = staticGeom();
+//			//testSphere.type = SPHERE;
+//			//testSphere.rotation = glm::vec3(0);
+//			//testSphere.scale = glm::vec3(1);
+//			//testSphere.translation = intersection;
+//			//testSphere.transform = buildTransformationMatrix(testSphere.translation, testSphere.rotation, testSphere.scale);
+//
+//			//glm::vec3 newDir = getRandomPointOnSphere(testSphere, time*index) - intersection;
+//			//	
+//			//if(glm::dot(newDir, normal) < 0)
+//			//	newDir = glm::normalize(-1.0f*newDir);
+//
+//			//currBounce.thisRay.direction= newDir;
+//
+//			glm::vec3 seed = generateRandomNumberFromThread(resolution, time, index, threadIdx.x);
+//			currBounce.thisRay.direction = calculateRandomDirectionInHemisphere(normal, seed.x, seed.y);
+//			
+//			currBounce.dead = false;
+//			compactIn[index] = 1;
+//		}
+//
+//		currBounce.color *= currMat.color;	
+//		currBounce.thisRay.origin = intersection + 0.0001f * currRay.direction;
+//
+//	}
+//
+//}
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
@@ -567,7 +854,7 @@ void cudaFreeMemory(){
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool& clear){
   
-  int traceDepth = 20; //determines how many bounces the raytracer traces
+  int traceDepth = 100; //determines how many bounces the raytracer traces
 
   // set up crucial magic
   int tileSize = 8;
@@ -643,13 +930,17 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  clear = false;
   }
   else{
+
+	  //pathTrace<<<fullBlocksPerGrid, threadsPerBlock>>>(cam.resolution, cam, traceDepth, iterations, cudageoms, numberOfGeoms, cudaMaterials,
+	//													numLights, cudaLights, cudaimage);
+
 	  //build rays for the first iteration
 	  //if(iterations == 1)
 		  createRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cam.resolution, cam, traceDepth, iterations, cudageoms, numberOfGeoms, cudaMaterials, 
 															numLights, cudaLights, cudaRayPool, cudaCompactA, numRays, cudaimage);
 
 		  //copy the first pass of rays to the temporary ray pool
-		  cudaMemcpy(cudaTempRayPool, cudaRayPool, imageSize*sizeof(rayBounce), cudaMemcpyDeviceToDevice);
+		  //cudaMemcpy(cudaTempRayPool, cudaRayPool, imageSize*sizeof(rayBounce), cudaMemcpyDeviceToDevice);
 		  //cudaMemcpy(cudaRayPool, cudaFirstPass, imageSize*sizeof(rayBounce), cudaMemcpyDeviceToDevice);
 		  //cudaMemcpy(cudaTempRayPool, cudaFirstPass, imageSize*sizeof(rayBounce), cudaMemcpyDeviceToDevice);
 
@@ -670,8 +961,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 																					cudaMaterials, numLights, cudaLights, numRays, cudaCompactA, cudaRayPool);
 
 			  //copy new raypool info into tempRaypool so that you can update raypool later
-			  cudaMemcpy(cudaTempRayPool, cudaRayPool, numRays*sizeof(rayBounce), cudaMemcpyDeviceToDevice);
-			
+			  //cudaMemcpy(cudaTempRayPool, cudaRayPool, numRays*sizeof(rayBounce), cudaMemcpyDeviceToDevice);
 		  }
 
   }
@@ -714,7 +1004,7 @@ void cudaStreamCompaction(dim3 fullBlocksPerGridRayPool, dim3 threadsPerBlockRay
 		//else{								//if depth is even, use B as input
 		//	streamCompact<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(numRays, cudaCompactB, cudaCompactA, currCompactDepth);
 		//}
-		
+
 		streamCompact<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(numRays, cudaCompactA, cudaCompactB, currCompactDepth);
 		int* tempCompact = cudaCompactA;
 		cudaCompactA = cudaCompactB;
@@ -724,7 +1014,7 @@ void cudaStreamCompaction(dim3 fullBlocksPerGridRayPool, dim3 threadsPerBlockRay
 	}
 
 	checkCUDAError("compact failed!");
-	
+
 	int newNumRays = 0;
 
 	//update the number of rays you have left
@@ -741,14 +1031,20 @@ void cudaStreamCompaction(dim3 fullBlocksPerGridRayPool, dim3 threadsPerBlockRay
 	//	buildRayPool<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cudaCompactA, cudaTempRayPool, cudaRayPool, numRays);
 	//}
 
+	rayBounce* tempRays = cudaRayPool;
+	cudaRayPool = cudaTempRayPool;
+	cudaTempRayPool = tempRays;
+
 	cudaMemcpy(&newNumRays, &cudaCompactA[numRays-1], sizeof(int), cudaMemcpyDeviceToHost);
 	buildRayPool<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cudaCompactA, cudaTempRayPool, cudaRayPool, numRays);
 	//cudaThreadSynchronize();
 
 	//update the number of rays only after you have shifted and built the new pool
 	numRays = newNumRays;
+	//std::cout<<newNumRays<<std::endl;
 
 	checkCUDAError("building raypool failed!");
 
 }
+
 

@@ -125,17 +125,18 @@ void runCuda(){
       materials[i] = renderScene->materials[i];
     }
     
+	//t = clock();
   
     // execute the kernel
     cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), clearImage);
     
+	//t = clock() - t;
+	//cout<<(float)t/CLOCKS_PER_SEC<<endl;
+
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   }else{
 	 
-	  //t = clock() - t;
-	  //cout<<totalTime/CLOCKS_PER_SEC/renderCam->iterations<<endl;
-
     if(!finishedRender){
       //output image file
       image outputImage(renderCam->resolution.x, renderCam->resolution.y);
@@ -209,13 +210,7 @@ void runCuda(){
 
 	void display(){
 
-		//t = clock();
-		
 		runCuda();
-
-		//t = clock() - t;
-	    //cout<<((float)t)/CLOCKS_PER_SEC<<endl;
-		//totalTime += t;
 
 		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
 		glutSetWindowTitle(title.c_str());

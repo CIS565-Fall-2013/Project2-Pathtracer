@@ -81,10 +81,6 @@ struct material{
 //for caching first bounce
 struct rayBounce{
 	ray thisRay;
-	int objID;	
-	glm::vec3 normal;
-	glm::vec3 intersectPt;
-	int matID;
 	int pixID;			//pixel id of ray
 	int currDepth;
 	bool dead;
