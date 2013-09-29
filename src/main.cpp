@@ -76,7 +76,7 @@ int main(int argc, char** argv){
 
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
-	renderOpts->mode = RAYCOUNT_DEBUG;
+	renderOpts->mode = PATHTRACE;
 	renderOpts->traceDepth = 1;
 	renderOpts->rayPoolSize =1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
 	renderOpts->stocasticRayAssignment = false;
@@ -89,7 +89,7 @@ int main(int argc, char** argv){
 	renderOpts->maxSamplesPerPixel = 1;
 	renderOpts->aargbThresholds = glm::vec3(0.01,0.01,0.01);
 
-	renderOpts->frameFiltering = false;
+	renderOpts->frameFiltering = true;
 
 
 
@@ -295,11 +295,7 @@ void keyboard(unsigned char key, int x, int y)
 		renderOpts->mode = TRACEDEPTH_DEBUG;
 		cout << "Normal Debug Mode" <<endl;
 		break;
-	case '4':
-		//Enter aliasing debug mode
-		renderOpts->mode = ALIASING_DEBUG;
-		cout << "Aliasing Debug Mode" <<endl;
-		break;
+
 	case 'A':
 		renderOpts->antialiasing = !renderOpts->antialiasing;
 		cout << "Antialiasing: " << renderOpts->antialiasing<< endl;
