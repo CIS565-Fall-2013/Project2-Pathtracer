@@ -54,61 +54,7 @@ __host__ __device__ ray raycastFromCamera(glm::vec2 resolution, float x, float y
 }
 
 
-
-__host__ __device__ int estimateNumSamples(int x, int y, glm::vec2 resolution, glm::vec3* colors, renderOptions rconfig)
-{
-	//TODO implement more flexible options
-
-	//Compute RMSD in local window 3x3
-	int n = 0;
-	glm::vec3 accumulator = glm::vec3(0,0,0);
-	for(int yi = MAX(0,y - 1); yi <= MIN(y + 1, resolution.y-1); ++yi)
-	{
-		for(int xi = MAX(0,x - 1); xi <= MIN(x + 1, resolution.x-1); ++xi)
-		{
-			++n;
-			int index = xi + (yi * resolution.x);
-			accumulator += colors[index];
-		}
-	}
-
-	glm::vec3 mean = accumulator/(float)n;
-	accumulator = glm::vec3(0,0,0);
-
-
-	for(int yi = MAX(0,y - 1); yi <= MIN(y + 1, resolution.y-1); ++yi)
-	{
-		for(int xi = MAX(0,x - 1); xi <= MIN(x + 1, resolution.x-1); ++xi)
-		{
-			int index = xi + (yi * resolution.x);
-			accumulator += (colors[index]-mean)*(colors[index]-mean);
-		}
-	}
-
-	glm::vec3 RMSD = glm::sqrt(accumulator/(float)n);
-
-	if(RMSD.x > rconfig.aargbThresholds.x || RMSD.y > rconfig.aargbThresholds.y || RMSD.z > rconfig.aargbThresholds.z)
-	{
-		return rconfig.maxSamplesPerPixel;
-	}
-	else
-	{
-		return 1;
-	}
-
-}
-
-__global__ void requestRays(glm::vec2 resolution, renderOptions rconfig, glm::vec3* colors, int* numRays)
-{
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int index = x + (y * resolution.x);
-
-	numRays[index] = estimateNumSamples(x,y,resolution,colors, rconfig);
-}
-
-
-
+//Scales the entire image by a float scale factor. Makes averaging trivial
 __global__ void scaleImageIntensity(glm::vec2 resolution, glm::vec3* image, float sf)
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -120,29 +66,31 @@ __global__ void scaleImageIntensity(glm::vec2 resolution, glm::vec3* image, floa
 	}
 }
 
+//Takes each ray's pixel assignment and casts a randomized ray through the pixel
 __global__ void raycastFromCameraKernel(int seed, int frame, cameraData cam, renderOptions rconfig, rayState* cudaraypool, int rayPoolSize)
 {	
-	
+
 	int blockId   = blockIdx.y * gridDim.x + blockIdx.x;			 	
 	int rIndex = blockId * blockDim.x + threadIdx.x; 
 	if(rIndex < rayPoolSize){
 		thrust::default_random_engine rng(hash(seed));
 		thrust::uniform_real_distribution<float> u01(0,1);
-		
-		int pixelIndex = cudaraypool[rIndex].index;
-		int x = pixelIndex % int(cam.resolution.x);
-		int y = (pixelIndex - x)/int(cam.resolution.x);
 
-		//Reset other fields
-		cudaraypool[rIndex].T = glm::vec3(1,1,1);
-		cudaraypool[rIndex].matIndex = -1;
-		cudaraypool[rIndex].r =raycastFromCamera(cam.resolution, x+u01(rng)-0.5, y+u01(rng)-0.5, cam.position, cam.view, cam.up, cam.fov);
+		int pixelIndex = cudaraypool[rIndex].index;
+		if(pixelIndex >= 0){
+			int x = pixelIndex % int(cam.resolution.x);
+			int y = (pixelIndex - x)/int(cam.resolution.x);
+
+			//Reset other fields
+			cudaraypool[rIndex].T = glm::vec3(1,1,1);
+			cudaraypool[rIndex].matIndex = -1;
+			cudaraypool[rIndex].r =raycastFromCamera(cam.resolution, x+u01(rng)-0.5, y+u01(rng)-0.5, cam.position, cam.view, cam.up, cam.fov);
+		}
 	}
 
 }
 
 //Takes the number of rays requested by each pixel from the pool and allocates them stocastically from a single random number
-//scannedRayRequests is an array of ints containing the results of an inclusive scan
 //xi1 is a uniformly distributed random number from 0 to 1
 __global__ void allocateRayPool(float xi1, renderOptions rconfig, cameraData cam, glm::vec3* cudaimage, rayState* cudaraypool, int numRays)
 {
@@ -152,7 +100,7 @@ __global__ void allocateRayPool(float xi1, renderOptions rconfig, cameraData cam
 	int rIndex = blockId * blockDim.x + threadIdx.x; 
 
 	if(rIndex < numRays){//Thread index range check
-		
+
 		int numPixels = cam.resolution.x*cam.resolution.y;
 
 		//Allocate all rays stochastically
@@ -179,7 +127,6 @@ __global__ void displayRayCounts(cameraData cam, renderOptions rconfig, glm::vec
 		if(pixelIndex >= 0)
 		{
 			float scale = clamp(1.0f/maxScale, 0.0f, 1.0f);
-			//TODO improve parallelism by removing atomic adds?
 			cudaimage[pixelIndex] += scale*glm::vec3(1,1,1);
 		}
 	}
@@ -196,16 +143,6 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
 	}
 }
 
-
-//Kernel that clears an separate buffer of ints the same size of the image
-__global__ void clearIntBuffer(glm::vec2 resolution, int* buf){
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int index = x + (y * resolution.x);
-	if(x<=resolution.x && y<=resolution.y){
-		buf[index] = 0;
-	}
-}
 
 //Kernel that writes the image to the OpenGL PBO directly. 
 __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image){
@@ -358,7 +295,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 		scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, (float)frameFilterCounter);
 	}
 
-	
+
 	//Figure out which rays should go to which pixels.
 	thrust::default_random_engine rng(hash(iterations*frameFilterCounter+iterations));
 	thrust::uniform_real_distribution<float> u01(0,1);
