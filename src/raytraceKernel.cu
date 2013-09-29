@@ -15,6 +15,10 @@
 #include "interactions.h"
 #include <vector>
 #include "glm/glm.hpp"
+#include <thrust/remove.h>
+#include <thrust/device_ptr.h>
+#include <thrust/partition.h>
+
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -144,10 +148,10 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
       }
       
       // Each thread writes one pixel location in the texture (textel)
-      PBOpos[index].w = 0;
-      PBOpos[index].x = color.x;     
-      PBOpos[index].y = color.y;
-      PBOpos[index].z = color.z;
+      PBOpos[pixelIndex].w = 0;
+      PBOpos[pixelIndex].x = color.x;     
+      PBOpos[pixelIndex].y = color.y;
+      PBOpos[pixelIndex].z = color.z;
 
   }
 }
@@ -185,6 +189,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
   //int index = x + (y * resolution.x);
 	
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int pixelIndex;
   int x=-1;
   int y=-1;
   ray r;
@@ -193,7 +198,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
   {
 	y = (int) (index/(int)resolution.x);
 	x = (int) (index%(int)resolution.x);
-
+	pixelIndex = index;
 	r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 	r.active = true;
 	r.pixelIndex = glm::vec2(x,y);
@@ -211,7 +216,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	  r = rays[index];
 	  x = r.pixelIndex.x;
 	  y = r.pixelIndex.y;
-	  index = x + (y * resolution.x);
+	  pixelIndex = x + (y*resolution.x);
   }
 
   if((x<=resolution.x && y<=resolution.y && r.active)){
@@ -236,6 +241,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 		rays[index].rayColor.x *= mtl.color.x*mtl.emittance;
 		rays[index].rayColor.y *= mtl.color.y*mtl.emittance;
 		rays[index].rayColor.z *= mtl.color.z*mtl.emittance;
+		colors[pixelIndex] += rays[index].rayColor;
 		return;
 	}
 
@@ -273,25 +279,96 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	
 }
 
-__global__ void createBinaryActiveArray(glm::vec2 resolution,ray* rays,int* activeRaysArray, int* lastIndex)
+__global__ void createBinaryActiveArray(glm::vec2 resolution,ray* rays,int* activeRaysArray, int* dNumActive)
 {
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
-	if (index <= lastIndex[0])
+	if (index < *dNumActive)
 	{
 		activeRaysArray[index] = rays[index].active?1:0;
 	}
 }
 
-__host__ void parallelScanActiveArray(int* cudaActiveArray,int* lastIndex)
+__global__ void parallelScanOnGPU(int* cudaActiveArray, int* gpuParallelScanTempArray, int* dNumActive,int d)
 {
-	int i;
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+	int exponent = powf(2,d-1);
+	if (index< (*dNumActive) )
+	{
+	if( index>= exponent)
+		gpuParallelScanTempArray[index] = cudaActiveArray[index-exponent] + cudaActiveArray[index];
+	else
+		gpuParallelScanTempArray[index] = cudaActiveArray[index];
+	}
+
 }
-//
-//__global__ void streamCompact(ray* rays, int* activeRaysArray int lastIndex)
-//{
-//	int i;
-//}
+
+__host__ void parallelScanActiveArray(int* cudaActiveArray,int* gpuParallelScanTempArray,int* hNumActive,int* dNumActive)
+{
+	int numberOfThreads = *hNumActive;
+	float logN  = logf(numberOfThreads);
+	int tileSize = 8;
+	dim3 threadsPerBlock(tileSize*tileSize);
+	dim3 fullBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
+	int* cudaActiveArrayCopy = NULL;
+	cudaMalloc((void**)&cudaActiveArrayCopy,numberOfThreads*sizeof(int));
+	cudaMemcpy(cudaActiveArrayCopy,cudaActiveArray,numberOfThreads*sizeof(int),cudaMemcpyDeviceToDevice);
+	int* activeArray = cudaActiveArrayCopy;
+	int* tempArray = gpuParallelScanTempArray;
+	int dmax = ceil(logN)+3; 
+
+	for(int d=1; d<= dmax; ++d)
+	{
+	  parallelScanOnGPU<<<fullBlocksPerGrid, threadsPerBlock>>>(activeArray,tempArray,dNumActive,d);
+	  int *swapTemp = activeArray;
+	  activeArray = tempArray;
+	  tempArray = swapTemp;
+	}	
+	
+	if (tempArray != gpuParallelScanTempArray)
+		cudaMemcpy(activeArray,tempArray,numberOfThreads*sizeof(int),cudaMemcpyDeviceToDevice);
+
+	cudaMemcpy(dNumActive,&gpuParallelScanTempArray[numberOfThreads-1],sizeof(int),cudaMemcpyDeviceToDevice);
+
+	cudaFree(cudaActiveArrayCopy);
+}
+
+__global__ void streamCompact(ray* rays, ray* tempRays, int* rayActiveArray, int* scannedArray,int* dNumActive)
+{
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+	if (index < *dNumActive && rayActiveArray[index])
+	{
+		rays[scannedArray[index]-1] = tempRays[index];
+	}
+}
+
+__global__ void duplicateRaysArray(ray* dest, ray* src, int* dNumActive)
+{
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+	if (index < *dNumActive)
+	{
+		dest[index] = src[index];
+	}
+}
+
+struct is_not_active
+{
+	__device__ bool operator() (const ray r)
+	{
+		return !r.active;
+	}
+};
+
+struct is_active
+{
+	__device__ bool operator() (const ray r)
+	{
+		return r.active;
+	}
+};
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
@@ -315,14 +392,39 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
    //package lights
   std::vector<int> lightsVector;
 
-  //ray* rays = new ray[ (int)renderCam->resolution.x*(int)renderCam->resolution.y];
   ray* cudarays = NULL;
   cudaMalloc((void**)&cudarays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
-  //cudaMemcpy( cudarays, rays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray), cudaMemcpyHostToDevice);
+
+  ray* cudatemprays = NULL;
+  cudaMalloc((void**)&cudatemprays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
+
+  ////TEST SCAN
+  //const int testNum = 2048;
+  //int test[testNum];
+  //for(int i=0; i<testNum;++i)
+  //{
+	 // test[i] = 1;
+  //}
 
   int* cudaActiveArray = NULL;
-  cudaMalloc((void**)&cudaActiveArray, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
+  cudaMalloc((void**)&cudaActiveArray, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(int));
   
+  ////TEST SCAN
+  //cudaMalloc((void**)&cudaActiveArray, testNum*sizeof(int));
+  //cudaMemcpy( cudaActiveArray,test, testNum*sizeof(int), cudaMemcpyHostToDevice);
+
+  int* dParallelScanTempArray = NULL;
+  cudaMalloc((void**)&dParallelScanTempArray, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(int));
+
+  ////TEST SCAN
+  //cudaMalloc((void**)&dParallelScanTempArray, testNum*sizeof(int));
+
+  ////TEST SCAN
+  //numberOfThreads = testNum;
+
+  int* dNumActiveRays = NULL;
+  cudaMalloc((void**)&dNumActiveRays,sizeof(int));
+  cudaMemcpy( dNumActiveRays,&numberOfThreads, sizeof(int), cudaMemcpyHostToDevice);
 
   //package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
@@ -363,14 +465,52 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
 
+
+ /* int t = numberOfThreads;
+  for(int k=1; k<=t; k++)
+  {
+  cudaMemcpy( dNumActiveRays, &k, sizeof(int),cudaMemcpyHostToDevice);
+  parallelScanActiveArray(cudaActiveArray,dParallelScanTempArray,&k,dNumActiveRays);
+  cudaMemcpy(&numberOfThreads,dNumActiveRays,sizeof(int),cudaMemcpyDeviceToHost);
+  std::cout<<"NUM OF ACTIVE THREADS: "<<numberOfThreads<<std::endl;
+  if (k == t)
+  {
+  int* resultArray = new int[k];
+  cudaMemcpy(resultArray,cudaActiveArray,k*sizeof(int),cudaMemcpyDeviceToHost);
+  for(int i=0; i<k;++i)
+	  std::cout<<resultArray[i]<<" ";
+  std::cout<<std::endl;
+    cudaMemcpy(resultArray,dParallelScanTempArray,k*sizeof(int),cudaMemcpyDeviceToHost);
+  for(int i=0; i<k;++i)
+	  std::cout<<resultArray[i]<<" ";
+  std::cout<<std::endl;
+  
+  delete[] resultArray;
+  }
+  }*/
+   
+  thrust::device_ptr<ray> thrustRaysArray = thrust::device_pointer_cast(cudarays);
+
   //kernel launches
   for(int bounce = 1; bounce <= 3; ++bounce)
   {
-	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays);
-	//createBinaryActiveArray<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays,cudaActiveArray,streamCompactionLastIndex);
-	//parallelScanActiveArray(cudaActiveArray,hLastIndex);
+	dim3 compactedBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
+	raytraceRay<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays);
+	numberOfThreads = thrust::partition(thrustRaysArray,thrustRaysArray+numberOfThreads,is_active()) - thrustRaysArray;
+	//numberOfThreads = thrust::remove_if(thrustRaysArray,thrustRaysArray+numberOfThreads,is_not_active()) - thrustRaysArray;
+
+
+	//duplicateRaysArray<<<compactedBlocksPerGrid, threadsPerBlock>>>(cudatemprays,cudarays,dNumActiveRays);
+	//createBinaryActiveArray<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays,cudaActiveArray,dNumActiveRays);
+	//thrust::inclusive_scan(thrustActiveArray,thrustActiveArray+numberOfThreads,thrustTempScanArray);
+	//streamCompact<<<compactedBlocksPerGrid, threadsPerBlock>>>(cudarays,cudatemprays,cudaActiveArray,dParallelScanTempArray,dNumActiveRays);
+	//cudaMemcpy(dNumActiveRays,&dParallelScanTempArray[numberOfThreads-1],sizeof(int),cudaMemcpyDeviceToDevice);
+	//numberOfThreads = thrustTempScanArray[numberOfThreads-1];
+	//parallelScanActiveArray(cudaActiveArray,dParallelScanTempArray,&numberOfThreads,dNumActiveRays);
+	//cudaMemcpy(&numberOfThreads,dNumActiveRays,sizeof(int),cudaMemcpyDeviceToHost);
+	//streamCompact<<<compactedBlocksPerGrid, threadsPerBlock>>>(cudarays,cudatemprays,cudaActiveArray,dParallelScanTempArray,dNumActiveRays);
   }
-  clearActiveRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays, cudaimage);
+  //clearActiveRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays, cudaimage);
   
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage,cudarays,iterations);
 
@@ -383,6 +523,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudamaterials );
   cudaFree(cudalights);
   cudaFree(cudarays);
+  cudaFree(cudatemprays);
+  cudaFree(cudaActiveArray);
+  cudaFree(dParallelScanTempArray);
+  cudaFree(dNumActiveRays);
   delete [] geomList;
   //delete [] rays;
 
