@@ -226,6 +226,35 @@ void runCuda(){
 		   case(27):
 			   exit(1);
 			   break;
+
+		   case 'w':
+			   iterations = 0;
+			   targetFrame = 0;
+			   resetImage(renderCam);
+			   renderCam->positions[targetFrame].z-=0.2f;
+			   break;
+
+		   case 's':
+			   iterations = 0;
+			   targetFrame = 0;
+			   resetImage(renderCam);
+			   renderCam->positions[targetFrame].z+= 0.2f;
+			   break;
+
+		   case 'a':
+			   iterations = 0;
+			   targetFrame = 0;
+			   resetImage(renderCam);
+			   renderCam->positions[targetFrame].x+=0.2f;
+			   break;
+
+		   case 'd':
+			   iterations = 0;
+			   targetFrame = 0;
+			   resetImage(renderCam);
+			   renderCam->positions[targetFrame].x-=0.2f;
+			   break;
+
 		}
 	}
 
@@ -395,4 +424,14 @@ void shut_down(int return_code){
 	glfwTerminate();
   #endif
   exit(return_code);
+}
+
+void resetImage(camera* renderCam)
+{
+	for (int x=0; x<renderCam->resolution.x;++x)
+		for(int y=0; y<renderCam->resolution.y;++y)
+		{
+			int index = x + (renderCam->resolution.x*y);
+			renderCam->image[index] = glm::vec3(0,0,0);
+		}
 }

@@ -7,6 +7,7 @@
 #define INTERACTIONS_H
 
 #include "intersections.h"
+enum REFRSTAGE { REFR_ENTER, REFR_EXIT };
 
 //forward declaration
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2);
@@ -41,11 +42,37 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
 }
 
 //TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
+__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 incident, glm::vec3 normal) {
   //nothing fancy here
   return glm::normalize(incident-2.0f*normal*glm::dot(incident,normal));
 }
 
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ float calculateFresnel(glm::vec3 incident,glm::vec3 normal, float incidentIOR, float transmittedIOR)
+{
+	double n = incidentIOR/transmittedIOR;
+	double cosI = -glm::dot(incident, normal);
+	double sinT2 = n*n*(1.0 -cosI*cosI);
+	if(sinT2 > 1.0)
+		return 1.0;
+
+	double cosT = sqrt(1.0 -sinT2);
+	double rorth = (incidentIOR*cosI - transmittedIOR*cosT)/(incidentIOR*cosI + transmittedIOR*cosT);
+	double rpar = (transmittedIOR*cosI - incidentIOR*cosT)/(transmittedIOR*cosI + incidentIOR*cosT);
+
+	return (rorth*rorth + rpar*rpar)/2.0f;
+}
+
+__host__ __device__ glm::vec3 calculateRefractionDirection(glm::vec3 incident,glm::vec3 normal,material m,REFRSTAGE stage)
+{
+	float iorRatio = 1.0f/m.indexOfRefraction;
+	if (stage == REFR_EXIT)
+	{
+		iorRatio = 1.0f/iorRatio;
+		normal = -1.0f*normal;
+	}
+	return glm::normalize(glm::refract( incident, normal,iorRatio));
+}
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Now that you know how cosine weighted direction generation works, try implementing non-cosine (uniform) weighted random direction generation.
@@ -77,7 +104,7 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 	}
 	else
 	{
-		r.direction = calculateReflectionDirection(normal,r.direction);
+		r.direction = calculateReflectionDirection(r.direction,normal);
 		return 1;
 	}
   }
@@ -88,6 +115,37 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 	  return 1;
   }
 
+  else if (m.hasRefractive)
+  {
+    REFRSTAGE stage;
+	float fresnelReflectance = 1.0f;
+	if (glm::dot(r.direction,normal)<0)
+	{
+		stage = REFR_ENTER;
+		fresnelReflectance = calculateFresnel(r.direction,normal,1.0f,m.indexOfRefraction);
+	}
+	else
+	{
+		stage = REFR_EXIT;
+		fresnelReflectance = calculateFresnel(r.direction,normal,m.indexOfRefraction,1.0f);
+	}
+
+	//if (u01(rng) > fresnelReflectance)
+	//{
+	//	if(stage == REFR_EXIT)
+	//	{
+	//		normal = -1.0f*normal;
+	//	}
+	//	r.direction = calculateReflectionDirection(r.direction,normal);
+	//	return 1;
+	//}
+	//else
+	{
+		r.direction = calculateRefractionDirection(r.direction,normal,m,stage);
+		return 2;
+	}
+
+  }
 
   else
   {

@@ -113,4 +113,9 @@ void deletePBO(GLuint* pbo);
 void deleteTexture(GLuint* tex);
 void shut_down(int return_code);
 
+//-------------------------------
+//---------MY FUNCTIONS----------
+//-------------------------------
+void resetImage(camera* renderCam);
+
 #endif

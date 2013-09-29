@@ -112,10 +112,8 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 
 //Kernel that blacks out a given image buffer
 __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
-    int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-    int index = x + (y * resolution.x);
-    if(x<=resolution.x && y<=resolution.y){
+    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    if(index<= resolution.x*resolution.y){
       image[index] = glm::vec3(0,0,0);
     }
 }
@@ -203,7 +201,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	r.active = true;
 	r.pixelIndex = glm::vec2(x,y);
 	r.rayColor = glm::vec3(1,1,1);
-	rays[index].rayColor = glm::vec3(1,1,1);
+	rays[index].rayColor = r.rayColor;
 	rays[index].pixelIndex = r.pixelIndex;
 	//rays[index].rayColor = glm::vec3(1,1,1); //White initially
 	//rays[index].origin = r.origin;
@@ -233,8 +231,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 		return;
 	}
 	material mtl = materials[geoms[objId].materialid];
-	/*if (isLight(objId,lights,numberOfLights))*/
-	if (objId == 8)
+	if (isLight(objId,lights,numberOfLights))
 	{
 		//r.active = false;
 		rays[index].active = false;
@@ -263,9 +260,9 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	}
 	else if (bsdf == 2)
 	{
-		r.rayColor.x = mtl.color.x;
-		r.rayColor.y = mtl.color.y;
-		r.rayColor.z = mtl.color.z;
+		r.rayColor.x *= mtl.color.x;
+		r.rayColor.y *= mtl.color.y;
+		r.rayColor.z *= mtl.color.z;
 	}
 
 	rays[index].origin = r.origin + 0.001f*r.direction;
@@ -455,8 +452,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   int numberOfLights = lightsVector.size();
   int* cudalights = NULL;
   cudaMalloc( (void**)&cudalights, numberOfLights*sizeof(int));
-  cudaMemcpy(cudalights,&lightsVector,numberOfLights*sizeof(int),cudaMemcpyHostToDevice);
-  
+  cudaMemcpy(cudalights,&lightsVector[0],numberOfLights*sizeof(int),cudaMemcpyHostToDevice);
+
   //package camera
   cameraData cam;
   cam.resolution = renderCam->resolution;
@@ -492,7 +489,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   thrust::device_ptr<ray> thrustRaysArray = thrust::device_pointer_cast(cudarays);
 
   //kernel launches
-  for(int bounce = 1; bounce <= 3; ++bounce)
+  for(int bounce = 1; bounce <= 8; ++bounce)
   {
 	dim3 compactedBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
 	raytraceRay<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays);
@@ -535,3 +532,4 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   checkCUDAError("Kernel failed!");
 }
+
