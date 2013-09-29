@@ -10,13 +10,23 @@
 #include "cudaMat4.h"
 #include <cuda_runtime.h>
 #include <string>
-
+#include "utilities.h"
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
+
 struct ray {
+	__host__ __device__ ray()
+	{
+		m_index = 1.0;
+		tag = 1.0;
+		color_fraction = 1.0;//keep track of how much this ray contribute the final color
+	}
 	glm::vec3 origin;
 	glm::vec3 direction;
-	int finished;
+	int tag; // -1 if dead, 1 if alive
+	int pixelId; //each ray stores the pixelId when been initialized
+	float m_index;
+	float color_fraction;
 };
 
 struct geom {

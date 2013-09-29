@@ -174,7 +174,7 @@ void runCuda(){
       
       gammaSettings gamma;
       gamma.applyGamma = true;
-      gamma.gamma = 1.0;
+      gamma.gamma = 1.0/2.2;
       gamma.divisor = 1.0;//renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;

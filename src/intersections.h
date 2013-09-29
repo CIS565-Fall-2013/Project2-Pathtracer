@@ -18,6 +18,7 @@ __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
 __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float boxIntersectionTest(glm::vec3 boxMin, glm::vec3 boxMax, staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
 
@@ -67,10 +68,15 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   glm::vec3 inv_direction = getInverseDirectionOfRay(r);
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
+//Wrapper for cube intersection test for testing against unit cubes
+__host__ __device__  float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+	return boxIntersectionTest(glm::vec3(-.5,-.5,-.5), glm::vec3(.5,.5,.5), box, r, intersectionPoint, normal);
+}
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
-__host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+__host__ __device__ float boxIntersectionTest(glm::vec3 boxMin, glm::vec3 boxMax,staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+	
 	ray rt;
 	rt.origin = multiplyMV(box.inverseTransform,glm::vec4(r.origin,1.0f));
 	rt.direction = multiplyMV(box.inverseTransform,glm::vec4(r.direction,0));	
@@ -85,8 +91,8 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	double t1, t2,tmp;
 	
 	//xplaner
-	//if(abs(rt.direction.x) < EPSILON)
-	if(rt.direction.x == 0)
+	if(abs(rt.direction.x) < EPSILON)
+	//if(rt.direction.x == 0)
 	{
 		if(rt.origin.x>xmax || rt.origin.x<xmin)
 			return -1;
@@ -109,8 +115,8 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	}
 
 	//yplaner
-	//if(abs(rt.direction.y) < EPSILON)
-	if(rt.direction.y == 0)
+	if(abs(rt.direction.y) < EPSILON)
+	//if(rt.direction.y == 0)
 	{
 		if(rt.origin.y>ymax || rt.origin.y<ymin)
 		{
@@ -133,8 +139,8 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 		if(tfar <0) return -1;
 	}
 	//z	
-	//if(abs(rt.direction.z) < EPSILON)
-	if(rt.direction.z == 0)
+	if(abs(rt.direction.z) < EPSILON)
+	//if(rt.direction.z == 0)
 	{
 		if(rt.origin.z>zmax || rt.origin.z<zmin)
 		{
@@ -180,8 +186,8 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	objnormal = glm::normalize(objnormal);	
 	normal = multiplyMV(box.transform,glm::vec4(objnormal,0));	
 	normal = glm::normalize(normal);
-	if(abs(normal.x) !=1 && abs(normal.y) !=1 && abs(normal.z) !=1)
-		printf("%f,%f,%f    ",normal.x,normal.y,normal.z);
+	/*if(abs(normal.x) !=1 && abs(normal.y) !=1 && abs(normal.z) !=1)
+		printf("%f,%f,%f ",r.direction.x,r.direction.y,r.direction.z);*/
 	intersectionPoint = multiplyMV(box.transform,glm::vec4(interp,1.0f));
 	return glm::length(intersectionPoint - r.origin);
 

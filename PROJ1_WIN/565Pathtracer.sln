@@ -6,6 +6,8 @@ EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug (v5.5)|Win32 = Debug (v5.5)|Win32
+		Debug(v4.0)|Win32 = Debug(v4.0)|Win32
+		Debug(v5.0)|Win32 = Debug(v5.0)|Win32
 		Debug|Win32 = Debug|Win32
 		Release (v5.5)|Win32 = Release (v5.5)|Win32
 		Release|Win32 = Release|Win32
@@ -13,6 +15,10 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{FF21CA49-522E-4E86-B508-EE515B248FC4}.Debug (v5.5)|Win32.ActiveCfg = Debug (v5.5)|Win32
 		{FF21CA49-522E-4E86-B508-EE515B248FC4}.Debug (v5.5)|Win32.Build.0 = Debug (v5.5)|Win32
+		{FF21CA49-522E-4E86-B508-EE515B248FC4}.Debug(v4.0)|Win32.ActiveCfg = Debug|Win32
+		{FF21CA49-522E-4E86-B508-EE515B248FC4}.Debug(v4.0)|Win32.Build.0 = Debug|Win32
+		{FF21CA49-522E-4E86-B508-EE515B248FC4}.Debug(v5.0)|Win32.ActiveCfg = Debug (v5.5)|Win32
+		{FF21CA49-522E-4E86-B508-EE515B248FC4}.Debug(v5.0)|Win32.Build.0 = Debug (v5.5)|Win32
 		{FF21CA49-522E-4E86-B508-EE515B248FC4}.Debug|Win32.ActiveCfg = Debug|Win32
 		{FF21CA49-522E-4E86-B508-EE515B248FC4}.Debug|Win32.Build.0 = Debug|Win32
 		{FF21CA49-522E-4E86-B508-EE515B248FC4}.Release (v5.5)|Win32.ActiveCfg = Release (v5.5)|Win32

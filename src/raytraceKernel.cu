@@ -16,16 +16,20 @@
 #include "interactions.h"
 #include <vector>
 #include <time.h>
+#include <thrust/device_ptr.h> 
+#include <thrust/remove.h>
+
+
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
 #else
     #include <cutil_math.h>
 #endif
- const int BLOCK_SIZE_X = 100;
- const int BLOCK_SIZE_Y = 100;
+
 //#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ < 200)
 //#define  printf(f, ...) ((void)(f, __VA_ARGS__),0)  
 //#endif
+
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -48,28 +52,29 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
-__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
+__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
+  //TODO: CLEAR UP
+  int index = y * resolution.x + x;
   ray r;
-  r.origin = eye; 
+  r.origin = eye; 	
   float sx, sy;
- // printf("%d,%d  ",x,y);
-  sx = (float)x/((float)resolution.x-1);
-  sy = (float)y/((float)resolution.y-1);
-  glm::vec3 A = glm::normalize(glm::cross(view,up));
-  glm::vec3 B = glm::normalize(glm::cross(A,view));
-  double radian = (float)fov.y/180.0*PI;
-  float tmp = tan(radian) * glm::length(view)/glm::length(B);
-  glm::vec3 V = B;
-  V*= tmp;
-  tmp = tan(radian) * (float)resolution.x/(float)resolution.y*glm::length(view)/glm::length(A);
-  glm::vec3 H = A;
-  H*=tmp;
-  H *= (2.0*sx-1);
-  V *= (1-2.0*sy);
-  glm::vec3 p = eye + view + H + V;
-  r.direction = p-eye;
+
+   //anti-aliasing 
+  thrust::default_random_engine rng(hash(time*index));
+  thrust::uniform_real_distribution<float> u01(-0.5,0.5);
+  sx = (float)(x+(float)u01(rng))/((float)resolution.x-1);
+  sy = (float)(y+(float)u01(rng))/((float)resolution.y-1);
+
+  glm::vec3 C = view;
+  glm::vec3 M = eye + C;
+  glm::vec3 A = glm::cross(C,up);
+  glm::vec3 B = glm::cross(A,C);
+  glm::vec3 H = A*glm::length(C)*(float)tan(fov.x*PI/180.0) / glm::length(A);
+  glm::vec3 V = B*glm::length(C)*(float)tan(fov.y*PI/180.0) / glm::length(B);
+
+  glm::vec3 P = M + (float)(2.0*sx - 1)*H + (float)(1 - 2.0*sy)*V;
+  r.direction = P-eye;
   r.direction = glm::normalize(r.direction);
-  //r.direction = glm::normalize(r.direction);
   return r;
 }
 
@@ -116,6 +121,39 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
       PBOpos[index].z = color.z;
   }
 }
+__host__ __device__ glm::vec3 getReflect(glm::vec3 normal, ray Ri)
+{
+	return glm::normalize(-2.0f * normal * (float)glm::dot(Ri.direction,normal) + Ri.direction);	
+}
+__host__ __device__ glm::vec3 getRefractRay(float rand,glm::vec3 normal, ray Ri,float n1, float n2)
+{
+	//determine whether reflect or refract
+	glm::vec3 Rr = getReflect(normal,Ri);
+	float cosThetai = -1.0f * glm::dot(Ri.direction,normal);
+	float sqrsinThetat = (n1*n1)/(n2*n2) * (1-cosThetai*cosThetai);
+	//if n1>n2, there should be a critical angle
+	if(sqrsinThetat > 1) return Rr;
+
+	float cosThetat = sqrt(1-sqrsinThetat*sqrsinThetat);
+	float rV = (n1*cosThetai - n2*cosThetat)/(n1*cosThetai + n2*cosThetat+EPSILON);
+	rV = rV*rV;
+	float rP = (n2*cosThetai - n1*cosThetat)/(n2*cosThetai + n1*cosThetat+EPSILON);
+	rP = rP*rP;
+	if(rand<=rV)
+	{
+		//reflect
+		return getReflect(normal,Ri);
+	}
+	else
+	{
+		//transmittance, refract
+		glm::vec3 Rt = (float)(n1/n2)*Ri.direction + (float)(n1/n2*cosThetai - sqrt(1-sqrsinThetat))*normal;
+		Rt = glm::normalize(Rt);
+		return Rt;
+	}
+	printf("error");
+	return glm::vec3(0,0,0);
+}
 /////shadow check
 __host__ __device__ bool ShadowRayUnblocked(glm::vec3 point,glm::vec3 lightPos,staticGeom* geoms, int numberOfGeoms,material* mats)
 {
@@ -155,7 +193,7 @@ __device__ void raytrace(ray Ri,glm::vec2 resolution, float time, cameraData cam
 	glm::vec3 normal(0,0,0);		
 	glm::vec3 diffuseColor(0,0,0);
 	glm::vec3 specularColor(0,0,0);  
-	glm::vec3 reflectedColor(1,1,1); 
+	glm::vec3 reflectedColor(1.0,1.0,1.0); 
 	glm::vec3 refractColor(0,0,0); // TODO, haven't uesed yet
 	glm::vec3 localColor(0,0,0);
 	glm::vec3 lightPosition (0,0,0);
@@ -257,51 +295,67 @@ __device__ void raytrace(ray Ri,glm::vec2 resolution, float time, cameraData cam
 	color += localColor;	
 }
 
-
-
 //TODO: IMPLEMENT THIS FUNCTION
+//iterative raytrace
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms,material* mats,int* lightIndex,int lightNum,ray* rays)
+                            staticGeom* geoms, int numberOfGeoms,material* mats,int* lightIndex,int lightNum,ray* rays,int sampleIndex)
 {
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
-
+  //if(sampleIndex == 0)
+	 // colors[index] = glm::vec3(0,0,0);
   int rayIndex = 0;
   if((x<=resolution.x && y<=resolution.y)){
+		
 		//colors[index] = glm::vec3(rays[index].direction.x,rays[index].direction.y,rays[index].direction.z);
 		/////////////variables//////////////	
-		//ray Ri = raycastFromCameraKernel(resolution, time, x,y,cam.position, cam.view, cam.up, cam.fov);
-		ray Ri = rays[index];
+		ray Ri = raycastFromCameraKernel(resolution, time, x,y,cam.position, cam.view, cam.up, cam.fov);
+		//ray Ri = rays[index].rays[sampleIndex];
 		ray Rr = Ri; //reflect ray
+		ray Rrefra; // refraction ray
+		ray Rreflect; // reflect ray when hitting refract object
 		ray Rrl; // light reflect ray
 		glm::vec3 intersectionPoint(0,0,0);
 		glm::vec3 normal(0,0,0);		
 		glm::vec3 diffuseColor(0,0,0);
 		glm::vec3 specularColor(0,0,0);  
 		glm::vec3 refractColor(0,0,0); // TODO, haven't uesed yet
+		glm::vec3 reflectColor(1,1,1);
 		glm::vec3 localColor(0,0,0);
 		glm::vec3 lightPosition (0,0,0);
 		int nearestObjIndex = -1; // nearest intersect object index
 		glm::vec3 ambient(1.0,1.0,1.0); ambient *= 0.3; // *=kambient;	
 		float interPointDist = -1;	
 		int nearestLight = -1;
-		bool hasSecondRay = true;
+		float hasReflect = 1.0;
 		glm::vec3 tmpnormal(0,0,0);
 		float tmpDist = -1;
 		glm::vec3 color(0,0,0);
 		float reflectCoeff = 0;
+		glm::vec3 oneColor(0,0,0); // used to store each sample ray's color;
+
+		//Fresnel
+		float refraCoff1 = 1.0f;//air
+		float refraCoff2 = 0;
+		float fractionRefra = 0;
+		float fractionRefle = 0;
+		float hasRefract = 1.0;
+		bool hasShootReflect = false; // refraction use
+		int rayType = 0; // 0 for first ray, 1 for reflect ray from non-refraction surface, 2 for refraction ray from refract surface, 3 for reflect ray from refract surface
 		////////////////////////////////////////////
-		while(rayIndex <= rayDepth && hasSecondRay == true)
+		while(rayIndex <= rayDepth &&(abs(hasReflect - 1.0)<EPSILON || abs(hasRefract - 1.0)<EPSILON))
 		{
+			
 			color = glm::vec3(0,0,0);
 			localColor = glm::vec3(0,0,0);
 			nearestObjIndex = -1;
 			interPointDist = -1;
 			nearestLight = -1;
 			tmpDist = -1;
+#pragma region intersect scene
 			for(int i = 0;i<numberOfGeoms;++i)
 			{
 				tmpDist = IntersectionTest(geoms[i],Ri,intersectionPoint,tmpnormal);
@@ -312,10 +366,10 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 					nearestObjIndex = i;
 				}
 			}
-			//if first ray didn't hit any object,color set to light / bg color
+#pragma endregion
+#pragma region if first ray didn't hit any object,color set to light / bg color
 			if(interPointDist == -1 || (interPointDist != -1 && mats[nearestObjIndex].emittance>0))
-			{
-				
+			{				
 				if(interPointDist == -1)
 				{
 					//TODO change background color	
@@ -325,8 +379,11 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				{					
 					color = mats[nearestObjIndex].color;	
 				}
-				
+				hasRefract = 0;
+				hasReflect = 0;
 			}
+#pragma endregion
+#pragma region else if hit scene
 			else if(interPointDist!= -1 && mats[nearestObjIndex].emittance == 0)
 			{						
 				// this is the reflect ray
@@ -337,16 +394,41 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 				Rr.origin = intersectionPoint;	
 				Rr.direction = glm::normalize(Rr.direction);
 				////////////////////////////////////////////////
-
 				if(mats[nearestObjIndex].hasReflective>0)
 				{										
-					Ri = Rr;	
+					/*Ri = Rr;*/	
 					reflectCoeff = mats[nearestObjIndex].hasReflective;
-					hasSecondRay = true;
+					hasReflect = 1.0;
+					//rayType = 1;
+				}
+				else if(mats[nearestObjIndex].hasRefractive>0)
+				{
+					refraCoff1 = 1.0f;
+					refraCoff2 = mats[nearestObjIndex].indexOfRefraction;	
+					//if(glm::length(normal)-1.0>0.000001) printf("%f ",glm::length(normal));
+					float cosThetai = -1.0f * glm::dot(Ri.direction,normal);
+					float squareSinThetat = pow((double)refraCoff1/(double)refraCoff1,(double)2.0) * (1-pow((double)cosThetai,(double)2.0));
+					float Rverticle = (refraCoff1*cosThetai - refraCoff2*cosThetai) / (refraCoff1*cosThetai + refraCoff2*cosThetai);
+					Rverticle = pow((double)Rverticle,(double)2.0);
+					float Rparall = (refraCoff2*cosThetai - refraCoff1*cosThetai) / (refraCoff2*cosThetai + refraCoff1*cosThetai);
+					Rparall = pow((double)Rparall,(double)2.0);
+					float cosThetat = sqrt(1-squareSinThetat);
+					fractionRefle = (Rverticle + Rparall) / 2.0;
+					fractionRefra = 1 - fractionRefle;
+					Rrefra.origin = intersectionPoint;
+					Rrefra.direction = Ri.direction; Rrefra.direction*=(refraCoff1/refraCoff2);
+					glm::vec3 tmp = normal;
+					tmp *= (refraCoff1/refraCoff2*cosThetai - sqrt(1-squareSinThetat));
+					Rrefra.direction += tmp;			
+					Rrefra.direction = glm::normalize(Rrefra.direction);
+					Rreflect = Rr;
+					hasRefract = 1.0;
+					//hasReflect = 1.0;					
 				}
 				else
 				{
-					hasSecondRay = false;
+					hasRefract = 0;
+					hasReflect = 0;
 				}
 				color += ambient * mats[nearestObjIndex].color;
 				//shadow check
@@ -394,44 +476,232 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 						localColor += specularColor;						
 					}			
 				}	
-				color += localColor;
+				color += localColor;	
 			}
-			if(rayIndex == 0)
-				colors[index] = color;
-			else
-			{								
-				colors[index] += reflectCoeff * color;	
+	
+#pragma endregion		
+			if(rayType == 0)
+			{										
+				if(hasReflect>0)
+				{
+					oneColor = color;
+					Ri = Rr;
+					rayType = 1;
+				}
+				else if(hasRefract >0)
+				{					
+					Ri = Rrefra;
+					rayType = 2;
+				}
+				else
+					oneColor = color;
+				rayIndex ++;
 			}
-			rayIndex ++;
-		}
-		
+			else if(rayType == 1)
+			{								 
+				oneColor += reflectCoeff * color;	
+				
+				if(hasReflect>0)
+				{
+					Ri = Rr;
+					rayType = 1;
+				}
+				else if(hasRefract >0)
+				{
+					Ri = Rrefra;
+					rayType = 2;
+				}
+				rayIndex ++;			
+			}
+			else if(rayType == 2)
+			{
+				oneColor += fractionRefra * color;				
+				Ri = Rreflect;
+				rayType = 3;
+			}
+			else if(rayType ==3)
+			{
+				oneColor += fractionRefle * color;
+				Ri = Rr;
+				rayType = 1;
+				rayIndex ++;
+			}
+			
+		}		
+		colors[index] = (colors[index]*(time-1)+oneColor) / time;
    }
+   
 }
 
-__global__ void generateInitialRays(ray* initialRay,glm::vec2 resolution,float time, cameraData cam)
+__global__ void generateInitialRays(ray* initialRay,glm::vec3* rayColor, glm::vec2 resolution,float time, cameraData cam)
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * resolution.x);	
-	initialRay[index] = raycastFromCameraKernel(resolution, time, x,y,cam.position, cam.view, cam.up, cam.fov);
-	initialRay[index].finished = false;	
+	ray r = raycastFromCameraKernel(resolution, time, x,y,cam.position, cam.view, cam.up, cam.fov); 
+	r.tag = 1; // valid, 0 if invalid
+	r.pixelId = index;
+	initialRay[index] = r;
+	rayColor[index] = glm::vec3(1,1,1);
 }
+
+__global__ void pathTracer(float time,cameraData cam,int rayDepth,glm::vec3* colors, 
+	staticGeom* geoms,int numberOfGeoms,material* mats,int* lightIndex,int lightNum,ray* rays,int rayNum,glm::vec3* rayColor)
+{
+	/*int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * resolution.x);*/
+	int index = blockDim.x * blockIdx.x + threadIdx.x;
+	
+	if(index <= rayNum)
+	{		
+		ray Ri = rays[index];
+		Ri.origin += INTEROFFSET * Ri.direction;
+		int pixelId = Ri.pixelId; // this index is correspond to the index in rayColor buffer
+		if(rayDepth >= BOUNCE_DEPTH)
+		{
+			//if the ray didn't hit any bg or light, but ray depth is overload, then terminate it. 
+			colors[pixelId] = (colors[pixelId]*(time-1) + rayColor[pixelId])/time;
+			return;
+		}
+		//test intersectoin
+		glm::vec3 intersectionPoint(0,0,0);
+		glm::vec3 normal(0,0,0);		
+		int nearestObjIndex = -1; // nearest intersect object index
+		float interPointDist = -1;	
+		int nearestLight = -1;
+		glm::vec3 tmpnormal(0,0,0);
+		for(int i = 0;i<numberOfGeoms;++i)
+		{
+			float tmpDist = IntersectionTest(geoms[i],Ri,intersectionPoint,tmpnormal);
+			if(tmpDist!=-1 &&(interPointDist==-1 ||(interPointDist!=-1 && tmpDist<interPointDist)))
+			{
+				interPointDist = tmpDist;
+				normal = tmpnormal;
+				nearestObjIndex = i;
+			}
+		}
+#pragma region didn't hit object or hit light
+		if(interPointDist == -1 || (interPointDist != -1 && mats[nearestObjIndex].emittance>0))
+		{				
+			if(interPointDist == -1)
+			{
+				//TODO change background color	
+				rayColor[pixelId] *= Ri.color_fraction * glm::vec3(0,0,0);		 // hit background
+				
+			}
+			else
+			{					
+				rayColor[pixelId] *= mats[nearestObjIndex].emittance * mats[nearestObjIndex].color; // hit light					
+			}	
+			//set ray dead;
+			colors[pixelId] = (colors[pixelId]*(time-1)+rayColor[pixelId])/time;
+			//colors[pixelId] += rayColor[pixelId];
+			rays[index].tag = -1;
+			return;
+		}
+#pragma endregion
+		else // did hit objects in the scene
+		{
+			/*colors[pixelId] = glm::vec3(abs(normal.x),abs(normal.y),abs(normal.z));
+			return;*/
+			ray secondRay; //secondary Ray
+			secondRay.origin = intersectionPoint;	
+			thrust::default_random_engine rng(hash(time*(rayDepth+1))*hash(pixelId));
+			thrust::uniform_real_distribution<float> u01(0,1);			
+			if(mats[nearestObjIndex].hasReflective>0)
+			{
+				//reflect ray, set current ray as this ray
+				//thrust::default_random_engine rng(time*pixelId*(rayDepth+1));//rng(time*(rayDepth+1)*pixelId);//rng(hash(time)*hash(index)*hash(rayDepth+1));
+				//thrust::uniform_real_distribution<float> u01(0,1);
+				float rand =(float) u01(rng);
+				secondRay.origin = intersectionPoint;
+				if(rand<mats[nearestObjIndex].hasReflective)
+				{
+					//reflect
+					secondRay.direction = getReflect(normal,Ri);		
+					secondRay.color_fraction = mats[nearestObjIndex].hasReflective;
+				}
+				else
+				{
+					//diffuse
+					//get random direction over hemisphere
+					secondRay.direction = calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng)); 
+					secondRay.direction = glm::normalize(secondRay.direction);
+					//colors[index] += mats[nearestObjIndex].color * mats[nearestObjIndex].hasReflective;
+					secondRay.color_fraction = 1 - mats[nearestObjIndex].hasReflective;
+				}
+			}
+			else if(mats[nearestObjIndex].hasRefractive>0)
+			{
+				//refract ray
+				//Fresnel law, either reflect or refract
+				//thrust to generate cofficient
+				//thrust::default_random_engine rng(time*index);//rng(time*(rayDepth+1)*pixelId);//rng(hash(time)*hash(index)*hash(rayDepth+1));
+				//thrust::uniform_real_distribution<float> u01(0,1);
+				float rand =(float)u01(rng);
+				//TODO:how to tell whether ray goes in or out ? // add index for ray, 1.0 by default
+				if(Ri.m_index == 1.0)
+				{
+					//going into the object
+					secondRay.direction = getRefractRay(rand,normal,Ri,1.0,mats[nearestObjIndex].indexOfRefraction);
+					secondRay.m_index = mats[nearestObjIndex].indexOfRefraction;
+				}
+				else
+				{
+					//going out from object
+					secondRay.direction = getRefractRay(rand,-normal,Ri,mats[nearestObjIndex].indexOfRefraction,1.0);
+				}
+			}
+			else
+			{
+				//difuse
+				//generate a ray in random direction in hemisphere
+				//add color to buffer
+				//thrust::default_random_engine rng(time*index);//rng(time*(rayDepth+1)*pixelId);
+				//thrust::uniform_real_distribution<float> u01(0,1);				
+				/*float rand =(float)u01(rng);
+				thrust::default_random_engine rng2(hash(time*index*100*rand));
+				thrust::uniform_real_distribution<float> u02(0,1);	
+				float rand2 = (float)u02(rng2);*/
+			/*	if(abs(rand-rand2)<EPSILON)
+					printf("%f,%f ",rand,rand2);*/
+				secondRay.direction = calculateRandomDirectionInHemisphere(normal, u01(rng), u01(rng)); 
+				secondRay.direction = glm::normalize(secondRay.direction);
+				//index changes everytime !!!
+				rayColor[pixelId] *= mats[nearestObjIndex].color;//*Ri.color_fraction;				
+			}
+			rays[index] = secondRay;
+			secondRay.origin += INTEROFFSET*secondRay.direction;
+		}	
+
+
+	}
+}
+
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
-  int traceDepth = 1; //determines how many bounces the raytracer traces
+  int traceDepth = 3; //determines how many bounces the raytracer traces
 
+  
   // set up crucial magic
   int tileSize = 8;
   dim3 threadsPerBlock(tileSize, tileSize);
   dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
   
+
+
   //send image to GPU
   glm::vec3* cudaimage = NULL;
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
   cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
   
+   if(iterations <= 3)
+  {
+	  clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudaimage);
+  }
   //package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
   //material
@@ -452,6 +722,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     geomList[i] = newStaticGeom;
   }
   int* lightIndex = new int[lightNum];
+  
   int lin = 0;
   for(int i = 0;i<numberOfGeoms;i++)
   {
@@ -459,9 +730,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  lightIndex[lin] = i;
 	  lin++;
   }
-  int* cudalightindex = NULL;
-  cudaMalloc((void**)&cudalightindex,lightNum*sizeof(int));
-  cudaMemcpy(cudalightindex,lightIndex,lightNum*sizeof(int),cudaMemcpyHostToDevice);
+  int* cudaLight = NULL;
+  cudaMalloc((void**)&cudaLight,lightNum*sizeof(int));
+  cudaMemcpy(cudaLight,lightIndex,lightNum*sizeof(int),cudaMemcpyHostToDevice);
   material* cudamat = NULL;
   cudaMalloc((void**)&cudamat,numberOfGeoms*sizeof(material));
   cudaMemcpy(cudamat,matList,numberOfGeoms*sizeof(material),cudaMemcpyHostToDevice);
@@ -476,24 +747,37 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.view = renderCam->views[frame];
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
-
-  size_t size;
-  cudaDeviceSetLimit(cudaLimitStackSize,1000*sizeof(float));
-
+  
   // initialize rays
-  int raySize = (int)renderCam->resolution.x*(int)renderCam->resolution.y;
-  ray* rayList = new ray[raySize];
-  ray* cudarays = NULL;
-  cudaMalloc((void**)&cudarays,raySize*sizeof(ray));
-  cudaMemcpy(cudarays,rayList,raySize*sizeof(ray),cudaMemcpyHostToDevice);
+  ray* rayPool = NULL;
+  int numberOfValidRays = (int)renderCam->resolution.x*(int)renderCam->resolution.y;
+  cudaMalloc((void**)&rayPool,numberOfValidRays*sizeof(ray)); 
 
-  generateInitialRays<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays,renderCam->resolution,(float)iterations,cam);
+  glm::vec3* rayColor = NULL; //final color of each ray, this color is independent of each iteration
+  cudaMalloc((void**)&rayColor,numberOfValidRays*sizeof(glm::vec3));
 
+  generateInitialRays<<<fullBlocksPerGrid, threadsPerBlock>>>(rayPool,rayColor,renderCam->resolution,(float)iterations,cam);
+  
 
+ 
+  thrust::device_ptr<ray> rayPoolEnd; 
+  // change to 1D, blocksize has nothing with resolution now.
+  int threadPerBlock = 64;//TODO tweak
+  int blockPerGrid = (int)ceil((float)numberOfValidRays/threadPerBlock);
+  for(int i = 0;i<BOUNCE_DEPTH;++i)
+  {
+	  if(numberOfValidRays == 0) break;
+	  blockPerGrid = (int)ceil((float)numberOfValidRays/threadPerBlock);
+	  pathTracer<<<blockPerGrid, threadPerBlock>>>((float)iterations, cam, i, cudaimage, cudageoms, numberOfGeoms,cudamat,cudaLight,lightNum,rayPool,numberOfValidRays,rayColor);
 
-  //kernel launches
-  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms,cudamat,cudalightindex,lightNum,cudarays);
-
+	  //each step, number of valid rays changes
+	  thrust::device_ptr<ray> rayPoolStart = thrust::device_pointer_cast(rayPool);
+	  rayPoolEnd = thrust::remove_if(rayPoolStart,rayPoolStart+numberOfValidRays,isDead());
+	  numberOfValidRays = (int)( rayPoolEnd - rayPoolStart);
+	  //printf("%d  ",numberOfValidRays);
+  }
+  
+ 
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
   //retrieve image from GPU
@@ -502,13 +786,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   //free up stuff, or else we'll leak memory like a madman
   cudaFree( cudaimage );
   cudaFree( cudageoms );
-  cudaFree (cudalightindex);
+  cudaFree (cudaLight);
   cudaFree (cudamat);
-  cudaFree (cudarays);
+  cudaFree (rayPool);
+  cudaFree (rayColor);
   delete[] matList;
   delete[] lightIndex;
   delete[] geomList;
-  delete[] rayList;
+
   // make certain the kernel has completed
   cudaThreadSynchronize();
 
