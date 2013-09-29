@@ -105,7 +105,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   int index = x + (y * resolution.x);
   
   if(x<=resolution.x && y<=resolution.y){
-	  image [index] /= nLights;
+//	  image [index] /= nLights;
       glm::vec3 color;
       color.x = image[index].x*255.0;
       color.y = image[index].y*255.0;
@@ -222,26 +222,32 @@ __device__ glm::vec3 getColour (material Material, glm::vec2 UVcoords)
 		return Material.color;
 }
 
-__device__ glm::vec3 calcShade (interceptInfo theRightIntercept, glm::vec3 lightVec, glm::vec3 eye, ray castRay, material* textureArray, float ks, float kd, glm::vec3 lightCol, float emittance)
+// Calclates the direct lighting at a given point, which is calculated from castRay and interceptVal of theRightIntercept. 
+__device__ glm::vec3 calcShade (interceptInfo theRightIntercept, glm::vec3 lightVec, glm::vec3 eye, ray castRay, 
+								material* textureArray, float ks, float kd, glm::vec3 lightCol, float emittance, int rayDepth)
 {
 	glm::vec3 shadedColour = glm::vec3 (0,0,0);
-	if (theRightIntercept.interceptVal > 0)
+	if ((theRightIntercept.interceptVal > 0))
 	{
-//		shadedColour = theRightIntercept.intrMaterial.color;
-		// Diffuse shading
-		glm::vec3 intrPoint = castRay.origin + theRightIntercept.interceptVal*castRay.direction;	// The intersection point.
-		glm::vec3 intrNormal = glm::normalize (eye - intrPoint); // intrNormal is the view vector.
-		float interceptValue = max (glm::dot (theRightIntercept.intrNormal, lightVec), (float)0); // Diffuse Lighting is given by (N.L); N being normal at intersection pt and L being light vector.
-		intrPoint = (getColour (theRightIntercept.intrMaterial, theRightIntercept.UV) * kd * interceptValue);			// Reuse intrPoint to store partial product (kdId) of the diffuse shading computation.
-		shadedColour += multiplyVV (lightCol*emittance, intrPoint);		// shadedColour will have diffuse shaded colour. 
-		// Quick and Dirty fix for lights.
-		if ((theRightIntercept.intrMaterial.emittance > 0) && (interceptValue > 0))
-			shadedColour = glm::vec3 (1,1,1);
-		
-		// Specular shading
-		lightVec = glm::normalize (reflectRay (-lightVec, theRightIntercept.intrNormal)); // Reuse lightVec for storing the reflection of light vector around the normal.
-		interceptValue = max (glm::dot (lightVec, intrNormal), (float)0);				// Reuse interceptValue for computing dot pdt of specular.
-		shadedColour += (lightCol * ks * pow (interceptValue, theRightIntercept.intrMaterial.specularExponent));
+		shadedColour = theRightIntercept.intrMaterial.color;
+		//// Diffuse shading
+		//glm::vec3 intrPoint = castRay.origin + theRightIntercept.interceptVal*castRay.direction;	// The intersection point.
+		//glm::vec3 intrNormal = glm::normalize (eye - intrPoint); // intrNormal is the view vector.
+		//float interceptValue = max (glm::dot (theRightIntercept.intrNormal, lightVec), (float)0); // Diffuse Lighting is given by (N.L); N being normal at intersection pt and L being light vector.
+		//intrPoint = (getColour (theRightIntercept.intrMaterial, theRightIntercept.UV) * kd * interceptValue);			// Reuse intrPoint to store partial product (kdId) of the diffuse shading computation.
+		//shadedColour += multiplyVV (lightCol*emittance, intrPoint);		// shadedColour will have diffuse shaded colour. 
+		//
+		//// Specular shading
+		//lightVec = glm::normalize (reflectRay (-lightVec, theRightIntercept.intrNormal)); // Reuse lightVec for storing the reflection of light vector around the normal.
+		//interceptValue = max (glm::dot (lightVec, intrNormal), (float)0);				// Reuse interceptValue for computing dot pdt of specular.
+		//shadedColour += (lightCol * ks * pow (interceptValue, theRightIntercept.intrMaterial.specularExponent));
+
+		//// Quick and Dirty fix for lights.
+		//if ((theRightIntercept.intrMaterial.emittance > 0) && (interceptValue > 0))
+		//	shadedColour = glm::vec3 (1,1,1);
+		//else 
+		if ((rayDepth >= 5) && (theRightIntercept.intrMaterial.emittance < 1))
+			shadedColour = glm::vec3 (0);
 	}
 
 	return	shadedColour;
@@ -313,7 +319,7 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 
   int threadID = (blockIdx.x * blockDim.x) + threadIdx.x +			
 				 (threadIdx.y * (int)(blockDim.x * ceil ((float)rayPoolLength / (float)(blockDim.x*blockDim.y))));
-  
+  int threadID2 = threadID;
   glm::vec3 shadedColour = glm::vec3 (0);
   if (threadID < rayPoolLength)
   {
@@ -323,7 +329,7 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 	glm::vec3 lightVec; 
 		
 	lightVec = glm::normalize (lightPosition - (currentRay.origin + (currentRay.direction*theRightIntercept.interceptVal)));
-	shadedColour += calcShade (theRightIntercept, lightVec, cam.position, currentRay, textureArray, ks, kd, lightCol, lightEmittance);
+	shadedColour += calcShade (theRightIntercept, lightVec, cam.position, currentRay, textureArray, ks, kd, lightCol, lightEmittance, rayDepth);
 
 	if ((theRightIntercept.intrMaterial.emittance > 0) || (theRightIntercept.interceptVal < 0))
 		primArrayBlock [threadID] = false;	// Ray did not hit anything or it hit light, so kill it.
@@ -331,7 +337,7 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 		calculateBSDF  (currentRay, 
 						currentRay.origin + currentRay.direction * theRightIntercept.interceptVal, 
 						theRightIntercept.intrNormal, glm::vec3 (0), AbsorptionAndScatteringProperties (), 
-						time, theRightIntercept.intrMaterial.color, glm::vec3 (0), theRightIntercept.intrMaterial);
+						threadID2*time, theRightIntercept.intrMaterial.color, glm::vec3 (0), theRightIntercept.intrMaterial);
 
 	rayPoolBlock [threadID] = currentRay;
 	
@@ -363,6 +369,9 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
   }
 }
 
+// Device function to check if a point is in shadow.
+// Given a ray r, it intersects it with all the primitives in the scene to check whether it intersects
+// with any other primitive than light. If it does, then the point (ray's origin) is in shadow, and it returns true. 
 __device__ bool isShadowRayBlocked (ray r, glm::vec3 lightPos, staticGeom *geomsList, sceneInfo objectCountInfo)
 {
 	float min = 1e6, interceptValue;
@@ -395,11 +404,28 @@ __device__ bool isShadowRayBlocked (ray r, glm::vec3 lightPos, staticGeom *geoms
 	return false;
 }
 
+// This kernel will accumulate all the colours calculated in an iteration into the actual colour array.
 __global__ void		accumulateIterationColour (glm::vec3* accumulator, glm::vec3* iterationColour, glm::vec2 resolution)
 {
 	int index = (blockDim.y*blockIdx.y + threadIdx.y) * resolution.x + 
 				(blockDim.x*blockIdx.x + threadIdx.x);
 	accumulator [index] += iterationColour [index];
+}
+
+// This kernel surveys the rays that are still alive and replaces
+// the colours of their respective pixels with noise (0,0,0)
+__global__ void		addNoise (glm::vec3 *localColours, ray *rayPoolOnDevice, int rayPoolLength, glm::vec2 resolution)
+{
+	// Index calculation, as in raytraceRay
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x +															// X-part
+				(threadIdx.y * (int)(blockDim.x * ceil ((float)rayPoolLength / (float)(blockDim.x*blockDim.y))));	// Y-part
+	if (index < rayPoolLength)
+	{
+		// Index re-calculation for colour array, as in raytraceRay
+		ray currentRay = rayPoolOnDevice [index];
+		int colourIndex = currentRay.y * resolution.x + currentRay.x;
+		localColours [colourIndex] = glm::vec3 (0);
+	}
 }
 
 // If errorCode is not cudaSuccess, kills the program.
@@ -535,7 +561,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   // Allocate memory. We'll copy it later (because we're moving objects around for Motion blur).
   staticGeom* cudageoms = NULL;
   cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom)); 
-  
+  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+
 
   // Copy materials to GPU global memory:
   material		*materialColours = NULL;
@@ -594,10 +621,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   renderInfo	RenderParams, *RenderParamsOnDevice = NULL;
   RenderParams.ks = 0.4;
   RenderParams.kd = 1 - RenderParams.ks;
-  RenderParams.nLights = 64;
+  RenderParams.nLights = 100;
   RenderParams.sqrtLights = sqrt ((float)RenderParams.nLights);
   RenderParams.lightStepSize = 1.0/(RenderParams.sqrtLights-1);
-  RenderParams.lightPos = glm::vec3 (-0.5, -0.6, -0.5);
+  RenderParams.lightPos = glm::vec3 (0, -0.6, 0);
   RenderParams.lightCol = materials [geoms [lightIndex].materialid].color;
   cudaMalloc ((void **)&RenderParamsOnDevice, sizeof (renderInfo));
   cudaMemcpy (RenderParamsOnDevice, &RenderParams, sizeof (renderInfo), cudaMemcpyHostToDevice);
@@ -615,7 +642,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   std::uniform_real_distribution<float> jitter ((float)0, (float)0.142);
 
   float movement = 1.0/48;
-  int nBounces = 4;
+  int nBounces = 6;
 
   // For each point sampled in the area light, launch the raytraceRay Kernel which will compute the diffuse, specular, ambient
   // and shadow colours. It will also compute reflected colours for reflective surfaces.
@@ -628,9 +655,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	  float zAdd = jitter (randomNumGen);
 	  float xAdd = jitter (randomNumGen); 
-	  glm::vec3 curLightSamplePos = glm::vec3 (RenderParams.lightPos.x + ((i%RenderParams.sqrtLights)*RenderParams.lightStepSize), 
+	  glm::vec3 curLightSamplePos = glm::vec3 (RenderParams.lightPos.x /*+ ((i%RenderParams.sqrtLights)*RenderParams.lightStepSize)*/, 
 												RenderParams.lightPos.y, 
-												RenderParams.lightPos.z + ((i/RenderParams.sqrtLights)*RenderParams.lightStepSize));
+												RenderParams.lightPos.z/* + ((i/RenderParams.sqrtLights)*RenderParams.lightStepSize)*/);
 	  
 	  // Area light sampled in a jittered grid to reduce banding.
 	  curLightSamplePos.z += zAdd;
@@ -642,17 +669,17 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		//cam.position.x += xAdd*0.002;
 	 // }
 
-	  if (!(i/32))	// Motion blur!
-	  {
-		  geomList [primCounts.nCubes].translation += glm::vec3 (movement, 0, 0);
-		  glm::mat4 transform = utilityCore::buildTransformationMatrix(geomList [primCounts.nCubes].translation, 
-																	   geomList [primCounts.nCubes].rotation, 
-																	   geomList [primCounts.nCubes].scale);
-		  geomList [primCounts.nCubes].transform = utilityCore::glmMat4ToCudaMat4(transform);
-		  geomList [primCounts.nCubes].inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
-	  }
+	  //if (!(i/32))	// Motion blur!
+	  //{
+		 // geomList [primCounts.nCubes].translation += glm::vec3 (movement, 0, 0);
+		 // glm::mat4 transform = utilityCore::buildTransformationMatrix(geomList [primCounts.nCubes].translation, 
+			//														   geomList [primCounts.nCubes].rotation, 
+			//														   geomList [primCounts.nCubes].scale);
+		 // geomList [primCounts.nCubes].transform = utilityCore::glmMat4ToCudaMat4(transform);
+		 // geomList [primCounts.nCubes].inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+	  //}
 	  // Now copy the geometry list to the GPU global memory.
-	  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+//	  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
 
 	  glm::vec3 lightPos = multiplyMV (geomList [0].transform, glm::vec4 (curLightSamplePos, 1.0));
 	  
@@ -660,14 +687,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  int rayPoolLength = cam.resolution.x * cam.resolution.y;
 	  ray *rayPool = new ray [rayPoolLength];
 	  // Initialize ray pool with rays passing through every pixel in projection plane.
-	  for (int i=0; i < cam.resolution.y; i ++)
-		  for (int j = 0; j < cam.resolution.x; j ++)
+	  for (int m=0; m < cam.resolution.y; m ++)
+		  for (int n = 0; n < cam.resolution.x; n ++)
 		  {
-			  rayPool [i * (int)cam.resolution.x + j] = raycastFromCameraKernel (cam.resolution, iterations, j, i, cam.position, 
+			  rayPool [m * (int)cam.resolution.x + n] = raycastFromCameraKernel (cam.resolution, iterations, n, m, cam.position, 
 													cam.view, cam.up, cam.fov, ProjectionParams.centreProj, 
 													ProjectionParams.halfVecH, ProjectionParams.halfVecV);
-			  rayPool [i * (int)cam.resolution.x + j].x = j;
-			  rayPool [i * (int)cam.resolution.x + j].y = i;
+			  rayPool [m * (int)cam.resolution.x + n].x = n;
+			  rayPool [m * (int)cam.resolution.x + n].y = m;
 		  }
 	  // Send ray pool to device.
 	  ray *rayPoolOnDevice = NULL;
@@ -689,41 +716,45 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  
 
 	  // Iterate until nBounces: launch kernel to trace each ray bounce.
-	  for (int i = 0; i < nBounces; ++i)
+	  for (int j = 0; j < nBounces; ++j)
 	  {
 		// kernel launches
 		fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
 		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock, threadsPerBlock.x*threadsPerBlock.y*(sizeof(glm::vec3) + sizeof (bool) + sizeof(ray))>>>
-			((float)iterations, cam, traceDepth, cudaimage, cudageoms, materialColours, RenderParamsOnDevice, 
+			((float)j+(i*nBounces), cam, j, cudaimage, cudageoms, materialColours, RenderParamsOnDevice, 
 			 primCounts, primaryArrayOnDevice, rayPoolOnDevice, rayPoolLength, lightPos);
 		cudaThreadSynchronize(); // Wait for Kernel to finish, because we don't want a race condition between successive kernel launches.
 		checkCUDAError("raytraceRay Kernel failed!");
 
-		// Inefficient. Grossly inefficient. Need to look over and change as required.
-		cudaMemcpy (primaryArray, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
-		cudaMemcpy (rayPool, rayPoolOnDevice, rayPoolLength * sizeof (ray), cudaMemcpyDeviceToHost);
+		//// Inefficient. Grossly inefficient. Need to look over and change as required.
+		//cudaMemcpy (primaryArray, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
+		//cudaMemcpy (rayPool, rayPoolOnDevice, rayPoolLength * sizeof (ray), cudaMemcpyDeviceToHost);
 
-		// Stream compaction:
-		secondaryArray [0] = 0;
-		for (int i = 1; i < rayPoolLength; ++ i)
-			secondaryArray [i] = secondaryArray [i-1] + primaryArray [i-1];
+		//// Stream compaction:
+		//secondaryArray [0] = 0;
+		//for (int k = 1; k < rayPoolLength; ++ k)
+		//	secondaryArray [k] = secondaryArray [k-1] + primaryArray [k-1];
 
-		int count = 0;
-		for (int i = 0; i < rayPoolLength; ++ i)
-		{
-			if (primaryArray [i])
-			{
-				rayPool [count] = rayPool [secondaryArray [i]];
-				++ count;
-			}
-		}
+		//int count = 0;
+		//for (int k = 0; k < rayPoolLength; ++ k)
+		//{
+		//	if (primaryArray [k])
+		//	{
+		//		rayPool [count] = rayPool [secondaryArray [k]];
+		//		++ count;
+		//	}
+		//}
 
-		rayPoolLength = count;
-		cudaMemcpy (rayPoolOnDevice, rayPool, rayPoolLength * sizeof (ray), cudaMemcpyHostToDevice);
-		cudaMemset (primaryArrayOnDevice, true, rayPoolLength * sizeof (bool));
+		//rayPoolLength = count;
+		//cudaMemcpy (rayPoolOnDevice, rayPool, rayPoolLength * sizeof (ray), cudaMemcpyHostToDevice);
+		//cudaMemset (primaryArrayOnDevice, true, rayPoolLength * sizeof (bool));
 	  }
+//      fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
+	  // At this point, since stream compaction has already taken place,
+	  // it means that rayPoolOnDevice contains only rays that are still alive.
+//	  addNoise<<<fullBlocksPerGrid,threadsPerBlock>>>(cudaimage, rayPoolOnDevice, rayPoolLength, cam.resolution);
+
 	  fullBlocksPerGrid = dim3 ((int)ceil(float(cam.resolution.x)/threadsPerBlock.x), (int)ceil(float(cam.resolution.y)/threadsPerBlock.y));
-	  // Validated:
 	  accumulateIterationColour<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaFinalImage, cudaimage, cam.resolution);
 	  checkCUDAError("accumulateIterationColour Kernel failed!");
 

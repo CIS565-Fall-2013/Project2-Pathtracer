@@ -106,7 +106,7 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
                                        glm::vec3& color, glm::vec3& unabsorbedColor, material m)
 {
 	int retVal = 0;
-	r.origin = intersect;
+	r.origin = intersect+0.01f*normal; //slightly perturb along normal to avoid self-intersection.
 	thrust::default_random_engine rng(hash(randomSeed));
     thrust::uniform_real_distribution<float> u01(0, 1);
     thrust::uniform_real_distribution<float> u02(0, 1);
