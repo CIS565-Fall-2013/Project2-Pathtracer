@@ -145,7 +145,7 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
 
 
 //Kernel that writes the image to the OpenGL PBO directly. 
-__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image){
+__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image, float scaleFactor){
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -154,10 +154,11 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 	if(x<=resolution.x && y<=resolution.y){
 
 		glm::vec3 color;      
-		color.x = image[index].x*255.0;
-		color.y = image[index].y*255.0;
-		color.z = image[index].z*255.0;
+		color.x = image[index].x*255.0*scaleFactor;
+		color.y = image[index].y*255.0*scaleFactor;
+		color.z = image[index].z*255.0*scaleFactor;
 
+		//Clamp
 		if(color.x>255){
 			color.x = 255;
 		}
@@ -294,12 +295,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	cam.fov = renderCam->fov;
 
 	///Prep image
-	if(!rconfig->frameFiltering || frameFilterCounter < 1)
+	if(!rconfig->frameFiltering || frameFilterCounter <= 1)
 	{
 		clearImage<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage);
-	}else{
-		scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, (float)(frameFilterCounter-1));
+		frameFilterCounter = 1;
 	}
+	//else{
+	//	scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, (float)(frameFilterCounter-1));
+	//}
 
 
 	//Figure out which rays should go to which pixels.
@@ -324,10 +327,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	}
 
 
-	if(rconfig->frameFiltering)
-	{
-		scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, 1.0f/(frameFilterCounter));
-	}
+	//if(rconfig->frameFiltering)
+	//{
+	//	scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, 1.0f/(frameFilterCounter));
+	//}
 
 
 	//retrieve image from GPU before drawing overlays and writing to screen
@@ -338,7 +341,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 
 
 	//Draw to screen
-	sendImageToPBO<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(PBOpos, renderCam->resolution, cudaimage);
+	sendImageToPBO<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(PBOpos, renderCam->resolution, cudaimage, 1.0f/float(frameFilterCounter));
 
 
 	//free up stuff, or else we'll leak memory like a madman
