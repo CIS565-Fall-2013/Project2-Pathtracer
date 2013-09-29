@@ -121,7 +121,7 @@ EMITTANCE   0
 CAMERA
 RES         800 800
 FOVY        25
-ITERATIONS  5000
+ITERATIONS  800
 FILE        test.bmp
 frame 0
 EYE         0 4.5 12
@@ -172,7 +172,7 @@ SCALE       .01 10 10
 
 OBJECT 5
 sphere
-material 0 //fresnel
+material 9 //fresnel
 frame 0
 TRANS       0 2 0
 ROTAT       0 180 0
@@ -180,7 +180,7 @@ SCALE       3 3 3
 
 OBJECT 6
 sphere
-material 1 //red glossy
+material 9 //red glossy
 frame 0
 TRANS       2 5 2
 ROTAT       0 180 0
@@ -188,7 +188,7 @@ SCALE       2.5 2.5 2.5
 
 OBJECT 7
 sphere
-material 2 //green glossy
+material 9 //green glossy
 frame 0
 TRANS       -2 5 -2
 ROTAT       0 180 0

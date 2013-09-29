@@ -18,6 +18,7 @@ struct ray {
 	glm::vec3 direction;
 	glm::vec3 accumulatedColor;
 	int index;
+	float mediaIOR;
 //	__host__ __device__ ray(){}
 //	__host__ __device__ ray(glm::vec3 start, glm::vec3 dir) : origin(start), direction(dir){}
 };

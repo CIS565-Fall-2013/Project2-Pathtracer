@@ -85,7 +85,7 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
 }
 
 //Kernel that writes the image to the OpenGL PBO directly.
-__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image){
+__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image, int iterations){
   
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -94,9 +94,9 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   if(x<=resolution.x && y<=resolution.y){
 
       glm::vec3 color;
-      color.x = image[index].x*255.0;
-      color.y = image[index].y*255.0;
-      color.z = image[index].z*255.0;
+      color.x = image[index].x*255.0/float(iterations/2);
+      color.y = image[index].y*255.0/float(iterations/2);
+      color.z = image[index].z*255.0/float(iterations/2);
 
       if(color.x>255){
         color.x = 255;
@@ -123,9 +123,7 @@ __host__ __device__ int rayIntersect(const ray& r, staticGeom* geoms, int number
 	float tempDistance = -1.0f;
 	glm::vec3 tempIntersctionPoint(0.0f), tempIntersectionNormal(0.0f);
 	int intersIndex = -1;
-//	printf("%f\n", r.origin.z);
-//	if(abs(r.origin.z + 5.0f) < 0.1f)
-//	printf("%f %f %f\n", r.direction.x, r.direction.y, r.direction.z);
+
 	for(int i = 0; i < numberOfGeoms; i++)
 	{
 		tempDistance = -1.0f;
@@ -158,13 +156,7 @@ __host__ __device__ bool ShadowRayUnblocked(glm::vec3 surfacePoint,glm::vec3 lig
 	shadowRay.origin = surfacePoint + 0.01f * rayDir;
 	shadowRay.direction = rayDir;
 	glm::vec3 intersPoint, intersNormal;
-//	if(abs(surfacePoint.y) > 8.0f)
-//	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
- //   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-//	printf("%d %d\n", (blockIdx.x * blockDim.x), (blockIdx.y * blockDim.y) + threadIdx.y);
-//	printf("%f %f %f\n", shadowRay.origin.x, shadowRay.origin.y, shadowRay.origin.z);
 	int intersIndex = rayIntersect(shadowRay, geoms, numberOfGeoms, intersPoint, intersNormal, materials); 
-//	printf("%d", intersIndex);
 	if(intersIndex == -1) return true;
 	else if(materials[geoms[intersIndex].materialid].emittance > 0.0f) return true;
 	else return false;
@@ -374,7 +366,7 @@ __global__ void raytracePrimary(glm::vec2 resolution, int time, cameraData cam, 
 }
 
 __global__ void rayTracerIterative(int iteration, int depth, glm::vec2 resolution, ray *rayPool, int rayCount, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials/*, int* lightSources, int numberOfLights*/){
+                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
 
 	glm::vec3 bgColor(0.0f);
 	glm::vec3 phongColor(0.0f), reflColor(0.0f), refraColor(0.0f);;
@@ -388,40 +380,7 @@ __global__ void rayTracerIterative(int iteration, int depth, glm::vec2 resolutio
 	if(rayPool[index].index != -1){
 		glm::vec3 intersectionPoint, intersectionNormal;
 		int intersIndex = rayIntersect(rayPool[index], geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials);
-//	if(depth == 0)
-//	printf("%f %f %f\n", r.direction.x, r.direction.y, r.direction.z);
-//	printf("%f %f %f\n", intersectionPoint.x, intersectionPoint.y, intersectionPoint.z);
-//	printf("%d\n", intersIndex);
-	/*glm::vec3 intersectionPoint, intersectionNormal;
-	float distance = 8000.0f;
-	float tempDistance = -1.0f;
-	glm::vec3 tempIntersctionPoint(0.0f), tempIntersectionNormal(0.0f);
-	int intersIndex = -1;
-	printf("%f %f %f\n", tempIntersectionNormal.x, tempIntersectionNormal.y, tempIntersectionNormal.z);
-	for(int i = 0; i < numberOfGeoms; i++)
-	{
-		tempDistance = -1.0f;
-//		if(materials[geoms[i].materialid].emittance > 0.0f) continue; // do not test intesection with light source
-		if(geoms[i].type == GEOMTYPE::SPHERE){
-			tempDistance = sphereIntersectionTest(geoms[i], r, tempIntersctionPoint, tempIntersectionNormal);
-		}
-		else if(geoms[i].type == GEOMTYPE::CUBE){
-			tempDistance = boxIntersectionTest(geoms[i], r, tempIntersctionPoint, tempIntersectionNormal);
-		}
-		else 
-			continue;
-		if(!(abs(tempDistance + 1.0f) < EPSILON))
-		{
-			if(tempDistance < distance) {
-				intersIndex = i;
-				distance = tempDistance;
-				intersectionPoint = tempIntersctionPoint;
-				intersectionNormal = tempIntersectionNormal;
-			}
-		}
-	}*/
-	
-//	printf("depth = %d:\n\n", depth);
+
 		if(intersIndex == -1) 
 		{
 			colors[rayPool[index].index] += glm::vec3(0.0f);
@@ -432,85 +391,76 @@ __global__ void rayTracerIterative(int iteration, int depth, glm::vec2 resolutio
 		{
 			rayPool[index].accumulatedColor *= materials[geoms[intersIndex].materialid].color;		
 			colors[rayPool[index].index] += rayPool[index].accumulatedColor;
+//			colors[rayPool[index].index] = (float)(iteration + 1); 
 			rayPool[index].index = -1;
 			return;
 		}
 		else // intersected with actual geometry
 		{
+			glm::vec3 reflDir, refraDir;
+			float nextIndexOfRefraction;
+			Fresnel fresnel;
 			if(depth == 9) 
 			{
 				colors[rayPool[index].index] += glm::vec3(0.0f);
 				rayPool[index].index = -1;
 				return;
-			}/*
-	//		glm::vec3 reflDir, refraDir;
-	//		float nextIndexOfRefraction;
-	//		Fresnel fresnel; fresnel.reflectionCoefficient = 0.1; fresnel.transmissionCoefficient = 0;
-	////		returnColor = ka * ambientColor * materials[geoms[intersIndex].materialid].color;
-	////		calculateFresnel(intersectionNormal, r.direction, currentIndexOfRefraction, materials[geoms[intersIndex].materialid].indexOfRefraction, 
-	//		if(materials[geoms[intersIndex].materialid].hasRefractive == 1) // for fresnel, if refractive, it will be reflective
-	//		{
-	//			if(abs(currentIndexOfRefraction - 1) < 0.00001f)  // current ray is in air
-	//			{
-	//				refraDir = calculateTransmissionDirection(r.direction, intersectionNormal, currentIndexOfRefraction, materials[geoms[intersIndex].materialid].indexOfRefraction, nextIndexOfRefraction);
-	////				printf("in air %f\n", nextIndexOfRefraction);
-	//			}
-	//			else                                              // current ray is in glass
-	//			{
-	//				intersectionNormal = -intersectionNormal;
-	//				refraDir = calculateTransmissionDirection(r.direction, intersectionNormal, currentIndexOfRefraction, 1.0f, nextIndexOfRefraction);
-	////				printf("in glass, depth: %d\n", depth);
-	//			
-	//			}
-	//			ray refraRay;
-	//			refraRay.origin = intersectionPoint + 0.01f * refraDir;
-	//			refraRay.direction = refraDir;
-	//			refraColor = raytraceRecursive(index, refraRay, iteration, nextIndexOfRefraction, depth + 1, maximumDepth, geoms, numberOfGeoms, materials, numberOfMaterials, lightSources, numberOfLights);
+			}
 
-	//			reflDir = calculateReflectionDirection(r.direction, intersectionNormal);
-	//			ray reflRay;
-	//			reflRay.origin = intersectionPoint + 0.01f * reflDir;
-	//			reflRay.direction = reflDir;
-	//			reflColor = raytraceRecursive(index, reflRay, iteration, currentIndexOfRefraction, depth + 1, maximumDepth, geoms, numberOfGeoms, materials, numberOfMaterials, lightSources, numberOfLights);
+			else if(materials[geoms[intersIndex].materialid].hasRefractive == 1) // for fresnel, if refractive, it will be reflective
+			{
+				if(abs(rayPool[index].mediaIOR - 1) < 0.00001f)  // current ray is in air
+				{
+					refraDir = calculateTransmissionDirection(rayPool[index].direction, intersectionNormal, rayPool[index].mediaIOR, materials[geoms[intersIndex].materialid].indexOfRefraction, nextIndexOfRefraction);
+	//				printf("in air %f\n", nextIndexOfRefraction);
+				}
+				else                                              // current ray is in glass
+				{
+					intersectionNormal = -intersectionNormal;
+					refraDir = calculateTransmissionDirection(rayPool[index].direction, intersectionNormal, rayPool[index].mediaIOR, 1.0f, nextIndexOfRefraction);
+	//				printf("in glass, depth: %d\n", depth);
+				
+				}
+				reflDir = calculateReflectionDirection(rayPool[index].direction, intersectionNormal);
+				fresnel = calculateFresnel(intersectionNormal, rayPool[index].direction, rayPool[index].mediaIOR, nextIndexOfRefraction, reflDir, refraDir);
 
-	//			fresnel = calculateFresnel(intersectionNormal, r.direction, currentIndexOfRefraction, nextIndexOfRefraction, reflDir, refraDir);
-	////			printf("reflectionCoefficient: %f;  transmissionCoefficient: %f\n", fresnel.reflectionCoefficient, fresnel.transmissionCoefficient);
-	////			return refraColor;
-	//			returnColor = fresnel.reflectionCoefficient * reflColor +  fresnel.transmissionCoefficient * refraColor;
-	//		}
-	//		else if(materials[geoms[intersIndex].materialid].hasReflective == 1)
-	//		{
-	//			reflDir = calculateReflectionDirection(r.direction, intersectionNormal);
-	//			ray reflRay;
-	//			reflRay.origin = intersectionPoint + 0.01f * reflDir;
-	//			reflRay.direction = reflDir;
-	//			reflColor = raytraceRecursive(index, reflRay, iteration, currentIndexOfRefraction, depth + 1, maximumDepth, geoms, numberOfGeoms, materials, numberOfMaterials, lightSources, numberOfLights);
+				thrust::default_random_engine rng(hash(iteration *(depth + 1)* index));
+				thrust::uniform_real_distribution<float> u01(0,1);
+//				float russianroulette = (float)u01(rng);
 
-	//			returnColor = reflColor;
-	//		}
-	//		else
-	//		{
-	//			thrust::default_random_engine rng(hash(iteration + depth));
-	//			thrust::uniform_real_distribution<float> u01(0,1), v01(0, 1);
-	//			float russianRoulette1 = (float)u01(rng);
-	//			float russianRoulette2 = (float)v01(rng);
+				if((float)u01(rng) < fresnel.reflectionCoefficient)
+				{
+					ray reflRay;
+					reflRay.origin = intersectionPoint + 0.01f * reflDir;
+					reflRay.direction = reflDir;
+					reflRay.mediaIOR = rayPool[index].mediaIOR;
+					reflRay.accumulatedColor = rayPool[index].accumulatedColor;
+					rayPool[index] = reflRay;
+				}
+				
+				else
+				{
+					ray refraRay;
+					refraRay.origin = intersectionPoint + 0.01f * refraDir;
+					refraRay.direction = refraDir;
+					refraRay.mediaIOR = nextIndexOfRefraction;
+					refraRay.accumulatedColor = rayPool[index].accumulatedColor;
+					rayPool[index] = refraRay;
+				}
 
-	////			printf("iteration: %d;  russianRoulette1: %f;   russianRoulette2: %f;\n", iteration, russianRoulette1, russianRoulette2);
+			}
+			else if(materials[geoms[intersIndex].materialid].hasReflective == 1)
+			{
+				reflDir = calculateReflectionDirection(rayPool[index].direction, intersectionNormal);
+				ray reflRay;
+				reflRay.origin = intersectionPoint + 0.01f * reflDir;
+				reflRay.direction = reflDir;
+				reflRay.index = rayPool[index].index;
+				reflRay.accumulatedColor = rayPool[index].accumulatedColor;
 
-	//			glm::vec3 newDir = calculateRandomDirectionInHemisphere(intersectionNormal, russianRoulette1, russianRoulette2);
-	//			ray newRay;
-	//			newRay.origin =  intersectionPoint + 0.01f * newDir;
-	//			newRay.direction = newDir;
+				rayPool[index] = reflRay;
+			}
 
-	//			returnColor = materials[geoms[intersIndex].materialid].color * glm::clamp(glm::dot(intersectionNormal, newDir), 0.0f, 1.0f) * raytraceRecursive(index, newRay, iteration, currentIndexOfRefraction, depth + 1,  maximumDepth, geoms, numberOfGeoms, materials, numberOfMaterials, lightSources, numberOfLights);
-	//		}
-
-	//	
-	//	}
-
-
-	//*/
-	////	returncolor = materials[geoms[intersindex].materialid].color;
 			else
 			{
 				thrust::default_random_engine rng(hash(iteration *(depth + 1)* index));
@@ -526,12 +476,6 @@ __global__ void rayTracerIterative(int iteration, int depth, glm::vec2 resolutio
 				newray.accumulatedColor = rayPool[index].accumulatedColor * glm::clamp(glm::dot(intersectionNormal, newdir), 0.0f, 1.0f) * materials[geoms[intersIndex].materialid].color;
 
 				rayPool[index] = newray;
-			//if(iteration == 0)
-			//	colors[index]  = materials[geoms[intersindex].materialid].color;
-			//else
-//				colors[index] *= glm::clamp(glm::dot(intersectionnormal, newdir), 0.0f, 1.0f) * materials[geoms[intersindex].materialid].color;
-	//return returnColor;
-//colors[rayPool[index].index]  = materials[geoms[intersIndex].materialid].color;
 			}
 		}
 	}
@@ -541,13 +485,15 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
-  if((x<=resolution.x && y<=resolution.y)){
+
+  if((x<=resolution.x && y<=resolution.y))
+  {
      ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
      r.index = index;
 	 r.accumulatedColor = glm::vec3(1.0f);
+	 r.mediaIOR = 1.0f;
 	 rayPool[index] = r;
   }
-//  printf("cam\n");
 }
 
 
@@ -557,7 +503,7 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   // frame: current frame, objects and cam move between frames in multi-frame mode
   // iterations: curent iteration, objects and cam do not move between iterations
-  int traceDepth = 5; //determines how many bounces the raytracer traces
+  int traceDepth = 10; //determines how many bounces the raytracer traces
 
   // set up crucial magic
   int tileSize = 8;
@@ -581,8 +527,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMalloc((void**)&cudaray, rayPoolCount*sizeof(ray));
   cudaMemcpy( cudaray, rayPool, rayPoolCount*sizeof(ray), cudaMemcpyHostToDevice);
 
+  // first kernel launch to populate ray pool
   rayTracerIterativePrimary<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, iterations, cam, cudaray);
-//  checkCUDAError("Kernel failed!");
 
 //  dim3 blocksPerGrid((int)ceil((float)rayPoolCount/(float)(tileSize*tileSize)));
   //send image to GPU
@@ -612,56 +558,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMalloc((void**)&cudamaterials, numberOfMaterials*sizeof(material));
   cudaMemcpy( cudamaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
 
-
-  // generate light sources from light source geometry. Could be single point light or area light
-/*  int lightsPerGeom = 800;
-  int maxNumOfLightSources = numberOfGeoms * lightsPerGeom;
-  light* lightSources = new light[maxNumOfLightSources];
-  int numberOfLights = 0;
-  for(int i = 0; i < numberOfGeoms; ++i){
-	  if(materials[geomList[i].materialid].emittance > 0.0f)
-	  {	// generate point sources based on light source geometry
-		  for(int k = 0; k < lightsPerGeom; k++)
-		  {
-			  glm::vec3 lightPos;
-			  if(geoms[i].type == GEOMTYPE::CUBE)
-				  lightPos = getRandomPointOnCube(geomList[i], k);
-			  else if(geoms[i].type == GEOMTYPE::SPHERE)
-				  lightPos = getRandomPointOnSphere(geomList[i], k);
-			  else continue;				
-			  lightSources[numberOfLights].position = lightPos;
-			  lightSources[numberOfLights].color = materials[geoms[i].materialid].color;
-			  lightSources[numberOfLights].emittance = materials[geoms[i].materialid].emittance;
-			  ++numberOfLights;
-		  }
-	  }
-  }
- / * for(int i = 0; i < numberOfLights; i++)
-	  printf("%f %f %f\n", lightSources[i].position.x, lightSources[i].position.y, lightSources[i].position.z);* /
-  light* cudalights = NULL;
-  cudaMalloc((void**)&cudalights, numberOfLights*sizeof(light));
-  cudaMemcpy( cudalights, lightSources, numberOfLights*sizeof(light), cudaMemcpyHostToDevice);
-  int maxNumOfLightSources = numberOfGeoms;
-  int* lightSources = new int[maxNumOfLightSources];
-  int numberOfLights = 0;
-  for(int i = 0; i < numberOfGeoms; ++i){
-	  if(materials[geomList[i].materialid].emittance > 0.0f)
-	  {
-		  lightSources[numberOfLights] = i;
-		  ++numberOfLights;
-	  }
-  }
-
-  int* cudalights = NULL;
-  cudaMalloc((void**)&cudalights, numberOfLights*sizeof(int));
-  cudaMemcpy( cudalights, lightSources, numberOfLights*sizeof(int), cudaMemcpyHostToDevice);
-*/
-
   size_t size;
   cudaDeviceSetLimit(cudaLimitStackSize, 10000 * sizeof(float));
   cudaDeviceGetLimit(&size, cudaLimitStackSize);
 
-  cudaDeviceGetLimit(&size, cudaLimitMallocHeapSize);
+//  cudaDeviceGetLimit(&size, cudaLimitMallocHeapSize);
 //  printf("MallocHeapSize found to be %d\n", (int)size);
 //  cudaDeviceSetLimit(cudaLimitMallocHeapSize, size_t size)
   
@@ -669,15 +570,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 
   //kernel launches
-//raytracePrimary<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights, numberOfLights);
- // cudaDeviceSynchronize ();
   for(int i = 0; i < traceDepth; ++i)
   {
      rayTracerIterative<<<fullBlocksPerGrid, threadsPerBlock>>>(iterations, i, renderCam->resolution, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
 
   }
 
-  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
+  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, iterations);
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
   
@@ -686,10 +585,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudaimage );
   cudaFree( cudageoms );
   cudaFree( cudamaterials);
-//  cudaFree( cudalights);
   delete geomList;
   delete rayPool;
-//  printf("cam\n");
   // make certain the kernel has completed
   cudaThreadSynchronize();
 
