@@ -74,9 +74,30 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
 	Fresnel fresnel;
+	if(utilityCore::epsilonCheck(glm::length(transmissionDirection), 0.0f))
+	{
+		//total internal reflection
+		fresnel.reflectionCoefficient = 1;
+		fresnel.transmissionCoefficient = 0;
 
-	fresnel.reflectionCoefficient = 1;
-	fresnel.transmissionCoefficient = 0;
+	}else{
+
+		//Assume unpolarized light
+		float cos_t = glm::dot(-normal, transmissionDirection);
+		float cos_i = glm::dot(normal, incident);
+		float n1 = incidentIOR;
+		float n2 = transmittedIOR;
+		float Rdenom = (n1*cos_i+n2*cos_t);
+		Rdenom *= Rdenom;//Squared
+
+		float Rp = (n1*cos_i-n2*cos_t);
+		Rp *= Rp/Rdenom;
+		float Rs = (n2*cos_i-n2*cos_t);
+		Rs *= Rs/Rdenom;
+
+		fresnel.reflectionCoefficient = (Rp+Rs)/2;
+		fresnel.transmissionCoefficient = 1-fresnel.reflectionCoefficient;
+	}
 	return fresnel;
 }
 
@@ -111,7 +132,7 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 									  AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
 									  glm::vec3& color, glm::vec3& unabsorbedColor, material m){
 
-
+	
 
 										  return 1;
 };
