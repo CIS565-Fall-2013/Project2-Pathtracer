@@ -72,16 +72,13 @@ int main(int argc, char** argv){
 	renderCam = &renderScene->renderCam;
 	width = renderCam->resolution[0];
 	height = renderCam->resolution[1];
-	//Allocate raytotals to zero
-	raytotals = new int[(int)renderCam->resolution.x*(int)renderCam->resolution.y]();
-
 
 
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
 	renderOpts->mode = RAYCOUNT_DEBUG;
 	renderOpts->traceDepth = 1;
-	renderOpts->rayPoolSize = 1.5f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
+	renderOpts->rayPoolSize =1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
 	renderOpts->forceOnePerPixel = false;
 	//Note, these constants must sum to 1.
 	renderOpts->ambientLightColor = glm::vec3(1,1,1);
@@ -173,7 +170,7 @@ void runCuda(){
 
 		// execute the kernel
 
-		cudaRaytraceCore(dptr, renderCam, renderOpts, targetFrame, iterations, frameFilterCounter, raytotals, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+		cudaRaytraceCore(dptr, renderCam, renderOpts, targetFrame, iterations, frameFilterCounter, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
 
 		// unmap buffer object
 		cudaGLUnmapBufferObject(pbo);

@@ -109,15 +109,11 @@ __global__ void requestRays(glm::vec2 resolution, renderOptions rconfig, glm::ve
 
 
 
-__global__ void scaleImageIntensity(glm::vec2 resolution, glm::vec3* image, int* scaleFactor, bool scaleUp)
+__global__ void scaleImageIntensity(glm::vec2 resolution, glm::vec3* image, float sf)
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * resolution.x);
-	float sf = scaleFactor[index];
-
-	if(!scaleUp)
-		sf = 1.0f/scaleFactor[index];
 
 	if(x<resolution.x && y<resolution.y){
 		image[index] = sf*image[index];
@@ -127,7 +123,7 @@ __global__ void scaleImageIntensity(glm::vec2 resolution, glm::vec3* image, int*
 //Takes the number of rays requested by each pixel from the pool and allocates them stocastically from a single random number
 //scannedRayRequests is an array of ints containing the results of an inclusive scan
 //xi1 is a uniformly distributed random number from 0 to 1
-__global__ void allocateRayPool(float xi1, renderOptions rconfig, cameraData cam, glm::vec3* cudaimage, rayState* cudaraypool, int* scannedRayRequests, int*  raytotals, int numRays)
+__global__ void allocateRayPool(float xi1, renderOptions rconfig, cameraData cam, glm::vec3* cudaimage, rayState* cudaraypool, int numRays)
 {
 	//1D blocks and 2D grid
 
@@ -135,30 +131,15 @@ __global__ void allocateRayPool(float xi1, renderOptions rconfig, cameraData cam
 	int rIndex = blockId * blockDim.x + threadIdx.x; 
 
 	if(rIndex < numRays){//Thread index range check
+		
+		//thrust::default_random_engine rng(hash(xi1*100000000));
+		//thrust::uniform_real_distribution<float> u01(0,1);
 		int numPixels = cam.resolution.x*cam.resolution.y;
 
-		if(rconfig.forceOnePerPixel){
-			if(rIndex < numPixels)
-			{
-				//Ensure that each pixel gets at least one ray
-				cudaraypool[rIndex].index = rIndex;
-			}else{
-				//Use stochastic universal sampling on remaining rays
-
-				int spares = numRays-numPixels;
-				float P = float(scannedRayRequests[numPixels-1])/spares;//compute stochastic interval
-				float start = xi1*P;
-				cudaraypool[rIndex].index = ((int)(floor(start+P*(rIndex-numPixels))) % numPixels);
-			}
-
-		}else{
-			//Allocate all rays stochastically
-			float P = float(scannedRayRequests[numPixels-1])/numRays;//compute stochastic interval
-			float start = xi1*P;
-			cudaraypool[rIndex].index = ((int)(floor(start+P*(rIndex))) % numPixels);
-			
-		}
-		atomicAdd(&raytotals[cudaraypool[rIndex].index], 1); 
+		//Allocate all rays stochastically
+		float P = float(numPixels)/numRays;//compute stochastic interval
+		int start =  floor(xi1*numPixels);
+		cudaraypool[rIndex].index = ((int)(start + P*rIndex) % numPixels);
 
 	}
 }
@@ -174,9 +155,7 @@ __global__ void displayRayCounts(cameraData cam, renderOptions rconfig, glm::vec
 		{
 			float scale = clamp(1.0f/maxScale, 0.0f, 1.0f);
 			//TODO improve parallelism by removing atomic adds?
-			atomicAdd(&cudaimage[pixelIndex].x, scale);
-			atomicAdd(&cudaimage[pixelIndex].y, scale);
-			atomicAdd(&cudaimage[pixelIndex].z, scale);
+			cudaimage[pixelIndex] += scale*glm::vec3(1,1,1);
 		}
 	}
 
@@ -281,18 +260,11 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig, int frame, int iterations, int frameFilterCounter, int* raytotals, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig, int frame, int iterations, int frameFilterCounter, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
 
 	int traceDepth = rconfig->traceDepth; //determines how many bounces the raytracer traces
 	int numPixels = renderCam->resolution.x*renderCam->resolution.y;
 	int rayPoolSize = (int) ceil(float(numPixels)*rconfig->rayPoolSize);
-
-	if(rconfig->forceOnePerPixel && rayPoolSize < numPixels)
-	{
-		//Error
-		printf("Error Not Enough Rays in Pool\n");
-		return;
-	}
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -344,14 +316,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	rayState* cudaraypool = NULL;
 	cudaMalloc((void**)&cudaraypool, rayPoolSize*sizeof(rayState));
 
-	//Array to hold samples per pixel (for adaptive anti-aliasing)
-	int* cudarequestedrays = NULL;
-	cudaMalloc((void**)&cudarequestedrays, numPixels*sizeof(int));
-
-	//Array to hold accumulated ray totals
-	int* cudaraytotals = NULL;
-	cudaMalloc((void**)&cudaraytotals, numPixels*sizeof(int));
-	cudaMemcpy( cudaraytotals, raytotals, numPixels*sizeof(int), cudaMemcpyHostToDevice);
 
 	//package camera
 	cameraData cam;
@@ -361,46 +325,36 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
 
-	if(!rconfig->frameFiltering || frameFilterCounter <= 1)
+	if(!rconfig->frameFiltering || frameFilterCounter < 1)
 	{
-		clearIntBuffer<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaraytotals);
 		clearImage<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage);
-		
 	}else{
-		scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, cudaraytotals, true);
+		scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, (float)frameFilterCounter);
 	}
-	
-	//Allocate rays
-	requestRays<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, *rconfig, cudaimage, cudarequestedrays);
-	
-	//Perform scan
-	inclusive_scan_sum(cudarequestedrays, cudarequestedrays, numPixels);
+
 	
 	//Figure out which rays should go to which pixels.
-
-	thrust::default_random_engine rng(hash(iterations));
+	thrust::default_random_engine rng(hash(iterations*frameFilterCounter/5.0));
 	thrust::uniform_real_distribution<float> u01(0,1);
-	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(u01(rng), *rconfig, cam, cudaimage, cudaraypool, cudarequestedrays, cudaraytotals, rayPoolSize);
-	
+	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(u01(rng), *rconfig, cam, cudaimage, cudaraypool, rayPoolSize);
+
 	if(rconfig->mode == RAYCOUNT_DEBUG)
 	{
-		displayRayCounts<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, cudaimage, cudaraypool, rayPoolSize,2.0f);
+		displayRayCounts<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, cudaimage, cudaraypool, rayPoolSize,ceil(float(rayPoolSize)/numPixels));
 	}else{
 
 
 	}
-	
+
 
 	if(rconfig->frameFiltering)
 	{
-		scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, cudaraytotals, false);
+		scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, 1.0f/(frameFilterCounter+1));
 	}
 
-	
+
 	//retrieve image from GPU
 	cudaMemcpy( renderCam->image, cudaimage, numPixels*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-	cudaMemcpy( raytotals, cudaraytotals, numPixels*sizeof(int), cudaMemcpyDeviceToHost);
-
 	sendImageToPBO<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(PBOpos, renderCam->resolution, cudaimage);
 
 
@@ -409,8 +363,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	cudaFree( cudageoms );
 	cudaFree( cudamaterials );
 	cudaFree( cudaraypool );
-	cudaFree( cudaraytotals);
-	cudaFree( cudarequestedrays );
 	delete [] geomList;
 
 	// make certain the kernel has completed 

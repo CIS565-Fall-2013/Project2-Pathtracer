@@ -52,7 +52,6 @@ using namespace std;
 
 scene* renderScene;
 camera* renderCam;
-int* raytotals;
 renderOptions* renderOpts;
 int targetFrame;
 int iterations;
