@@ -86,7 +86,9 @@ struct rayBounce{
 	glm::vec3 intersectPt;
 	int matID;
 	int pixID;			//pixel id of ray
+	int currDepth;
 	bool dead;
+	glm::vec3 color;	//current color of the ray, use to attenuate
 };
 
 #endif //CUDASTRUCTS_H

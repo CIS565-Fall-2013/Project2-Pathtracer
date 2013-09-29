@@ -214,23 +214,23 @@ __global__ void createRay(glm::vec2 resolution, cameraData cam, int maxDepth, in
 		ray firstRay = raycastFromCameraKernel(resolution, x, y, cam.position, cam.view, cam.up, cam.fov); 
 
 		////DOF and antialiasing setup
-		float focalLength = cam.focalLength;
-		float aperture = cam.aperture;
-		
-		glm::vec3 focalPoint = firstRay.origin + focalLength * firstRay.direction;
+		//float focalLength = cam.focalLength;
+		//float aperture = cam.aperture;
+		//
+		//glm::vec3 focalPoint = firstRay.origin + focalLength * firstRay.direction;
 
-		//jitter camera
-		glm::vec3 jitterVal = 2.0f * aperture * generateRandomNumberFromThread(resolution, time, x, y);
-		jitterVal -= glm::vec3(aperture);
-		firstRay.origin += jitterVal;
+		////jitter camera
+		//glm::vec3 jitterVal = 2.0f * aperture * generateRandomNumberFromThread(resolution, time, x, y);
+		//jitterVal -= glm::vec3(aperture);
+		//firstRay.origin += jitterVal;
 
-		//find new direction
-		firstRay.direction = glm::normalize(focalPoint - firstRay.origin);
+		////find new direction
+		//firstRay.direction = glm::normalize(focalPoint - firstRay.origin);
 
-		//antialias sample per pixel
-		jitterVal = generateRandomNumberFromThread(resolution, time, x, y);
-		jitterVal -= glm::vec3(0.5f, 0.5f, 0.5f);
-		firstRay.direction += 0.0015f* jitterVal; 
+		////antialias sample per pixel
+		//jitterVal = generateRandomNumberFromThread(resolution, time, x, y);
+		//jitterVal -= glm::vec3(0.5f, 0.5f, 0.5f);
+		//firstRay.direction += 0.0015f* jitterVal; 
 
 		//do intersection test
 		int objID = -1;
@@ -241,9 +241,12 @@ __global__ void createRay(glm::vec2 resolution, cameraData cam, int maxDepth, in
 		firstBounce.pixID = index;
 		firstBounce.thisRay = firstRay;
 		firstBounce.objID = objID;
+		firstBounce.currDepth = 1;
+		firstBounce.color = glm::vec3(1,1,1);		//always start as white!!
 
 		//if no intersection, return
 		if(objID == -1){
+			colors[index] += glm::vec3(0,0,0);					//set to black
 			firstBounce.dead = true;
 			firstPass[index] = firstBounce;
 			compactIn[index] = 0;
@@ -251,33 +254,44 @@ __global__ void createRay(glm::vec2 resolution, cameraData cam, int maxDepth, in
 		}
 		
 		int matID = geoms[objID].materialid;
+		material firstMat = materials[matID];
 		
 		//save the first bounce information
 		firstBounce.normal = normal;
 		firstBounce.matID = matID;
 		firstBounce.intersectPt = intersection;
 
-		if(materials[matID].hasReflective == 1){
-
-			firstBounce.dead = false;
-			compactIn[index] = 1;
-			
-			firstBounce.thisRay.direction = glm::normalize(firstRay.direction - 2.0f*glm::dot(firstRay.direction, normal)*normal);
-			firstBounce.thisRay.origin = intersection + 0.0001f * firstRay.direction;
-
-			//output final color
-			//colors[index] += materials[matID].color;	
-		}
-		else{
+		//check if material is light
+		if(materials[matID].emittance > 0){
+			colors[index] += firstMat.color * firstMat.emittance; 
 			firstBounce.dead = true;
 			compactIn[index] = 0;
-
-			//calculate diffuse color
-
-			colors[index] += materials[matID].color;	
+			return;
 		}
 
+		if(materials[matID].hasReflective == 1){
+			firstBounce.dead = false;
+			compactIn[index] = 1;
+			firstBounce.thisRay.direction = glm::normalize(firstRay.direction - 2.0f*glm::dot(firstRay.direction, normal)*normal);
+		}
+		else{
+			firstBounce.dead = false;
+			compactIn[index] = 1;
+
+			//calculate diffuse direction
+			glm::vec3 seed = generateRandomNumberFromThread(resolution, time, x, y);
+			firstBounce.thisRay.direction = calculateRandomDirectionInHemisphere(normal, seed.x, seed.y);
+		}
+
+		//offset a little to prevent self intersection
+		firstBounce.thisRay.origin = intersection + 0.0001f * firstRay.direction;
+		
+		//store the color
+		firstBounce.color *= firstMat.color;
+		
+		//store first bounce
 		firstPass[index] = firstBounce;
+
 	}
 
 }
@@ -292,7 +306,8 @@ __global__ void rayParallelTrace(glm::vec2 resolution, float time, cameraData ca
 		
 		//get the bounce at this index
 		rayBounce currBounce = rayPass[index];
-		
+		currBounce.currDepth++;
+
 		//get the ray information at this index
 		ray currRay = currBounce.thisRay;
 		glm::vec3 intersection;
@@ -307,6 +322,7 @@ __global__ void rayParallelTrace(glm::vec2 resolution, float time, cameraData ca
 
 		//if no intersection, return
 		if(objID == -1){
+			colors[currBounce.pixID] += glm::vec3(0,0,0);
 			currBounce.dead = true;
 			rayPass[index] = currBounce;
 			compactIn[index] = 0;
@@ -314,29 +330,39 @@ __global__ void rayParallelTrace(glm::vec2 resolution, float time, cameraData ca
 		}
 		
 		int matID = geoms[objID].materialid;
+		material currMat = materials[matID];
 		
-		//save the first bounce information
+		//check if material is light
+		if(materials[matID].emittance > 0){
+			colors[currBounce.pixID] += currBounce.color * currMat.color * currMat.emittance;
+			currBounce.dead = true;
+			compactIn[index] = 0;
+			return;
+		}
+
+		//update bounce information
 		currBounce.normal = normal;
 		currBounce.matID = matID;
 		currBounce.intersectPt = intersection;
 
 		if(materials[matID].hasReflective == 1){
-
 			currBounce.dead = false;
 			compactIn[index] = 1;
-			
 			currBounce.thisRay.direction = glm::normalize(currRay.direction - 2.0f*glm::dot(currRay.direction, normal)*normal);
-			currBounce.thisRay.origin = intersection + 0.0001f * currRay.direction;
-
-			//output final color
-			//colors[index] += materials[matID].color;	
 		}
 		else{
-			colors[currBounce.pixID] += materials[matID].color;	
-			currBounce.dead = true;
-			compactIn[index] = 0;
+			//generate new rand direction
+			glm::vec3 seed = generateRandomNumberFromThread(resolution, time, index, threadIdx.x);
+			currBounce.thisRay.direction = calculateRandomDirectionInHemisphere(normal, seed.x, seed.y);
+			currBounce.dead = false;
+			compactIn[index] = 1;
 		}
 
+		currBounce.color *= currMat.color;	
+		currBounce.thisRay.origin = intersection + 0.0001f * currRay.direction;
+
+		//if(currBounce.currDepth > maxDepth)
+		//	colors[currBounce.pixID] += currBounce.color;
 	}
 
 }
@@ -541,7 +567,7 @@ void cudaFreeMemory(){
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool& clear){
   
-  int traceDepth = 3; //determines how many bounces the raytracer traces
+  int traceDepth = 20; //determines how many bounces the raytracer traces
 
   // set up crucial magic
   int tileSize = 8;
@@ -693,6 +719,8 @@ void cudaStreamCompaction(dim3 fullBlocksPerGridRayPool, dim3 threadsPerBlockRay
 		int* tempCompact = cudaCompactA;
 		cudaCompactA = cudaCompactB;
 		cudaCompactB = tempCompact;
+
+		//cudaThreadSynchronize();
 	}
 
 	checkCUDAError("compact failed!");
@@ -704,23 +732,18 @@ void cudaStreamCompaction(dim3 fullBlocksPerGridRayPool, dim3 threadsPerBlockRay
 	//	//use B as the final sum result
 	//	cudaMemcpy(&newNumRays, &cudaCompactB[numRays-1], sizeof(int), cudaMemcpyDeviceToHost);
 	//	
-	//	//shift compacted sum to the right using the old number of rays
-	//	
-	//	//A contains the final result with the shifted values, so use A to build the ray pool
 	//	buildRayPool<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cudaCompactB, cudaTempRayPool, cudaRayPool, numRays);
 	//}
 	//else{
 	//	//use A as the final sum result
 	//	cudaMemcpy(&newNumRays, &cudaCompactA[numRays-1], sizeof(int), cudaMemcpyDeviceToHost);
 
-	//	//shift compacted sum to the right using the old number of rays
-
-	//	//B contains the final result with the shifted values, so use B to build the ray pool
 	//	buildRayPool<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cudaCompactA, cudaTempRayPool, cudaRayPool, numRays);
 	//}
 
 	cudaMemcpy(&newNumRays, &cudaCompactA[numRays-1], sizeof(int), cudaMemcpyDeviceToHost);
 	buildRayPool<<<fullBlocksPerGridRayPool, threadsPerBlockRayPool>>>(cudaCompactA, cudaTempRayPool, cudaRayPool, numRays);
+	//cudaThreadSynchronize();
 
 	//update the number of rays only after you have shifted and built the new pool
 	numRays = newNumRays;
