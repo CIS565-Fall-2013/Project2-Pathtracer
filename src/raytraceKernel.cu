@@ -120,6 +120,27 @@ __global__ void scaleImageIntensity(glm::vec2 resolution, glm::vec3* image, floa
 	}
 }
 
+__global__ void raycastFromCameraKernel(int seed, int frame, cameraData cam, renderOptions rconfig, rayState* cudaraypool, int rayPoolSize)
+{	
+	
+	int blockId   = blockIdx.y * gridDim.x + blockIdx.x;			 	
+	int rIndex = blockId * blockDim.x + threadIdx.x; 
+	if(rIndex < rayPoolSize){
+		thrust::default_random_engine rng(hash(seed));
+		thrust::uniform_real_distribution<float> u01(0,1);
+		
+		int pixelIndex = cudaraypool[rIndex].index;
+		int x = pixelIndex % int(cam.resolution.x);
+		int y = (pixelIndex - x)/int(cam.resolution.x);
+
+		//Reset other fields
+		cudaraypool[rIndex].T = glm::vec3(1,1,1);
+		cudaraypool[rIndex].matIndex = -1;
+		cudaraypool[rIndex].r =raycastFromCamera(cam.resolution, x+u01(rng)-0.5, y+u01(rng)-0.5, cam.position, cam.view, cam.up, cam.fov);
+	}
+
+}
+
 //Takes the number of rays requested by each pixel from the pool and allocates them stocastically from a single random number
 //scannedRayRequests is an array of ints containing the results of an inclusive scan
 //xi1 is a uniformly distributed random number from 0 to 1
@@ -132,15 +153,19 @@ __global__ void allocateRayPool(float xi1, renderOptions rconfig, cameraData cam
 
 	if(rIndex < numRays){//Thread index range check
 		
-		//thrust::default_random_engine rng(hash(xi1*100000000));
-		//thrust::uniform_real_distribution<float> u01(0,1);
 		int numPixels = cam.resolution.x*cam.resolution.y;
 
 		//Allocate all rays stochastically
-		float P = float(numPixels)/numRays;//compute stochastic interval
-		int start =  floor(xi1*numPixels);
-		cudaraypool[rIndex].index = ((int)(start + P*rIndex) % numPixels);
-
+		if(rconfig.stocasticRayAssignment){
+			float P = float(numPixels)/numRays;//compute stochastic interval
+			int start =  floor(xi1*numPixels);
+			cudaraypool[rIndex].index = ((int)(start + P*rIndex) % numPixels);
+		}else{
+			if(rIndex < numPixels)
+				cudaraypool[rIndex].index = rIndex;
+			else
+				cudaraypool[rIndex].index = -1;
+		}
 	}
 }
 
@@ -226,6 +251,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * resolution.x);
 
+	//RAY INDEX of -1 indicates the ray's contribution has been recorded and is no longer in flight
 	ray r = raycastFromCamera(resolution, x, y, cam.position, cam.view, cam.up, cam.fov);
 
 	if((x<=resolution.x && y<=resolution.y)){
@@ -334,7 +360,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 
 	
 	//Figure out which rays should go to which pixels.
-	thrust::default_random_engine rng(hash(iterations*frameFilterCounter/5.0));
+	thrust::default_random_engine rng(hash(iterations*frameFilterCounter+iterations));
 	thrust::uniform_real_distribution<float> u01(0,1);
 	allocateRayPool<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(u01(rng), *rconfig, cam, cudaimage, cudaraypool, rayPoolSize);
 
@@ -342,7 +368,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	{
 		displayRayCounts<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, cudaimage, cudaraypool, rayPoolSize,ceil(float(rayPoolSize)/numPixels));
 	}else{
-
+		raycastFromCameraKernel<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(iterations, frame, cam, *rconfig, cudaraypool, rayPoolSize);
 
 	}
 

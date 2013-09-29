@@ -80,7 +80,7 @@ struct renderOptions{
 	float distanceShadeRange;
 	int traceDepth;
 	float rayPoolSize;
-	bool forceOnePerPixel;
+	bool stocasticRayAssignment;
 
 
 	glm::vec3 ambientLightColor;

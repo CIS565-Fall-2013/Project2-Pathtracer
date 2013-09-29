@@ -79,7 +79,7 @@ int main(int argc, char** argv){
 	renderOpts->mode = RAYCOUNT_DEBUG;
 	renderOpts->traceDepth = 1;
 	renderOpts->rayPoolSize =1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
-	renderOpts->forceOnePerPixel = false;
+	renderOpts->stocasticRayAssignment = false;
 	//Note, these constants must sum to 1.
 	renderOpts->ambientLightColor = glm::vec3(1,1,1);
 	renderOpts->ambientLightIntensity = 0.05;
