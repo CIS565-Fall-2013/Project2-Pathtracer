@@ -238,12 +238,26 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 			int ind = firstIntersect(geoms, numberOfGeoms, rstate.r, intersectionPoint, normal, dist);
 			
 			if(ind >= 0){
-				//if we hit something
-				colors[pixelIndex] += materials[geoms[ind].materialid].color;
-			}else{
-				//retire ray, add background color.
+				//we hit something!
+				//Check if it's a light
+				material m = materials[geoms[ind].materialid];
+				if(m.emittance > 0)
+				{
+					//hit a light source. Light it up.
+					colors[pixelIndex] += rstate.T*m.emittance*m.color;
+					rstate.index = -1;//retire ray
+				}else{
 
+				}
+			}else{
+				//How could you miss it was right in front of you!!
+				//retire ray, add background color.
+				colors[pixelIndex] += rstate.T*rconfig.backgroundColor;
+				rstate.index = -1;//retire ray
 			}
+
+			//Write back
+			raypool[rIndex] = rstate;
 		}	
 	}
 }
