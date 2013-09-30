@@ -15,6 +15,11 @@
 #include "interactions.h"
 #include <vector>
 #include "glm/glm.hpp"
+#include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/scan.h>
+#include <thrust/fill.h>
+#include <thrust/copy.h>
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
