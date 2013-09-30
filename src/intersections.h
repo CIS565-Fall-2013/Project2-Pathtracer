@@ -212,7 +212,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	else
 	{
 		// error condition
-		returnVal = FLT_MAX;
+		returnVal = -1;
 	}
 
 	return returnVal;

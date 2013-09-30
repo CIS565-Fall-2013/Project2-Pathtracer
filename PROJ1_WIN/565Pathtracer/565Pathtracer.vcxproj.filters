@@ -74,5 +74,16 @@
     <Filter Include="Header">
       <UniqueIdentifier>{9e9ad56a-a9e9-46ec-a114-d4483bb12f1a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{4a2f93cf-8be5-428b-9333-9ccebcbf37af}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\passthroughVS.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\passthroughFS.glsl">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

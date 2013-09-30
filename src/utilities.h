@@ -20,11 +20,14 @@
 #define PI                          3.1415926535897932384626422832795028841971
 #define TWO_PI                      6.2831853071795864769252867665590057683943
 #define SQRT_OF_ONE_THIRD           0.5773502691896257645091487805019574556476
-#define E                           2.7182818284590452353602874713526624977572
+#define NATURAL_E                   2.7182818284590452353602874713526624977572
 #define EPSILON                     .000000001
 #define ZERO_ABSORPTION_EPSILON     0.00001
 #define RAY_BIAS_AMOUNT             0.0002
 #define MAX_DEPTH					3
+#define SHADOWRAY_NUM				2												// controls how many shadow rays to send. Set to 1 for hard shadows
+#define ANTIALIASING_SWITCH		    0												// 0 for no anti-aliasing
+#define PATHTRACING_SWITCH			0												// 0 for ray tracing 1 for path tracing
 
 namespace utilityCore {
     extern float clamp(float f, float min, float max);
