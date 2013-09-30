@@ -19,6 +19,7 @@ struct ray {
 	int x;
 	int y;
 	bool life;
+	glm::vec3 rcolor;
 };
 
 struct geom {
