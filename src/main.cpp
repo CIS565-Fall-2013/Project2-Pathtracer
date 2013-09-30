@@ -77,7 +77,7 @@ int main(int argc, char** argv){
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
 	renderOpts->mode = PATHTRACE;
-	renderOpts->traceDepth = 1;
+	renderOpts->traceDepth = 20;
 	renderOpts->rayPoolSize =1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
 	renderOpts->stocasticRayAssignment = false;
 	//Note, these constants must sum to 1.
@@ -90,7 +90,7 @@ int main(int argc, char** argv){
 	renderOpts->aargbThresholds = glm::vec3(0.01,0.01,0.01);
 
 	renderOpts->frameFiltering = true;
-	renderOpts->backgroundColor = glm::vec3(137, 207, 240)/255.0f;//sky blue
+	renderOpts->backgroundColor = glm::vec3(1,0,0);//glm::vec3(137, 207, 240)/255.0f;//sky blue
 	renderOpts->airIOR = 1.0;
 	renderOpts->airAbsorbtion = glm::vec3(0.0, 0.0, 0.0);//No air absorbtion effects for now
 
@@ -293,14 +293,19 @@ void keyboard(unsigned char key, int x, int y)
 		cout << "Ray Count Debug Mode" <<endl;
 		break;
 	case '3':
-		//Enter normal debug mode
+		//Enter trace depth debug mode
 		renderOpts->mode = TRACEDEPTH_DEBUG;
 		cout << "Trace Depth Debug Mode" <<endl;
 		break;
 	case '4':
-		//Enter normal debug mode
+		//Show first hit color
 		renderOpts->mode = FIRST_HIT_DEBUG;
 		cout << "First Hit Debug Mode" <<endl;
+		break;
+	case '5':
+		//Enter normal debug mode
+		renderOpts->mode = NORMAL_DEBUG;
+		cout << "Normal Debug Mode" <<endl;
 		break;
 		
 	case 'A':

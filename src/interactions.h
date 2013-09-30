@@ -74,6 +74,28 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 	return point;
 }
 
+__host__ __device__ glm::vec3 sphericalToCartesian(float phi, float th)
+{
+	glm::vec3 dir;
+	dir.x = glm::cos(phi)*glm::cos(th);
+	dir.y = glm::sin(phi)*glm::sin(th);
+	dir.z = glm::cos(th);
+	return dir;
+}
+
+__host__ __device__ glm::vec3 sampleSpecularDirection(glm::vec3 incident, glm::vec3 normal, float specularExp, float xi1, float xi2)
+{
+	float th = glm::acos(glm::pow(xi1, 1/(specularExp+1)));
+	float phi = 2*PI*xi2;
+
+	glm::vec3 randDirZ = sphericalToCartesian(phi, th);
+	glm::vec3 idealMirror = calculateReflectionDirection(normal, incident);
+
+	//Rotate rand direction to specular space
+	//glm::vec3 zUnit = glm::vec3(0,0,1);
+	//glm::vec3 rotAxis = glm::cross(zUnit, 
+	return idealMirror;
+}
 
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float n1/*incidentIOR*/, float n2/*transmittedIOR*/) {
 	Fresnel fresnel;
@@ -154,13 +176,12 @@ __host__ __device__ BounceType bounceRay(rayState& r, renderOptions rconfig, glm
 	{
 		//Specular. Determine if reflective or transmited
 		if(m.hasReflective && m.hasRefractive){
-			//both, compute fresnel
+			//both options available, compute fresnel coeffs
 			Fresnel f = calculateFresnel(normal, r.r.direction, mLastIOR, m.indexOfRefraction);
 
 			//scale our random number by ks
 			//0 <= xi1 <= ks, therefore 0 <= xi1/ks <= 1
-			if(xi1/ks <= f.reflectionCoefficient)
-			{
+			if(xi1/ks <= f.reflectionCoefficient){
 				//reflect
 				bounceType = REFLECT;
 			}else{
@@ -184,10 +205,18 @@ __host__ __device__ BounceType bounceRay(rayState& r, renderOptions rconfig, glm
 	switch(bounceType)
 	{
 	case DIFFUSE:
+		//Randomly select direction in hemisphere. Medium doesn't change. Accumulate diffuse refection color
+		r.r.direction = calculateRandomDirectionInHemisphere(normal, xi1, xi2);
+		r.r.origin = intersect;
+		r.T *= m.color;
 		break;
 	case REFLECT:
+		r.r.direction = sampleSpecularDirection(r.r.direction, normal, m.specularExponent, xi1, xi2);
+		r.r.origin = intersect;
+		r.T *= m.specularColor;
 		break;
 	case TRANSMIT:
+
 		break;
 	}
 

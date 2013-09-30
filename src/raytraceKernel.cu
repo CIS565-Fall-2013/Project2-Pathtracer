@@ -73,7 +73,7 @@ __global__ void raycastFromCameraKernel(int seed, int frame, cameraData cam, ren
 	int blockId   = blockIdx.y * gridDim.x + blockIdx.x;			 	
 	int rIndex = blockId * blockDim.x + threadIdx.x; 
 	if(rIndex < rayPoolSize){
-		thrust::default_random_engine rng(hash(seed));
+		thrust::default_random_engine rng(hash(seed*rIndex));//TODO: Improve randomness
 		thrust::uniform_real_distribution<float> u01(0,1);
 
 		int pixelIndex = cudaraypool[rIndex].index;
@@ -180,7 +180,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
 __global__ void traceRayFirstHit(cameraData cam, renderOptions rconfig, float time, int bounce, glm::vec3* colors, 
-						 rayState* raypool, int numRays, staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials)
+								 rayState* raypool, int numRays, staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials)
 {
 	//Compute ray index
 	int blockId   = blockIdx.y * gridDim.x + blockIdx.x;			 	
@@ -196,15 +196,19 @@ __global__ void traceRayFirstHit(cameraData cam, renderOptions rconfig, float ti
 		{
 			//valid pixel index
 			ray r = raypool[rIndex].r;
-			
+
 			float dist;
 			glm::vec3 intersectionPoint;
 			glm::vec3 normal;
 			int ind = firstIntersect(geoms, numberOfGeoms, r, intersectionPoint, normal, dist);
+			if(rconfig.mode == FIRST_HIT_DEBUG){
 			if(ind >= 0)
 				colors[pixelIndex] += materials[geoms[ind].materialid].color;
 			else
 				colors[pixelIndex] += rconfig.backgroundColor;
+			}else if(rconfig.mode == NORMAL_DEBUG){
+				colors[pixelIndex] += glm::abs(normal);
+			}
 		}	
 	}
 }
@@ -229,14 +233,14 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 		{
 			//valid pixel index
 			rayState rstate = raypool[rIndex];
-			
+
 
 			//Find first collision
 			float dist;
 			glm::vec3 intersectionPoint;
 			glm::vec3 normal;
 			int ind = firstIntersect(geoms, numberOfGeoms, rstate.r, intersectionPoint, normal, dist);
-			
+
 			if(ind >= 0){
 				//we hit something!
 
@@ -249,6 +253,7 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 
 				rstate.T *= calculateTransmission(absorbtionCoeff, dist);
 
+				//Transmission computed, now let's check on what we hit. This is where code will diverge quite a bit
 
 				//Check if it's a light
 				material m = materials[geoms[ind].materialid];
@@ -259,7 +264,11 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 					rstate.index = -1;//retire ray
 				}else{
 					//Bounce ray
-
+					//TODO: Improve randomness with point sets?
+					thrust::default_random_engine rng(hash(time*rIndex));
+					thrust::uniform_real_distribution<float> u01(0,1);
+					BounceType bounce = bounceRay(rstate, rconfig, intersectionPoint, normal, materials, geoms[ind].materialid, u01(rng), u01(rng), u01(rng));
+					
 				}
 			}else{
 				//How could you miss it was right in front of you!!
@@ -375,11 +384,12 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	case RAYCOUNT_DEBUG:
 		displayRayCounts<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, cudaimage, cudaraypool, rayPoolSize,ceil(float(rayPoolSize)/numPixels));
 		break;
+	case NORMAL_DEBUG:
 	case FIRST_HIT_DEBUG:
 		raycastFromCameraKernel<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(iterations, frame, cam, *rconfig, cudaraypool, rayPoolSize);
 
 		traceRayFirstHit<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, iterations, 0, cudaimage, 
-				cudaraypool, rayPoolSize, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+			cudaraypool, rayPoolSize, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
 
 		break;
 	}
