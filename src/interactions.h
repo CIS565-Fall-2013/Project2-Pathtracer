@@ -242,7 +242,14 @@ __host__ __device__ BounceType bounceRay(rayState& r, renderOptions rconfig, glm
 		//	normal = -normal;
 		r.r.direction = sampleSpecularTransmissionDirection(r.r.direction, normal, mLastIOR, m.indexOfRefraction, m.specularExponent, xi1, xi2);
 		r.r.origin = intersect;
-		r.matIndex = mhitIndex;
+		if(glm::dot(normal, r.r.direction) < 0.0)
+		{
+			//entering the material
+			r.matIndex = mhitIndex;
+		}else{
+			//exiting
+			r.matIndex = -1;
+		}
 		break;
 	}
 

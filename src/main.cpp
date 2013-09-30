@@ -185,14 +185,14 @@ void runCuda(){
 			for(int x=0; x<renderCam->resolution.x; x++){
 				for(int y=0; y<renderCam->resolution.y; y++){
 					int index = x + (y * renderCam->resolution.x);
-					outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
+					outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]/float(renderCam->iterations));
 				}
 			}
 
 			gammaSettings gamma;
 			gamma.applyGamma = true;
-			gamma.gamma = 1.0;
-			gamma.divisor = 1.0; //renderCam->iterations;
+			gamma.gamma = 1.0/1.5;
+			gamma.divisor = 1.0;
 			outputImage.setGammaSettings(gamma);
 			string filename = renderCam->imageName;
 			string s;
