@@ -61,7 +61,7 @@ struct camera {
 	int frames;
 	glm::vec2 fov;
 	unsigned int iterations;
-	glm::vec3* image;
+	glm::vec4* image;
 	ray* rayList;
 	std::string imageName;
 	float focalDist;

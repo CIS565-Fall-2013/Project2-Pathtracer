@@ -98,7 +98,7 @@ int main(int argc, char** argv){
   #else
 	  glutDisplayFunc(display);
 	  glutKeyboardFunc(keyboard);
-
+	  glutMouseFunc(mouse);
 	  glutMainLoop();
   #endif
   return 0;
@@ -140,11 +140,14 @@ void runCuda(){
     if(!finishedRender){
       //output image file
       image outputImage(renderCam->resolution.x, renderCam->resolution.y);
-
+	  image depthImage(renderCam->resolution.x, renderCam->resolution.y);
       for(int x=0; x<renderCam->resolution.x; x++){
         for(int y=0; y<renderCam->resolution.y; y++){
           int index = x + (y * renderCam->resolution.x);
-          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
+		  glm::vec3 justRGB(renderCam->image[index].x,renderCam->image[index].y,renderCam->image[index].z);
+          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,justRGB);
+		  float d = abs(renderCam->image[index].w-renderCam->positions[targetFrame].z)/40.0f;
+		  depthImage.writePixelRGB(renderCam->resolution.x-1-x,y,  glm::vec3(d,d,d));
         }
       }
       
@@ -161,6 +164,7 @@ void runCuda(){
       utilityCore::replaceString(filename, ".bmp", "."+s+".bmp");
       utilityCore::replaceString(filename, ".png", "."+s+".png");
       outputImage.saveImageRGB(filename);
+	  depthImage.saveImageRGB("depth."+s+".bmp");
       cout << "Saved frame " << s << " to " << filename << endl;
       finishedRender = true;
       if(singleFrameMode==true){
@@ -174,7 +178,7 @@ void runCuda(){
       targetFrame++;
       iterations = 0;
       for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
-        renderCam->image[i] = glm::vec3(0,0,0);
+        renderCam->image[i] = glm::vec4(0,0,0,-1);
       }
       //cudaDeviceReset(); 
       finishedRender = false;
@@ -226,9 +230,28 @@ void runCuda(){
 		glutSwapBuffers();
 	}
 
+
+	void mouse(int button, int state, int x, int y)
+	{
+		if(button == GLUT_RIGHT_BUTTON && state== GLUT_DOWN && dof)
+		{
+			int pixelX = renderCam->resolution.x -1 - x;
+			int index = pixelX + renderCam->resolution.x*y;
+			float pixelDist = renderCam->image[index].w;
+			iterations = 0;
+			renderCam->focalDist = pixelDist;
+			resetImage(renderCam);
+		}
+		
+		else if(button == GLUT_LEFT_BUTTON && state== GLUT_DOWN)
+		{
+
+		}
+	}
+
+
 	void keyboard(unsigned char key, int x, int y)
 	{
-		std::cout << key << std::endl;
 		switch (key) 
 		{
 		   case(27):
@@ -237,28 +260,24 @@ void runCuda(){
 
 		   case 'w':
 			   iterations = 0;
-			   targetFrame = 0;
 			   resetImage(renderCam);
 			   renderCam->positions[targetFrame].z-=0.2f;
 			   break;
 
 		   case 's':
 			   iterations = 0;
-			   targetFrame = 0;
 			   resetImage(renderCam);
 			   renderCam->positions[targetFrame].z+= 0.2f;
 			   break;
 
 		   case 'a':
 			   iterations = 0;
-			   targetFrame = 0;
 			   resetImage(renderCam);
 			   renderCam->positions[targetFrame].x+=0.2f;
 			   break;
 
 		   case 'd':
 			   iterations = 0;
-			   targetFrame = 0;
 			   resetImage(renderCam);
 			   renderCam->positions[targetFrame].x-=0.2f;
 			   break;
@@ -440,6 +459,6 @@ void resetImage(camera* renderCam)
 		for(int y=0; y<renderCam->resolution.y;++y)
 		{
 			int index = x + (renderCam->resolution.x*y);
-			renderCam->image[index] = glm::vec3(0,0,0);
+			renderCam->image[index] = glm::vec4(0,0,0,-1);
 		}
 }

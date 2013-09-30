@@ -127,15 +127,15 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 
 
 //Kernel that blacks out a given image buffer
-__global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
+__global__ void clearImage(glm::vec2 resolution, glm::vec4* image){
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if(index<= resolution.x*resolution.y){
-      image[index] = glm::vec3(0,0,0);
+      image[index] = glm::vec4(0,0,0,-1);
     }
 }
 
 //Kernel that writes the image to the OpenGL PBO directly. 
-__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image, ray* rays,int iterations){
+__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec4* image, ray* rays,int iterations){
   
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int x = rays[index].pixelIndex.x;
@@ -179,7 +179,7 @@ __device__ bool isLight(int objId, int* lights, int numberOfLights)
 }
 
 //Kernel that blacks out a given image buffer
-__global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec3* image){
+__global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec4* image){
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int x = rays[index].pixelIndex.x;
 	int y = rays[index].pixelIndex.y;
@@ -189,13 +189,17 @@ __global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec3* imag
     //int index = x + (y * resolution.x);
     if(x<=resolution.x && y<=resolution.y ){
 		if (!rays[index].active)
-			image[pixelIndex]+= rays[index].rayColor;
+		{
+			image[pixelIndex].x+= rays[index].rayColor.x;
+			image[pixelIndex].y+= rays[index].rayColor.y;
+			image[pixelIndex].z+= rays[index].rayColor.z;
+		}
     }
 }
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
-__global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec3* colors, 
+__global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec4* colors, 
                             staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, 
 							int* lights, int numberOfLights,ray* rays,int dof){
 
@@ -240,6 +244,10 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 
 	int objId = findNearestGeometricIntersection(r,intersectionPoint,intersectionNormal,geoms,numberOfGeoms);
 
+	if (bounce==1 && time< 1.5f)
+	{
+		colors[pixelIndex].w = intersectionPoint.z;
+	}
 	if (objId == -1)
 	{
 		//r.active = false;
@@ -255,7 +263,9 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 		rays[index].rayColor.x *= mtl.color.x*mtl.emittance;
 		rays[index].rayColor.y *= mtl.color.y*mtl.emittance;
 		rays[index].rayColor.z *= mtl.color.z*mtl.emittance;
-		colors[pixelIndex] += rays[index].rayColor;
+		colors[pixelIndex].x += rays[index].rayColor.x;
+		colors[pixelIndex].y += rays[index].rayColor.y;
+		colors[pixelIndex].z += rays[index].rayColor.z;
 		return;
 	}
 
@@ -282,7 +292,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 		r.rayColor.z *= mtl.color.z;
 	}
 
-	rays[index].origin = r.origin + 0.001f*r.direction;
+	rays[index].origin = r.origin + 0.005f*r.direction;
 	rays[index].direction = r.direction;
 	rays[index].active = r.active;
 	rays[index].pixelIndex = r.pixelIndex;
@@ -431,9 +441,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
 */
   //send image to GPU
-  glm::vec3* cudaimage = NULL;
-  cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
-  cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+  glm::vec4* cudaimage = NULL;
+  cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec4));
+  cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec4), cudaMemcpyHostToDevice);
   
    //package lights
   std::vector<int> lightsVector;
@@ -596,7 +606,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage,cudarays,iterations);
 
   //retrieve image from GPU
-  cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+  cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec4), cudaMemcpyDeviceToHost);
   //clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaimage);
   //free up stuff, or else we'll leak memory like a madman
   cudaFree( cudaimage );
