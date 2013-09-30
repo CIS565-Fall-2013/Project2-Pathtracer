@@ -100,6 +100,7 @@ __host__ __device__ glm::vec3 sampleSpecularReflectionDirection(glm::vec3 incide
 
 __host__ __device__ glm::vec3 sampleSpecularTransmissionDirection(glm::vec3 incident, glm::vec3 normal, float incidentIOR, float transmissionIOR, float specularExp, float xi1, float xi2)
 {
+
 	float th = glm::acos(glm::pow(xi1, 1/(specularExp+1)));
 	float phi = 2*PI*xi2;
 
@@ -154,11 +155,11 @@ __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, g
 
 	float cos_thi = glm::dot(normal,incident);
 	float eta  = incidentIOR/transmittedIOR;
-	float sin2_tht = (eta*eta)*(1-cos_thi*cos_thi);
-	if(sin2_tht > 0.0)
+	float radicand = 1.0-(eta*eta)*(1-cos_thi*cos_thi);
+	if(radicand > 0.0)
 		//TODO: Figure out why my code doesn't work.
-		return glm::refract(incident, normal, eta);
-		//return eta*incident - (eta + glm::sqrt(1-sin2_tht))*normal;
+		//return glm::refract(incident, normal, eta);
+		return eta*incident - (eta*cos_thi + sqrt(radicand))*normal;
 	else
 		//Total internal reflection, no transmission
 		return glm::vec3(0,0,0);
