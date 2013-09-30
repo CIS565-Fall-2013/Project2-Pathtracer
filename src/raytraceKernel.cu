@@ -80,7 +80,7 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 //}
 
 //Function that does the initial raycast from the camera
-__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
+__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov,float focalDist,float aperture, int dof){
   
   ray r;
   float theta = fov.x*PI/180.0f;
@@ -88,7 +88,7 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 
   glm::vec3 A = glm::cross(view,up);
   glm::vec3 B = glm::cross(A,view);
-  glm::vec3 M = eye + view;
+  glm::vec3 M = eye+view; 
   glm::vec3 H = glm::normalize(A)*glm::length(view)*tan(theta);
   glm::vec3 V = glm::normalize(B)*glm::length(view)*tan(phi);
 
@@ -97,6 +97,7 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
   
   thrust::default_random_engine rng(hash(43231*time));
   thrust::uniform_real_distribution<float> u01(-0.95,0.95);
+  thrust::uniform_real_distribution<float> u02(-1.0,1.0);
 
   while( sx<=0.0f || sx>=1.0f || sx<=0.0f || sy>=1.0f)
 	{
@@ -105,9 +106,22 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 		sx = xrand/(resolution.x-1);
 		sy = 1.0f - yrand/ (resolution.y-1);
 	}
+
   glm::vec3 P = M + (2*sx-1)*H + (2*sy - 1)*V;
+  
   r.origin = eye;
-  r.direction = glm::normalize(P-eye);
+  r.direction = glm::normalize(P-r.origin);
+
+  if(dof && focalDist!=0)
+  {
+	  float t = (focalDist-r.origin.z)/r.direction.z;
+	  P = r.origin + t*r.direction;
+	  glm::vec3 xaperture = aperture*H;
+	  glm::vec3 yaperture = aperture*V;
+	  r.origin= r.origin + u02(rng)*xaperture + u02(rng)*yaperture;
+	  r.direction = glm::normalize(P-r.origin);
+  }
+  r.direction = glm::normalize(P-r.origin);
   return r;
 }
 
@@ -183,7 +197,7 @@ __global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec3* imag
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec3* colors, 
                             staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, 
-							int* lights, int numberOfLights,ray* rays){
+							int* lights, int numberOfLights,ray* rays,int dof){
 
   //int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   //int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -200,7 +214,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	y = (int) (index/(int)resolution.x);
 	x = (int) (index%(int)resolution.x);
 	pixelIndex = index;
-	r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+	r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov,cam.focalDist,cam.aperture,dof);
 	r.active = true;
 	r.pixelIndex = glm::vec2(x,y);
 	r.rayColor = glm::vec3(1,1,1);
@@ -404,7 +418,7 @@ __global__ void moveWorld( staticGeom* geoms, staticGeom* prevGeoms, float t,int
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms,int mblur){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms,int mblur,int dof){
   
   int traceDepth = 1; //determines how many bounces the raytracer traces
 
@@ -517,6 +531,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.view = renderCam->views[frame];
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
+  cam.aperture = renderCam->aperture;
+  cam.focalDist = renderCam->focalDist;
 
 
  /* int t = numberOfThreads;
@@ -560,7 +576,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   for(int bounce = 1; bounce <= 8; ++bounce)
   {
 	dim3 compactedBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
-	raytraceRay<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays);
+	raytraceRay<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays,dof);
 	numberOfThreads = thrust::partition(thrustRaysArray,thrustRaysArray+numberOfThreads,is_active()) - thrustRaysArray;
 	//numberOfThreads = thrust::remove_if(thrustRaysArray,thrustRaysArray+numberOfThreads,is_not_active()) - thrustRaysArray;
 

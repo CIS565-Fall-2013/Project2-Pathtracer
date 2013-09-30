@@ -27,6 +27,8 @@ int main(int argc, char** argv){
 
   targetFrame = 0;
   singleFrameMode = false;
+  dof = 0;
+  mblur = 0;
 
   // Load scene file
   for(int i=1; i<argc; i++){
@@ -42,6 +44,9 @@ int main(int argc, char** argv){
     }
 	else if(strcmp(header.c_str(), "mblur")==0){
       mblur = atoi(data.c_str());
+    }
+	else if(strcmp(header.c_str(), "dof")==0){
+      dof = atoi(data.c_str());
     }
   }
 
@@ -126,7 +131,7 @@ void runCuda(){
     
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), mblur);
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), mblur,dof);
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
