@@ -967,7 +967,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   // Accumulate all the colours in the cudaFinalImage memory block on the GPU, and divide 
   // by the no. of light samples to get the final colour.
-  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaFinalImage, RenderParams.nLights);
+  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaFinalImage, nIterations);
   std::cout.precision (4);
   std::cout << "\nRendered in " << difftime (time (NULL), startTime) << " seconds. \n\n";
   //retrieve image from GPU
