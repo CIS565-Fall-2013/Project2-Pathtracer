@@ -4,6 +4,7 @@
 //       Rob Farber for CUDA-GL interop, from CUDA Supercomputing For The Masses: http://www.drdobbs.com/architecture-and-design/cuda-supercomputing-for-the-masses-part/222600097
 //       Varun Sampath and Patrick Cozzi for GLSL Loading, from CIS565 Spring 2012 HW5 at the University of Pennsylvania: http://cis565-spring-2012.github.com/
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
+//test
 
 #include "main.h"
 
@@ -24,6 +25,7 @@ int main(int argc, char** argv){
   // Set up pathtracer stuff
   bool loadedScene = false;
   finishedRender = false;
+  cameraMoved = false;
 
   targetFrame = 0;
   singleFrameMode = false;
@@ -90,6 +92,7 @@ int main(int argc, char** argv){
   #else
 	  glutDisplayFunc(display);
 	  glutKeyboardFunc(keyboard);
+	  glutMouseFunc(mouse);
 
 	  glutMainLoop();
   #endif
@@ -121,10 +124,20 @@ void runCuda(){
       materials[i] = renderScene->materials[i];
     }
     
-  
+	std::clock_t start = clock();
+
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, 
+		renderScene->objects.size(), renderScene->numCubes, renderScene->numSpheres, cameraMoved );
     
+	std::clock_t finish = clock();
+	double elapsed_time = double(start-finish) / CLOCKS_PER_SEC;
+	//cout<<elapsed_time<<endl;
+
+	//getchar();
+
+	cameraMoved = false;
+
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   }else{
@@ -136,14 +149,14 @@ void runCuda(){
       for(int x=0; x<renderCam->resolution.x; x++){
         for(int y=0; y<renderCam->resolution.y; y++){
           int index = x + (y * renderCam->resolution.x);
-          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
+          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]/(float)iterations);
         }
       }
       
       gammaSettings gamma;
-      gamma.applyGamma = true;
-      gamma.gamma = 1.0;
-      gamma.divisor = 1.0; //renderCam->iterations;
+      gamma.applyGamma = false;
+      gamma.gamma = 1.0/2.2;
+      gamma.divisor = renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -168,7 +181,7 @@ void runCuda(){
       for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
         renderCam->image[i] = glm::vec3(0,0,0);
       }
-      cudaDeviceReset(); 
+      //cudaDeviceReset(); 
       finishedRender = false;
     }
   }
@@ -220,13 +233,55 @@ void runCuda(){
 
 	void keyboard(unsigned char key, int x, int y)
 	{
-		std::cout << key << std::endl;
 		switch (key) 
 		{
 		   case(27):
 			   exit(1);
 			   break;
+		   case(97):	//a
+			   renderCam->positions[targetFrame].x += .1;
+			   cameraMoved = true;
+			   iterations = 1;
+			   break;
+		   case(115):	//s
+			   renderCam->positions[targetFrame].y -= .1;
+			   cameraMoved = true;
+			   iterations = 1;
+			   break;
+		   case(100):	//d
+			   renderCam->positions[targetFrame].x -= .1;
+			   cameraMoved = true;
+			   iterations = 1;
+			   break;
+		   case(119):	//w
+			   renderCam->positions[targetFrame].y += .1;
+			   cameraMoved = true;
+			   iterations = 1;
+			   break;
+		   case(105):	//i
+			   renderCam->positions[targetFrame].z -= .1;
+			   cameraMoved = true;
+			   iterations = 1;
+			   break;
+		   case(111):	//o
+			   renderCam->positions[targetFrame].z += .1;
+			   cameraMoved = true;
+			   iterations = 1;
+			   break;
 		}
+	}
+
+	void mouse(int button, int state, int x, int y){
+		if (button == GLUT_LEFT_BUTTON){
+			renderCam->focalLengths[targetFrame] += .1;
+			cameraMoved = true;
+			iterations = 1;
+		}else if (button == GLUT_RIGHT_BUTTON){
+			renderCam->focalLengths[targetFrame] -= .1;
+			cameraMoved = true;
+			iterations = 1;
+		}
+		return;
 	}
 
 #endif

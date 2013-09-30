@@ -12,7 +12,7 @@
 	#include <GL/glfw.h>
 #else
 	#include <GL/glew.h>
-	#include <GL/glut.h>
+#include <GL/glut.h>
 #endif
 
 #include <stdlib.h>
@@ -29,6 +29,7 @@
 #include "raytraceKernel.h"
 #include "utilities.h"
 #include "scene.h"
+#include <ctime>
 
 #if CUDA_VERSION >= 5000
     #include <helper_cuda.h>
@@ -52,6 +53,7 @@ int targetFrame;
 int iterations;
 bool finishedRender;
 bool singleFrameMode;
+bool cameraMoved;
 
 //-------------------------------
 //------------GL STUFF-----------
@@ -86,6 +88,7 @@ void runCuda();
 #else
 	void display();
 	void keyboard(unsigned char key, int x, int y);
+	void mouse(int button, int dir, int x, int y);
 #endif
 
 //-------------------------------
