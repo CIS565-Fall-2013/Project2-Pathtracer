@@ -202,10 +202,10 @@ __global__ void traceRayFirstHit(cameraData cam, renderOptions rconfig, float ti
 			glm::vec3 normal;
 			int ind = firstIntersect(geoms, numberOfGeoms, r, intersectionPoint, normal, dist);
 			if(rconfig.mode == FIRST_HIT_DEBUG){
-			if(ind >= 0)
-				colors[pixelIndex] += materials[geoms[ind].materialid].color;
-			else
-				colors[pixelIndex] += rconfig.backgroundColor;
+				if(ind >= 0)
+					colors[pixelIndex] += materials[geoms[ind].materialid].color;
+				else
+					colors[pixelIndex] += rconfig.backgroundColor;
 			}else if(rconfig.mode == NORMAL_DEBUG){
 				colors[pixelIndex] += glm::abs(normal);
 			}
@@ -233,50 +233,78 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 		{
 			//valid pixel index
 			rayState rstate = raypool[rIndex];
+			//Check if ray is still useful
+			if(rstate.T.x > rconfig.minT || rstate.T.y > rconfig.minT || rstate.T.z > rconfig.minT)
+			{
+				//ray still has transmitance worth considering
 
+				//Find first collision
+				float dist;
+				glm::vec3 intersectionPoint;
+				glm::vec3 normal;
+				int ind = firstIntersect(geoms, numberOfGeoms, rstate.r, intersectionPoint, normal, dist);
 
-			//Find first collision
-			float dist;
-			glm::vec3 intersectionPoint;
-			glm::vec3 normal;
-			int ind = firstIntersect(geoms, numberOfGeoms, rstate.r, intersectionPoint, normal, dist);
+				if(ind >= 0){
+					//we hit something!
 
-			if(ind >= 0){
-				//we hit something!
+					//calculate transmission through material
+					glm::vec3 absorbtionCoeff;
+					if(rstate.matIndex >= 0 )
+						absorbtionCoeff = materials[rstate.matIndex].absorptionCoefficient;
+					else
+						absorbtionCoeff = rconfig.airAbsorbtion;
 
-				//calculate transmission through material
-				glm::vec3 absorbtionCoeff;
-				if(rstate.matIndex >= 0 )
-					absorbtionCoeff = materials[rstate.matIndex].absorptionCoefficient;
-				else
-					absorbtionCoeff = rconfig.airAbsorbtion;
+					rstate.T *= calculateTransmission(absorbtionCoeff, dist);
 
-				rstate.T *= calculateTransmission(absorbtionCoeff, dist);
+					//Transmission computed, now let's check on what we hit. This is where code will diverge quite a bit
 
-				//Transmission computed, now let's check on what we hit. This is where code will diverge quite a bit
+					//Check if it's a light
+					material m = materials[geoms[ind].materialid];
+					if(m.emittance > 0)
+					{
+						//hit a light source. Light it up.
+						if(rconfig.mode == TRACEDEPTH_DEBUG){
+							colors[pixelIndex] += bounce/float(rconfig.traceDepth)*glm::vec3(1,1,1);
+							rstate.index = -1;//retire ray
+						}else if(rconfig.mode == PATHTRACE){
+							colors[pixelIndex] += rstate.T*m.emittance*m.color;
+							rstate.index = -1;//retire ray
+						}
+					}else{
+						if(bounce < rconfig.traceDepth - 1){
+							//if we have more bounces to do, Bounce ray. 
 
-				//Check if it's a light
-				material m = materials[geoms[ind].materialid];
-				if(m.emittance > 0)
-				{
-					//hit a light source. Light it up.
-					colors[pixelIndex] += rstate.T*m.emittance*m.color;
-					rstate.index = -1;//retire ray
+							//TODO: Improve randomness with point sets?
+							thrust::default_random_engine rng(hash(time*rIndex));
+							thrust::uniform_real_distribution<float> u01(0,1);
+							BounceType bounce = bounceRay(rstate, rconfig, intersectionPoint, normal, materials, geoms[ind].materialid, u01(rng), u01(rng), u01(rng));
+
+						}else{
+							//This was the last bounce, either add in ambient or kill ray.
+							if(rconfig.mode == TRACEDEPTH_DEBUG)
+							{
+								colors[pixelIndex] += bounce/float(rconfig.traceDepth)*glm::vec3(1,1,1);
+								rstate.index = -1;//retire ray
+							}
+						}
+					}
 				}else{
-					//Bounce ray
-					//TODO: Improve randomness with point sets?
-					thrust::default_random_engine rng(hash(time*rIndex));
-					thrust::uniform_real_distribution<float> u01(0,1);
-					BounceType bounce = bounceRay(rstate, rconfig, intersectionPoint, normal, materials, geoms[ind].materialid, u01(rng), u01(rng), u01(rng));
-					
+					//How could you miss it was right in front of you!!
+					//retire ray, add background color.
+
+					if(rconfig.mode == TRACEDEPTH_DEBUG){
+						colors[pixelIndex] += bounce/float(rconfig.traceDepth)*glm::vec3(1,1,1);
+						rstate.index = -1;//retire ray
+					}else if(rconfig.mode == PATHTRACE){
+						colors[pixelIndex] += rstate.T*rconfig.backgroundColor;
+						rstate.index = -1;//retire ray
+					}
 				}
 			}else{
-				//How could you miss it was right in front of you!!
-				//retire ray, add background color.
-				colors[pixelIndex] += rstate.T*rconfig.backgroundColor;
-				rstate.index = -1;//retire ray
+				//Ray no longer transmits any useful info
+				//Retire it
+				rstate.index = -1;
 			}
-
 			//Write back
 			raypool[rIndex] = rstate;
 		}	
@@ -370,6 +398,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 
 	switch(rconfig->mode)
 	{
+	case TRACEDEPTH_DEBUG:
 	case PATHTRACE:
 		raycastFromCameraKernel<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(iterations, frame, cam, *rconfig, cudaraypool, rayPoolSize);
 
@@ -384,6 +413,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	case RAYCOUNT_DEBUG:
 		displayRayCounts<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, cudaimage, cudaraypool, rayPoolSize,ceil(float(rayPoolSize)/numPixels));
 		break;
+
 	case NORMAL_DEBUG:
 	case FIRST_HIT_DEBUG:
 		raycastFromCameraKernel<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(iterations, frame, cam, *rconfig, cudaraypool, rayPoolSize);

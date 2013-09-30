@@ -76,8 +76,8 @@ int main(int argc, char** argv){
 
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
-	renderOpts->mode = PATHTRACE;
-	renderOpts->traceDepth = 25;
+	renderOpts->mode = TRACEDEPTH_DEBUG;
+	renderOpts->traceDepth = 1;
 	renderOpts->rayPoolSize =1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
 	renderOpts->stocasticRayAssignment = false;
 
@@ -89,11 +89,11 @@ int main(int argc, char** argv){
 	renderOpts->maxSamplesPerPixel = 1;
 	renderOpts->aargbThresholds = glm::vec3(0.01,0.01,0.01);
 
-	renderOpts->frameFiltering = true;
+	renderOpts->frameFiltering = false;
 	renderOpts->backgroundColor = glm::vec3(137, 207, 240)/255.0f;//sky blue
 	renderOpts->airIOR = 1.0;
 	renderOpts->airAbsorbtion = glm::vec3(0.0, 0.0, 0.0);//No air absorbtion effects for now
-
+	renderOpts->minT = 0.001;
 
 	if(targetFrame>=renderCam->frames){
 		cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
