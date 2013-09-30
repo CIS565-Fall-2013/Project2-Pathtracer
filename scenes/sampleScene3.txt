@@ -194,6 +194,7 @@ SCALE       .3 3 3
 
 OBJECT 6
 cube.obj
+../../obj/cube.obj
 material 8 
 frame 0
 TRANS       0 10 0

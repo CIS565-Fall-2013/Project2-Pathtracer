@@ -22,6 +22,9 @@
     <ClCompile Include="..\..\src\utilities.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\tiny_obj_loader.cc">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\stb_image\stb_image_write.h">
@@ -58,6 +61,9 @@
       <Filter>Header</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\utilities.h">
+      <Filter>Header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\tiny_obj_loader.h">
       <Filter>Header</Filter>
     </ClInclude>
   </ItemGroup>

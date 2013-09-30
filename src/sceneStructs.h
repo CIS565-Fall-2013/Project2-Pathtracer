@@ -18,6 +18,13 @@ struct ray {
 	glm::vec3 direction;
 };
 
+struct mesh {
+	glm::vec3* vertices;
+	glm::vec3* normals;
+	unsigned int* indices;
+	int indicesCount;
+};
+
 struct geom {
 	enum GEOMTYPE type;
 	int materialid;
@@ -27,6 +34,7 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+	mesh* triMesh;
 };
 
 struct staticGeom {

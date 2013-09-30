@@ -34,6 +34,25 @@ scene::scene(string filename){
 	}
 }
 
+scene::~scene()
+{
+	for (int i = 0 ; i < objects.size() ; ++i)
+	{
+		geom g = objects[i];
+
+		if (g.type == MESH)
+		{
+			// todo delete vertices, normals, and indices
+		}
+
+		delete[] g.translations;
+		delete[] g.rotations;
+		delete[] g.scales;
+		delete[] g.transforms;
+		delete[] g.inverseTransforms;
+	}
+}
+
 int scene::loadObject(string objectid){
     int id = atoi(objectid.c_str());
     if(id!=objects.size()){
@@ -62,7 +81,9 @@ int scene::loadObject(string objectid){
                 getline(liness, extension, '.');
                 if(strcmp(extension.c_str(), "obj")==0){
                     cout << "Creating new mesh..." << endl;
+					utilityCore::safeGetline(fp_in, line);
                     cout << "Reading mesh from " << line << "... " << endl;
+					loadObjFile(newObject, line.c_str());
 		    		newObject.type = MESH;
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
@@ -262,4 +283,84 @@ int scene::loadMaterial(string materialid){
 		materials.push_back(newMaterial);
 		return 1;
 	}
+}
+
+void scene::loadObjFile(geom &newObject, const char* filePath)
+{
+	vector<tinyobj::shape_t> shapes;
+	string err = tinyobj::LoadObj(shapes, filePath, NULL);
+
+	if (!err.empty()) {
+		std::cerr << err << std::endl;
+		return;
+	}
+
+	std::cout << "# of shapes : " << shapes.size() << std::endl;
+
+	// looping through all shapes (if obj file contains multiple shapes)
+	for (size_t i = 0 ; i < shapes.size() ; ++i)
+	{
+
+		// preparing indices
+		int numIndices = shapes[i].mesh.indices.size();
+		unsigned int* indices = new unsigned int[numIndices];
+		assert((shapes[i].mesh.indices.size() % 3) == 0);
+		for (size_t f = 0 ; f < numIndices ; ++f)
+		{
+			indices[f] = shapes[i].mesh.indices[f];
+			printf("  idx[%ld] = %d\n", f, shapes[i].mesh.indices[f]);
+		}
+
+		// preparing vertices
+		assert((shapes[i].mesh.positions.size() % 3) == 0);
+		int numVerts = shapes[i].mesh.positions.size() / 3;
+		glm::vec3* vertices = new glm::vec3[numVerts];
+		for (size_t v = 0 ; v < numVerts ; ++v)
+		{
+			vertices[v].x = shapes[i].mesh.positions[3*v+0];
+			vertices[v].y = shapes[i].mesh.positions[3*v+1];
+			vertices[v].z = shapes[i].mesh.positions[3*v+2];
+		}
+
+		// preparing normals
+		assert((shapes[i].mesh.positions.size() % 3) == 0);
+		int numNormals = shapes[i].mesh.normals.size() / 3;
+		glm::vec3* normals = new glm::vec3[numNormals];
+		for (size_t n = 0 ; n < numNormals ; ++n)
+		{
+			normals[n].x = shapes[i].mesh.normals[3*n+0];
+			normals[n].y = shapes[i].mesh.normals[3*n+1];
+			normals[n].z = shapes[i].mesh.normals[3*n+2];
+		}
+		
+		// TODO set geom mesh to all these values
+		newObject.triMesh = new mesh;
+		newObject.triMesh->vertices = vertices;
+		newObject.triMesh->indices = indices;
+		newObject.triMesh->normals = normals;
+
+		for (int ii = 0 ; ii < numVerts ; ++ii)
+		{
+			std::cout << "vert: ";
+			utilityCore::printVec3(newObject.triMesh->vertices[ii]);
+			std::cout << std::endl;
+			
+			std::cout << "normal: ";
+			utilityCore::printVec3(newObject.triMesh->normals[ii]);
+			std::cout << std::endl;
+		}
+
+		for (int jj = 0 ; jj < shapes[i].mesh.indices.size() ; ++jj)
+		{
+			std::cout << "indices[" << jj << "]: " << newObject.triMesh->indices[jj] << std::endl;
+		}
+
+		std::cout << "triMesh->indicesCount" << newObject.triMesh->indicesCount << std::endl;
+				
+	}
+
+
+	
+
+
 }
