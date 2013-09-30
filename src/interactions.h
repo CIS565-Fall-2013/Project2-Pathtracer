@@ -83,7 +83,7 @@ __host__ __device__ glm::vec3 sphericalToCartesian(float phi, float th)
 	return dir;
 }
 
-__host__ __device__ glm::vec3 sampleSpecularDirection(glm::vec3 incident, glm::vec3 normal, float specularExp, float xi1, float xi2)
+__host__ __device__ glm::vec3 sampleSpecularReflectionDirection(glm::vec3 incident, glm::vec3 normal, float specularExp, float xi1, float xi2)
 {
 	float th = glm::acos(glm::pow(xi1, 1/(specularExp+1)));
 	float phi = 2*PI*xi2;
@@ -91,11 +91,28 @@ __host__ __device__ glm::vec3 sampleSpecularDirection(glm::vec3 incident, glm::v
 	glm::vec3 randDirZ = sphericalToCartesian(phi, th);
 	glm::vec3 idealMirror = calculateReflectionDirection(normal, incident);
 
+	//TODO: Compute exponential specular
 	//Rotate rand direction to specular space
 	//glm::vec3 zUnit = glm::vec3(0,0,1);
 	//glm::vec3 rotAxis = glm::cross(zUnit, 
 	return idealMirror;
 }
+
+__host__ __device__ glm::vec3 sampleSpecularTransmissionDirection(glm::vec3 incident, glm::vec3 normal, float incidentIOR, float transmissionIOR, float specularExp, float xi1, float xi2)
+{
+	float th = glm::acos(glm::pow(xi1, 1/(specularExp+1)));
+	float phi = 2*PI*xi2;
+
+	glm::vec3 randDirZ = sphericalToCartesian(phi, th);
+	glm::vec3 idealMirror = calculateReflectionDirection(normal, incident);
+
+	//TODO: Compute exponential specular
+	//Rotate rand direction to specular space
+	//glm::vec3 zUnit = glm::vec3(0,0,1);
+	//glm::vec3 rotAxis = glm::cross(zUnit, 
+	return calculateTransmissionDirection(normal, incident, incidentIOR, transmissionIOR);
+}
+
 
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float n1/*incidentIOR*/, float n2/*transmittedIOR*/) {
 	Fresnel fresnel;
@@ -134,11 +151,14 @@ __host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoeffici
 
 __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR)
 {
+
 	float cos_thi = glm::dot(normal,incident);
 	float eta  = incidentIOR/transmittedIOR;
 	float sin2_tht = (eta*eta)*(1-cos_thi*cos_thi);
 	if(sin2_tht > 0.0)
-		return eta*incident + (eta*cos_thi- glm::sqrt(1-sin2_tht))*normal;
+		//TODO: Figure out why my code doesn't work.
+		return glm::refract(incident, normal, eta);
+		//return eta*incident - (eta + glm::sqrt(1-sin2_tht))*normal;
 	else
 		//Total internal reflection, no transmission
 		return glm::vec3(0,0,0);
@@ -211,12 +231,18 @@ __host__ __device__ BounceType bounceRay(rayState& r, renderOptions rconfig, glm
 		r.T *= m.color;
 		break;
 	case REFLECT:
-		r.r.direction = sampleSpecularDirection(r.r.direction, normal, m.specularExponent, xi1, xi2);
+		r.r.direction = sampleSpecularReflectionDirection(r.r.direction, normal, m.specularExponent, xi1, xi2);
 		r.r.origin = intersect;
 		r.T *= m.specularColor;
 		break;
 	case TRANSMIT:
 
+		//TODO: Fix refraction
+		//if(r.matIndex >= 0)
+		//	normal = -normal;
+		r.r.direction = sampleSpecularTransmissionDirection(r.r.direction, normal, mLastIOR, m.indexOfRefraction, m.specularExponent, xi1, xi2);
+		r.r.origin = intersect;
+		r.matIndex = mhitIndex;
 		break;
 	}
 
