@@ -28,7 +28,7 @@
 #define LIGHT_NUM 1
 #define ANTI_NUM 1
 #define STREAMCOMPATION 0
-#define TITLESIZE 32
+#define TITLESIZE 640
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
@@ -447,7 +447,7 @@ __global__ void pathtraceRay(glm::vec2 resolution, float time, cameraData cam, i
 			jitterRay.origin = camPosition;
 			jitterRay.direction = glm::normalize(aimedPosition - camPosition);
 
-			pathTraceIterative(jitterRay, 0, geoms, numberOfGeoms, materials, color, cam, time, x, y, lightPos, lightIndex);
+			pathTraceIterative(r, 0, geoms, numberOfGeoms, materials, color, cam, time, x, y, lightPos, lightIndex);
 			colors[index] += color;
 		}
 		color[index] /= 1.f;
@@ -548,8 +548,7 @@ __global__ void pathTraceSC(rayPixel* rayPool, int poolSize, cameraData cam,  fl
 	if(index < poolSize){
 		//if(!rayPool[index].isDone){
 		//__shared__ rayPixel sharedRayPixel[TITLESIZE + 1];
-		//sharedRayPixel[threadIdx.x] = rayPool[index];
-		
+		//sharedRayPixel[threadIdx.x] = rayPool[index];		
 		
 		__syncthreads();
 		if(rayPool[index].isFirst)//first time for ray pool
@@ -558,7 +557,7 @@ __global__ void pathTraceSC(rayPixel* rayPool, int poolSize, cameraData cam,  fl
 			rayPool[index].r = raycastFromCameraKernel(cam.resolution, time, (float)(rayPool[index].x + (float)(1 + ran.x)/1.0f), 
 				(float)(rayPool[index].y + (float)(1.0f + ran.y)/ 1.0f), cam.position, cam.view, cam.up, cam.fov);	
 			rayPool[index].isFirst = false;
-			float focalLength = 15.f;
+			float focalLength = 12.f;
 			glm::vec3 rand = generateRandomNumberFromThread(cam.resolution, time * 2, x, y);
 			glm::vec3 aimedPosition = rayPool[index].r.origin + focalLength * rayPool[index].r.direction;
 			glm::vec3 camPosition = glm::vec3(cam.position.x + (float)rand.x, cam.position.y + (float)rand.y, cam.position.z + (float)rand.z);
@@ -630,8 +629,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 			  
 		  }
 	  }
-	  //++realSample;
-	  //printf("sample %f \n", realSample);
   } 
 #endif 
   
@@ -646,7 +643,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   int tileSize;	  
 #ifdef STREAMCOMPATION
   tileSize = TITLESIZE;
-  dim3 threadsPerBlock(tileSize, 2);
+  dim3 threadsPerBlock(tileSize, 1);
   dim3 fullBlocksPerGrid((int)ceil(float(deviceRayPool.size())/float(tileSize)), 1);
 #else
   tileSize = 8;
@@ -705,11 +702,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   }
 
   int lightNum = LIGHT_NUM;
-  glm::vec3 *lightPos = new glm::vec3[lightNum];
- // for(int i = 0; i < lightNum; i++)
-  //{
-  lightPos[0] = getRandomPointOnCube(geomList[lightIndex], (float)iterations);
-  //}
+  glm::vec3 *lightPos = new glm::vec3[lightNum]; 
+  lightPos[0] = getRandomPointOnCube(geomList[lightIndex], (float)iterations);  
 
   glm::vec3* cudaLightPos = NULL;
   cudaMalloc((void**)&cudaLightPos, lightNum*sizeof(glm::vec3));
@@ -717,21 +711,21 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   //size_t size;
   //cudaDeviceSetLimit(cudaLimitStackSize, 10000*sizeof(rayPixel));
-  //cudaDeviceSetLimit(cudaLimitMallocHeapSize, 50000*sizeof(rayPixel));
+  cudaDeviceSetLimit(cudaLimitMallocHeapSize, 10000*sizeof(rayPixel));
   //cudaDeviceGetLimit(&size, cudaLimitStackSize);
 
 //kernel launches
 #ifdef STREAMCOMPATION
   int count = 0;
   //printf("original device size %d ", deviceRayPool.size());
-while(deviceRayPool.size() > 0 && count < 10)
+while(deviceRayPool.size() > 0 && count < 5)
 {
 		fullBlocksPerGrid = dim3((int)ceil(float(deviceRayPool.size())/float(tileSize)), 1);
 
-		/*pathTraceSC<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaRayPool, deviceRayPool.size(), cam, (float)(iterations+(count +1)), traceDepth, cudaimage, cudageoms,
+		pathTraceSC<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaRayPool, deviceRayPool.size(), cam, (float)(iterations+(count +1)), traceDepth, cudaimage, cudageoms,
 			numberOfGeoms, cudamaterial, numberOfMaterials, cudaLightPos, lightIndex, renderCam->iterations);
-*/
-		threadTest<<<fullBlocksPerGrid, threadsPerBlock>>>();
+
+		//threadTest<<<fullBlocksPerGrid, threadsPerBlock>>>();
 
 		count++; 		
 				
@@ -755,8 +749,8 @@ while(deviceRayPool.size() > 0 && count < 10)
 		//cudaMemcpy( cudaRayPool, &rayPool[0], rayPool.size()*sizeof(rayPixel), cudaMemcpyHostToDevice);
 		//cudaMalloc((void**)&cudaRayPool, deviceRayPool.size()*sizeof(rayPixel));		
 }
-threadsPerBlock = dim3(tileSize, tileSize);
-fullBlocksPerGrid = dim3((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
+threadsPerBlock = dim3(8, 8);
+fullBlocksPerGrid = dim3((int)ceil(float(renderCam->resolution.x)/float(8)), (int)ceil(float(renderCam->resolution.y)/float(8)));
 addImageColor<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaimage, cudaPreImage, renderCam->resolution); 
 //sendImageToPBOSC<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, cudaimage, (float)iterations, renderCam->resolution.x * renderCam->resolution.y, cudaPreImage);
 sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);

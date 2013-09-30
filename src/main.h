@@ -30,6 +30,9 @@
 #include "utilities.h"
 #include "scene.h"
 
+#include<cstdlib>
+#include<ctime>
+
 #if CUDA_VERSION >= 5000
     #include <helper_cuda.h>
     #include <helper_cuda_gl.h>
