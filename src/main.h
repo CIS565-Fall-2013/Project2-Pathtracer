@@ -52,6 +52,7 @@ int targetFrame;
 int iterations;
 bool finishedRender;
 bool singleFrameMode;
+int mblur;
 
 //-------------------------------
 //------------GL STUFF-----------

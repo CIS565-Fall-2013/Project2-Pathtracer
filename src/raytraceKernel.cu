@@ -18,6 +18,8 @@
 #include <thrust/remove.h>
 #include <thrust/device_ptr.h>
 #include <thrust/partition.h>
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/matrix_inverse.hpp"
 
 
 void checkCUDAError(const char *msg) {
@@ -180,7 +182,8 @@ __global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec3* imag
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec3* colors, 
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, int* lights, int numberOfLights,ray* rays){
+                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, 
+							int* lights, int numberOfLights,ray* rays){
 
   //int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   //int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -367,9 +370,41 @@ struct is_active
 	}
 };
 
+
+__global__ void moveWorld( staticGeom* geoms, staticGeom* prevGeoms, float t,int numberOfGeoms)
+{
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	
+	if(index < numberOfGeoms)
+	{
+		t = 1 - t*t;
+		glm::vec3 newTranslation = t*geoms[index].translation + (1-t)*prevGeoms[index].translation;
+		glm::mat4 translationMat = glm::translate(glm::mat4(), newTranslation);
+		glm::mat4 rotationMat = glm::rotate(glm::mat4(), geoms[index].rotation.x, glm::vec3(1,0,0));
+		rotationMat = rotationMat*glm::rotate(glm::mat4(), geoms[index].rotation.y, glm::vec3(0,1,0));
+		rotationMat = rotationMat*glm::rotate(glm::mat4(), geoms[index].rotation.z, glm::vec3(0,0,1));
+		glm::mat4 scaleMat = glm::scale(glm::mat4(), geoms[index].scale);
+		glm::mat4 a =  translationMat*rotationMat*scaleMat;
+		cudaMat4 m; 
+		glm::mat4 b = glm::transpose(a);
+		m.x = b[0];
+		m.y = b[1];
+		m.z = b[2];
+		m.w = b[3];
+		geoms[index].transform = m;
+
+		a = glm::transpose(glm::inverse(a));
+		m.x = a[0];
+		m.y = a[1];
+		m.z = a[2];
+		m.w = a[3];
+		geoms[index].inverseTransform = m;
+	}
+}
+
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms,int mblur){
   
   int traceDepth = 1; //determines how many bounces the raytracer traces
 
@@ -425,8 +460,12 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   //package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
+  staticGeom* geomListPrevFrame = new staticGeom[numberOfGeoms];
+
   for(int i=0; i<numberOfGeoms; i++){
     staticGeom newStaticGeom;
+	staticGeom prevStaticGeom;
+	int prevFrame = frame-1;
     newStaticGeom.type = geoms[i].type;
     newStaticGeom.materialid = geoms[i].materialid;
     newStaticGeom.translation = geoms[i].translations[frame];
@@ -436,6 +475,19 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
     geomList[i] = newStaticGeom;
 
+	if (frame==0)
+	{
+		prevFrame = frame;
+	}
+    prevStaticGeom.type = geoms[i].type;
+    prevStaticGeom.materialid = geoms[i].materialid;
+    prevStaticGeom.translation = geoms[i].translations[prevFrame];
+    prevStaticGeom.rotation = geoms[i].rotations[prevFrame];
+    prevStaticGeom.scale = geoms[i].scales[prevFrame];
+    prevStaticGeom.transform = geoms[i].transforms[prevFrame];
+    prevStaticGeom.inverseTransform = geoms[i].inverseTransforms[prevFrame];
+    geomListPrevFrame[i] = prevStaticGeom;
+
 	if (materials[geoms[i].materialid].emittance > 0.0f)
 		lightsVector.push_back(i);
   }
@@ -444,7 +496,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   staticGeom* cudageoms = NULL;
   cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
   cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
-  
+ 
+  staticGeom* cudageomsPrevFrame = NULL;
+  cudaMalloc((void**)&cudageomsPrevFrame, numberOfGeoms*sizeof(staticGeom));
+  cudaMemcpy( cudageomsPrevFrame, geomListPrevFrame, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+
   material* cudamaterials = NULL;
   cudaMalloc((void**)&cudamaterials, numberOfMaterials*sizeof(material));
   cudaMemcpy( cudamaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
@@ -486,8 +542,20 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   }
   }*/
    
-  thrust::device_ptr<ray> thrustRaysArray = thrust::device_pointer_cast(cudarays);
+  //Prepare scene for motion blur
+ if(mblur)
+ {
+	 dim3 mblurThreadsPerBlock(numberOfGeoms);
+	 dim3 mblurBlocksPerGrid( (int) ceil( (float)numberOfGeoms/(tileSize*tileSize)));
+	 thrust::default_random_engine rng(hash(48589.0f*iterations));
+     thrust::uniform_real_distribution<float> u01(0,1);
+	 float interpolant = u01(rng);
 
+	 moveWorld<<<mblurBlocksPerGrid,mblurThreadsPerBlock>>>(cudageoms, cudageomsPrevFrame, interpolant,numberOfGeoms);
+ }
+
+  thrust::device_ptr<ray> thrustRaysArray = thrust::device_pointer_cast(cudarays);
+ 
   //kernel launches
   for(int bounce = 1; bounce <= 8; ++bounce)
   {
@@ -525,6 +593,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree(dParallelScanTempArray);
   cudaFree(dNumActiveRays);
   delete [] geomList;
+  delete [] geomListPrevFrame;
   //delete [] rays;
 
   // make certain the kernel has completed 
