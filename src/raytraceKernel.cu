@@ -230,7 +230,10 @@ __device__ glm::vec3 calcShade (interceptInfo theRightIntercept, glm::vec3 light
 	glm::vec3 shadedColour = glm::vec3 (0,0,0);
 	if ((theRightIntercept.interceptVal > 0))
 	{
-		shadedColour = theRightIntercept.intrMaterial.color;
+		if (theRightIntercept.intrMaterial.hasReflective)
+			shadedColour = theRightIntercept.intrMaterial.specularColor;
+		else
+			shadedColour = theRightIntercept.intrMaterial.color;
 		//// Diffuse shading
 		//glm::vec3 intrPoint = castRay.origin + theRightIntercept.interceptVal*castRay.direction;	// The intersection point.
 		//glm::vec3 intrNormal = glm::normalize (eye - intrPoint); // intrNormal is the view vector.
@@ -758,7 +761,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   renderInfo	RenderParams, *RenderParamsOnDevice = NULL;
   RenderParams.ks = 0.4;
   RenderParams.kd = 1 - RenderParams.ks;
-  RenderParams.nLights = 500;
+  RenderParams.nLights = renderCam->iterations;
   RenderParams.sqrtLights = sqrt ((float)RenderParams.nLights);
   RenderParams.lightStepSize = 1.0/(RenderParams.sqrtLights-1);
   RenderParams.lightPos = glm::vec3 (0, -0.6, 0);
@@ -774,16 +777,19 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
 
+  int nIterations = renderCam->iterations;
+
   time_t startTime = time (NULL);
   std::default_random_engine randomNumGen (hash (startTime));
   std::uniform_real_distribution<float> jitter ((float)0, (float)0.142);
 
-  float movement = 1.0/48;
+  float movement = 3.0/nIterations;
   int nBounces = 6;
+  int oneEighthDivisor = nIterations / 8;
 
   // For each point sampled in the area light, launch the raytraceRay Kernel which will compute the diffuse, specular, ambient
   // and shadow colours. It will also compute reflected colours for reflective surfaces.
-  for (int i = 0; i < RenderParams.nLights; i ++)
+  for (int i = 0; i < nIterations; i ++)
   {
 	  glm::vec3* cudaimage = NULL;
 	  cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
@@ -800,23 +806,25 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  curLightSamplePos.z += zAdd;
 	  curLightSamplePos.x += xAdd;
 	  
-	 // if (!(i%8))	// Supersampling at 8x!
-	 // {
-		//cam.position.y += zAdd*0.002;
-		//cam.position.x += xAdd*0.002;
-	 // }
+	  if (!(i%oneEighthDivisor))	// Supersampling at 8x!
+	  {
+		cam.position.y += zAdd*0.002;
+		cam.position.x += xAdd*0.002;
+	  }
 
-	  //if (!(i/32))	// Motion blur!
-	  //{
-		 // geomList [primCounts.nCubes].translation += glm::vec3 (movement, 0, 0);
-		 // glm::mat4 transform = utilityCore::buildTransformationMatrix(geomList [primCounts.nCubes].translation, 
-			//														   geomList [primCounts.nCubes].rotation, 
-			//														   geomList [primCounts.nCubes].scale);
-		 // geomList [primCounts.nCubes].transform = utilityCore::glmMat4ToCudaMat4(transform);
-		 // geomList [primCounts.nCubes].inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
-	  //}
-	  // Now copy the geometry list to the GPU global memory.
-//	  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+	  if (!((i*4)/(3*nIterations)))	
+	  {
+		  // Motion blur!
+		  geomList [primCounts.nCubes].translation += glm::vec3 (movement, 0, 0);
+		  glm::mat4 transform = utilityCore::buildTransformationMatrix(geomList [primCounts.nCubes].translation, 
+																	   geomList [primCounts.nCubes].rotation, 
+																	   geomList [primCounts.nCubes].scale);
+		  geomList [primCounts.nCubes].transform = utilityCore::glmMat4ToCudaMat4(transform);
+		  geomList [primCounts.nCubes].inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+	  }
+
+	  //  Now copy the geometry list to the GPU global memory.
+	  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
 
 	  glm::vec3 lightPos = multiplyMV (geomList [0].transform, glm::vec4 (curLightSamplePos, 1.0));
 	  
@@ -960,7 +968,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   // Accumulate all the colours in the cudaFinalImage memory block on the GPU, and divide 
   // by the no. of light samples to get the final colour.
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaFinalImage, RenderParams.nLights);
-  std::cout.precision (2);
+  std::cout.precision (4);
   std::cout << "\nRendered in " << difftime (time (NULL), startTime) << " seconds. \n\n";
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaFinalImage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
