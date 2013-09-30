@@ -214,6 +214,7 @@ __host__ __device__  float boxIntersectionTest(glm::vec3 boxMin, glm::vec3 boxMa
 
 
     normal = multiplyMV(box.transform, glm::vec4(currentNormal,0.0));
+	normal = glm::normalize(normal);//DON'T FORGET TO NORMALIZE
     return glm::length(intersectionPoint-ro.origin);
 }
 
