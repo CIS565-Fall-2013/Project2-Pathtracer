@@ -1,0 +1,55 @@
+﻿Build started 9/30/2013 3:01:34 PM.
+     1>Project "C:\Users\Remote\Documents\CIS565\Project1-RayTracer\PROJ1_WIN\565Raytracer\565Raytracer.vcxproj" on node 2 (build target(s)).
+     1>InitializeBuildStatus:
+         Touching "Release\565Raytracer.unsuccessfulbuild".
+       AddCudaCompileDeps:
+         c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\cl.exe /E /nologo /showIncludes /TP /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include" /I"C:/ProgramData/NVIDIA Corporation/NVIDIA GPU Computing SDK 4.0/C/common/inc" /I../shared/glew/includes /I../shared/freeglut/includes /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\bin" /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include" /I. /FIcuda_runtime.h /c C:\Users\Remote\Documents\CIS565\Project1-RayTracer\src\raytraceKernel.cu 
+       AddCudaCompilePropsDeps:
+       Skipping target "AddCudaCompilePropsDeps" because all output files are up-to-date with respect to the input files.
+       CudaBuild:
+         Compiling CUDA source file ..\..\src\raytraceKernel.cu...
+         cmd.exe /C "C:\Users\Remote\AppData\Local\Temp\6d8f09236a8641099a6f3881e2ae7cb3.cmd"
+         "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\bin\nvcc.exe" -gencode=arch=compute_20,code=\"sm_20,compute_20\" --use-local-env --cl-version 2010 -ccbin "c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include" -I"C:/ProgramData/NVIDIA Corporation/NVIDIA GPU Computing SDK 4.0/C/common/inc" -I"../shared/glew/includes" -I"../shared/freeglut/includes" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include"    --keep-dir "Release" -maxrregcount=0  --machine 32 --compile      -Xcompiler "/EHsc /nologo /Od /Zi  /MD " -o "C:\Users\Remote\Documents\CIS565\Project1-RayTracer\PROJ1_WIN\565Raytracer\Win32/Release/raytraceKernel.cu.obj" "C:\Users\Remote\Documents\CIS565\Project1-RayTracer\src\raytraceKernel.cu"
+         
+         C:\Users\Remote\Documents\CIS565\Project1-RayTracer\PROJ1_WIN\565Raytracer>"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\bin\nvcc.exe" -gencode=arch=compute_20,code=\"sm_20,compute_20\" --use-local-env --cl-version 2010 -ccbin "c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include" -I"C:/ProgramData/NVIDIA Corporation/NVIDIA GPU Computing SDK 4.0/C/common/inc" -I"../shared/glew/includes" -I"../shared/freeglut/includes" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include"    --keep-dir "Release" -maxrregcount=0  --machine 32 --compile      -Xcompiler "/EHsc /nologo /Od /Zi  /MD " -o "C:\Users\Remote\Documents\CIS565\Project1-RayTracer\PROJ1_WIN\565Raytracer\Win32/Release/raytraceKernel.cu.obj" "C:\Users\Remote\Documents\CIS565\Project1-RayTracer\src\raytraceKernel.cu" 
+         raytraceKernel.cu
+     1>C:/Users/Remote/Documents/CIS565/Project1-RayTracer/src/raytraceKernel.cu(152): warning : specifiers after comma between declarations are nonstandard
+         
+     1>c:\users\remote\documents\cis565\project1-raytracer\src\glm\core\type_vec4.inl(48): warning : calling a host function("_wassert") from a __device__/__global__ function("glm::detail::tvec4<float> ::operator []") is not allowed
+         
+     1>c:\users\remote\documents\cis565\project1-raytracer\src\glm\core\type_vec4.inl(48): warning : calling a host function("_wassert") from a __device__/__global__ function("glm::detail::tvec4<float> ::operator []") is not allowed
+         
+         tmpxft_00000564_00000000-0_raytraceKernel.cudafe1.gpu
+         tmpxft_00000564_00000000-5_raytraceKernel.cudafe2.gpu
+         raytraceKernel.cu
+     1>c:\users\remote\documents\cis565\project1-raytracer\src\glm\core\_swizzle.hpp(194): warning : missing return statement at end of non-void function "glm::detail::_swizzle_base2<ValueType, VecType, N, E0, E1, E2, E3, 1>::operator=(const glm::detail::_swizzle_base2<ValueType, VecType, N, E0, E1, E2, E3, 1>::Stub &)"
+         
+     1>C:/Users/Remote/Documents/CIS565/Project1-RayTracer/src/raytraceKernel.cu(152): warning : specifiers after comma between declarations are nonstandard
+         
+         tmpxft_00000564_00000000-0_raytraceKernel.cudafe1.cpp
+         tmpxft_00000564_00000000-11_raytraceKernel.ii
+       ClCompile:
+         All outputs are up-to-date.
+         All outputs are up-to-date.
+       Link:
+         c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Remote\Documents\CIS565\Project1-RayTracer\PROJ1_WIN\Release\565Raytracer.exe" /INCREMENTAL:NO /NOLOGO /LIBPATH:../shared/glew/lib /LIBPATH:../shared/freeglut/lib /LIBPATH:"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\lib\Win32" cudart.lib glew32.lib glu32.lib opengl32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Release\565Raytracer.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"C:\Users\Remote\Documents\CIS565\Project1-RayTracer\PROJ1_WIN\Release\565Raytracer.pdb" /SUBSYSTEM:CONSOLE /OPT:REF /OPT:ICF /LTCG /TLBID:1 /ENTRY:"mainCRTStartup" /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Remote\Documents\CIS565\Project1-RayTracer\PROJ1_WIN\Release\565Raytracer.lib" /MACHINE:X86 "C:\Users\Remote\Documents\CIS565\Project1-RayTracer\PROJ1_WIN\565Raytracer\Win32/Release/raytraceKernel.cu.obj"
+         Release\glslUtility.obj
+         Release\image.obj
+         Release\main.obj
+         Release\scene.obj
+         Release\stb_image.obj
+         Release\stb_image_write.obj
+         Release\utilities.obj
+         Generating code
+         Finished generating code
+         565Raytracer.vcxproj -> C:\Users\Remote\Documents\CIS565\Project1-RayTracer\PROJ1_WIN\Release\565Raytracer.exe
+       Manifest:
+         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\mt.exe /nologo /verbose /outputresource:"C:\Users\Remote\Documents\CIS565\Project1-RayTracer\PROJ1_WIN\Release\565Raytracer.exe;#1" /manifest Release\565Raytracer.exe.intermediate.manifest
+       FinalizeBuildStatus:
+         Deleting file "Release\565Raytracer.unsuccessfulbuild".
+         Touching "Release\565Raytracer.lastbuildstate".
+     1>Done Building Project "C:\Users\Remote\Documents\CIS565\Project1-RayTracer\PROJ1_WIN\565Raytracer\565Raytracer.vcxproj" (build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:18.02
