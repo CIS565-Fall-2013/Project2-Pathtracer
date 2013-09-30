@@ -132,10 +132,17 @@ __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm
 //returns type of bounce that was performed
 //Takes three random numbers to use in sampling
 //Do not call this function if ray hit a light source.
-__host__ __device__ BounceType bounceRay(rayState& r, glm::vec3 intersect, glm::vec3 normal, material* mats, int mhitIndex, float xi0/*for bounce type*/, float xi1/*for importance sampling*/,float xi2/*for importance sampling*/)
+__host__ __device__ BounceType bounceRay(rayState& r, renderOptions rconfig, glm::vec3 intersect, glm::vec3 normal, material* mats, int mhitIndex, float xi0/*for bounce type*/, float xi1/*for importance sampling*/,float xi2/*for importance sampling*/)
 {
 	material m = mats[mhitIndex];//material we hit
-	material mLast = mats[r.matIndex];//material we were traveling through
+
+	float mLastIOR;
+	if(r.matIndex >= 0 ){
+		mLastIOR = mats[r.matIndex].indexOfRefraction;//material we were traveling through
+	}
+	else{
+		mLastIOR = rconfig.airIOR;//material we were traveling through is open space
+	}
 
 	//phong inspired light model.
 	float ks = clamp(MAX(m.hasReflective, m.hasRefractive), 0.0f,1.0f);
@@ -148,7 +155,7 @@ __host__ __device__ BounceType bounceRay(rayState& r, glm::vec3 intersect, glm::
 		//Specular. Determine if reflective or transmited
 		if(m.hasReflective && m.hasRefractive){
 			//both, compute fresnel
-			Fresnel f = calculateFresnel(normal, r.r.direction, mLast.indexOfRefraction, m.indexOfRefraction);
+			Fresnel f = calculateFresnel(normal, r.r.direction, mLastIOR, m.indexOfRefraction);
 
 			//scale our random number by ks
 			//0 <= xi1 <= ks, therefore 0 <= xi1/ks <= 1

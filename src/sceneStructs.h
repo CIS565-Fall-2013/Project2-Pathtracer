@@ -90,6 +90,8 @@ struct renderOptions{
 	float rayPoolSize;
 	bool stocasticRayAssignment;
 
+	glm::vec3 airAbsorbtion;
+	float airIOR;
 
 	glm::vec3 ambientLightColor;
 	float ambientLightIntensity;

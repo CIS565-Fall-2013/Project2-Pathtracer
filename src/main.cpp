@@ -91,7 +91,8 @@ int main(int argc, char** argv){
 
 	renderOpts->frameFiltering = true;
 	renderOpts->backgroundColor = glm::vec3(137, 207, 240)/255.0f;//sky blue
-
+	renderOpts->airIOR = 1.0;
+	renderOpts->airAbsorbtion = glm::vec3(0.0, 0.0, 0.0);//No air absorbtion effects for now
 
 
 	if(targetFrame>=renderCam->frames){

@@ -239,6 +239,17 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 			
 			if(ind >= 0){
 				//we hit something!
+
+				//calculate transmission through material
+				glm::vec3 absorbtionCoeff;
+				if(rstate.matIndex >= 0 )
+					absorbtionCoeff = materials[rstate.matIndex].absorptionCoefficient;
+				else
+					absorbtionCoeff = rconfig.airAbsorbtion;
+
+				rstate.T *= calculateTransmission(absorbtionCoeff, dist);
+
+
 				//Check if it's a light
 				material m = materials[geoms[ind].materialid];
 				if(m.emittance > 0)
@@ -247,6 +258,7 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 					colors[pixelIndex] += rstate.T*m.emittance*m.color;
 					rstate.index = -1;//retire ray
 				}else{
+					//Bounce ray
 
 				}
 			}else{
