@@ -26,6 +26,7 @@
 const glm::vec3 bgColour = glm::vec3 (0.55, 0.25, 0);
 
 void checkCUDAError(const char *msg) {
+	cudaDeviceSynchronize();
   cudaError_t err = cudaGetLastError();
   if( cudaSuccess != err) {
     fprintf(stderr, "Cuda error: %s: %s.\n", msg, cudaGetErrorString( err) ); 
@@ -268,7 +269,7 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
   __shared__ float nLights;
   __shared__ int sqrtLights;
   __shared__ float stepSize;
-  __shared__ float lightEmittance;
+//  __shared__ float lightEmittance;
 
   extern __shared__ glm::vec3 arrayPool [];
   __shared__ glm::vec3 *colourBlock; 
@@ -286,7 +287,7 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 	  light = geoms [0];
 	  lightPos = lightPosition;
 	  lightCol = RenderParams->lightCol;
-	  lightEmittance = textureArray [light.materialid].emittance;
+//	  lightEmittance = textureArray [light.materialid].emittance;
 
 	  colourBlock = arrayPool;
 	  primArrayBlock = (bool *) &colourBlock [blockDim.x * blockDim.y];
@@ -329,7 +330,7 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 	glm::vec3 lightVec; 
 		
 	lightVec = glm::normalize (lightPosition - (currentRay.origin + (currentRay.direction*theRightIntercept.interceptVal)));
-	shadedColour += (calcShade (theRightIntercept, lightVec, cam.position, currentRay, textureArray, ks, kd, lightCol))*lightEmittance;
+	shadedColour += (calcShade (theRightIntercept, lightVec, cam.position, currentRay, textureArray, ks, kd, lightCol));
 
 	if ((theRightIntercept.intrMaterial.emittance > 0) || (theRightIntercept.interceptVal < 0))
 		primArrayBlock [threadID] = false;	// Ray did not hit anything or it hit light, so kill it.
@@ -367,6 +368,140 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 			  colors [index] = colourBlock [threadID];
 		  }
   }
+}
+
+// Kernel to create the initial pool of rays.
+__global__ void createRayPool (ray *rayPool, bool *primaryArray, int *secondaryArray, 
+								cameraData cam, projectionInfo ProjectionParams)
+{
+	int x = (blockDim.x * blockIdx.x) + threadIdx.x;
+	int y = (blockDim.y * blockIdx.y) + threadIdx.y;
+	int threadID = x  +
+				   y * cam.resolution.y;
+	if (threadID < cam.resolution.x*cam.resolution.y)
+	{
+		rayPool [threadID] = raycastFromCameraKernel (cam.resolution, 0, x, y, cam.position, 
+														cam.view, cam.up, cam.fov, ProjectionParams.centreProj, 
+														ProjectionParams.halfVecH, ProjectionParams.halfVecV);
+		rayPool [threadID].x = (blockDim.x * blockIdx.x) + threadIdx.x;
+		rayPool [threadID].y = (blockDim.y * blockIdx.y) + threadIdx.y;
+
+		primaryArray [threadID] = true;
+		secondaryArray [threadID] = 0;
+	}
+}
+
+__global__ void copyArray (bool *from, int *to, int fromLength)
+{
+	/*__shared__ int blockArrays []
+	__shared__ bool *pArrayBlock;
+	__shared__ int *sArrayBlock;
+	
+	if (threadIdx.x == 0)
+	{
+		pArrayBlock = (bool *)blockArrays;
+		sArrayBlock = (int *)&pArrayBlock [blockDim.x];
+	}
+	__syncthreads ();*/
+
+//	int blockIndex = threadIdx.x;
+	int globalIndex = blockDim.x*blockIdx.x + threadIdx.x;
+
+	if (globalIndex < fromLength)
+		to [globalIndex] = from [globalIndex];
+}
+
+__global__ void copyArray (ray *from, ray *to, int fromLength)
+{
+	/*__shared__ int blockArrays []
+	__shared__ bool *pArrayBlock;
+	__shared__ int *sArrayBlock;
+	
+	if (threadIdx.x == 0)
+	{
+		pArrayBlock = (bool *)blockArrays;
+		sArrayBlock = (int *)&pArrayBlock [blockDim.x];
+	}
+	__syncthreads ();*/
+
+//	int blockIndex = threadIdx.x;
+	int globalIndex = blockDim.x*blockIdx.x + threadIdx.x;
+
+	if (globalIndex < fromLength)
+		to [globalIndex] = from [globalIndex];
+}
+
+__global__ void copyArray (int *from, int *to, int fromLength)
+{
+	/*__shared__ int blockArrays []
+	__shared__ bool *pArrayBlock;
+	__shared__ int *sArrayBlock;
+	
+	if (threadIdx.x == 0)
+	{
+		pArrayBlock = (bool *)blockArrays;
+		sArrayBlock = (int *)&pArrayBlock [blockDim.x];
+	}
+	__syncthreads ();*/
+
+//	int blockIndex = threadIdx.x;
+	int globalIndex = blockDim.x*blockIdx.x + threadIdx.x;
+
+	if (globalIndex < fromLength)
+		to [globalIndex] = from [globalIndex];
+}
+
+// Kernel to do inclusive scan.
+__global__ void inclusiveScan (int *secondaryArray, int *tmpArray, int primArrayLength, int iteration)
+{
+//	__shared__ int blockArrays []
+//	__shared__ bool *pArrayBlock;
+//	__shared__ int *sArrayBlock;
+
+//	if (threadIdx.x == 0)
+//	{
+//		pArrayBlock = (bool *)blockArrays;
+//		sArrayBlock = (int *)&pArrayBlock [blockDim.x];
+//	}
+
+	int		curIndex = blockDim.x*blockIdx.x + threadIdx.x;
+	int		prevIndex = curIndex - (int)pow ((float)2, (float)(iteration-1));
+
+	if (curIndex < primArrayLength)
+		if (curIndex >= pow ((float)2, (float)iteration-1))
+			tmpArray [curIndex] = secondaryArray [curIndex] + secondaryArray [prevIndex];
+}
+
+// Kernel to shift all elements of Array to the right. 
+// The last element is thrown out in the process and the first element becomes 0.
+// Can convert an inclusive scan result to an exclusive scan.
+__global__ void	shiftRight (int *Array, int *secondArray, int arrayLength)
+{
+	int		curIndex = blockDim.x*blockIdx.x + threadIdx.x;
+	if (curIndex < arrayLength)
+	{
+		if (curIndex > 0)
+			secondArray [curIndex] = Array [curIndex - 1];
+		else
+			secondArray [curIndex] = 0;
+	}
+
+//	__syncthreads ();
+	// Make sure we make the first element 0 only after all the shifting has taken place.
+//	Array [curIndex] = secondArray [curIndex];
+}
+
+
+// Kernel to do stream compaction.
+__global__ void	compactStream (ray *rayPoolOnDevice, ray *tempRayPool, bool *primaryArrayOnDevice, int *secondaryArray, int rayPoolLengthOnDevice)
+{
+	int		curIndex = blockDim.x*blockIdx.x + threadIdx.x;
+	if (curIndex < rayPoolLengthOnDevice)
+	{
+		int secondArrayIndex = secondaryArray [curIndex];
+		if (primaryArrayOnDevice [curIndex])
+			tempRayPool [secondArrayIndex] = rayPoolOnDevice [curIndex];
+	}
 }
 
 // Device function to check if a point is in shadow.
@@ -409,7 +544,8 @@ __global__ void		accumulateIterationColour (glm::vec3* accumulator, glm::vec3* i
 {
 	int index = (blockDim.y*blockIdx.y + threadIdx.y) * resolution.x + 
 				(blockDim.x*blockIdx.x + threadIdx.x);
-	accumulator [index] += iterationColour [index];
+	if (index < resolution.x*resolution.y)
+		accumulator [index] += iterationColour [index];
 }
 
 // This kernel surveys the rays that are still alive and replaces
@@ -557,6 +693,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   primCounts.nSpheres = count - primCounts.nCubes;
   primCounts.nMeshes = 0;
+  materials [geoms [lightIndex].materialid].color *= materials [geoms [lightIndex].materialid].emittance;
 
   // Allocate memory. We'll copy it later (because we're moving objects around for Motion blur).
   staticGeom* cudageoms = NULL;
@@ -621,11 +758,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   renderInfo	RenderParams, *RenderParamsOnDevice = NULL;
   RenderParams.ks = 0.4;
   RenderParams.kd = 1 - RenderParams.ks;
-  RenderParams.nLights = 1000;
+  RenderParams.nLights = 500;
   RenderParams.sqrtLights = sqrt ((float)RenderParams.nLights);
   RenderParams.lightStepSize = 1.0/(RenderParams.sqrtLights-1);
   RenderParams.lightPos = glm::vec3 (0, -0.6, 0);
-  RenderParams.lightCol = materials [geoms [lightIndex].materialid].color;
+  RenderParams.lightCol = materials [geoms [lightIndex].materialid].color * materials [geoms [lightIndex].materialid].emittance;
   cudaMalloc ((void **)&RenderParamsOnDevice, sizeof (renderInfo));
   cudaMemcpy (RenderParamsOnDevice, &RenderParams, sizeof (renderInfo), cudaMemcpyHostToDevice);
 
@@ -685,71 +822,117 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  
 	  // Create Ray Pool. 
 	  int rayPoolLength = cam.resolution.x * cam.resolution.y;
-	  ray *rayPool = new ray [rayPoolLength];
-	  // Initialize ray pool with rays passing through every pixel in projection plane.
-	  for (int m=0; m < cam.resolution.y; m ++)
-		  for (int n = 0; n < cam.resolution.x; n ++)
-		  {
-			  rayPool [m * (int)cam.resolution.x + n] = raycastFromCameraKernel (cam.resolution, iterations, n, m, cam.position, 
-													cam.view, cam.up, cam.fov, ProjectionParams.centreProj, 
-													ProjectionParams.halfVecH, ProjectionParams.halfVecV);
-			  rayPool [m * (int)cam.resolution.x + n].x = n;
-			  rayPool [m * (int)cam.resolution.x + n].y = m;
-		  }
-	  // Send ray pool to device.
+//	  ray *rayPool = new ray [rayPoolLength];
 	  ray *rayPoolOnDevice = NULL;
 	  cudaMalloc ((void **)&rayPoolOnDevice, rayPoolLength * sizeof (ray));
-	  cudaMemcpy (rayPoolOnDevice, rayPool, rayPoolLength * sizeof (ray), cudaMemcpyHostToDevice);
 
-	  // Create primary and secondary arrays for stream compaction:
+	  // Primary Array		-> Array holding the true/false value specifying whether the ray is alive (true) or dead (false).
+	  // Secondary Array	-> Array that will hold the indices of rays that are alive. Used in stream compaction.
 	  bool *primaryArray = new bool [rayPoolLength];
+	  memset (primaryArray, true, rayPoolLength * sizeof(bool));
 	  bool *primaryArrayOnDevice = NULL;
 	  cudaMalloc ((void **)&primaryArrayOnDevice, rayPoolLength * sizeof (bool));
-	  cudaMemset (primaryArrayOnDevice, true, rayPoolLength * sizeof (bool)); // (primaryArrayOnDevice, primaryArray, rayPoolLength * sizeof (bool), cudaMemcpyHostToDevice);
-	  
-	  int *secondaryArray = new int [rayPoolLength];
-	  memset (secondaryArray, 0, rayPoolLength * sizeof (int));
 
-//	  int *secondaryArrayOnDevice = NULL;
-//	  cudaMalloc ((void **)&secondaryArrayOnDevice, rayPoolLength * sizeof (int));
-//	  cudaMemset (secondaryArrayOnDevice, 0, rayPoolLength * sizeof (int)); // (primaryArrayOnDevice, primaryArray, rayPoolLength * sizeof (bool), cudaMemcpyHostToDevice);
-	  
+	  int *secondaryArray = NULL;
+	  cudaMalloc ((void **)&secondaryArray, rayPoolLength * sizeof (int));
+	  int *secondaryArrayOnHost = new int [rayPoolLength];
 
+	  // Launch createRayPool kernel to create the ray pool and populate the primary and secondary arrays.
+	  fullBlocksPerGrid = dim3 ((int)ceil(float(cam.resolution.x)/threadsPerBlock.x), (int)ceil(float(cam.resolution.y)/threadsPerBlock.y));
+	  createRayPool<<<fullBlocksPerGrid, threadsPerBlock>>> (rayPoolOnDevice, primaryArrayOnDevice, secondaryArray, cam, ProjectionParams);
+//	  cudaDeviceSynchronize ();
+//	  checkCUDAError("createRayPool Kernel failed!");
+	  
+	  dim3 threadsPerBlock1D (threadsPerBlock.x*threadsPerBlock.y);
 	  // Iterate until nBounces: launch kernel to trace each ray bounce.
 	  for (int j = 0; j < nBounces; ++j)
 	  {
-		// kernel launches
+		// The backup secondary array. We use this for many things because we can't do stuff in-place in parallel.
+	    int *secondaryArray2 = NULL;
+		cudaMalloc ((void **)&secondaryArray2, rayPoolLength * sizeof (int));
+
+		// The core raytraceRay kernel launch
 		fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
 		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock, threadsPerBlock.x*threadsPerBlock.y*(sizeof(glm::vec3) + sizeof (bool) + sizeof(ray))>>>
 			((float)j+(i*nBounces), cam, j, cudaimage, cudageoms, materialColours, RenderParamsOnDevice, 
 			 primCounts, primaryArrayOnDevice, rayPoolOnDevice, rayPoolLength, lightPos);
-		cudaThreadSynchronize(); // Wait for Kernel to finish, because we don't want a race condition between successive kernel launches.
-		checkCUDAError("raytraceRay Kernel failed!");
+//		checkCUDAError("raytraceRay Kernel failed!");
 
-		// Inefficient. Grossly inefficient. Need to look over and change as required.
-		cudaMemcpy (primaryArray, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
-		cudaMemcpy (rayPool, rayPoolOnDevice, rayPoolLength * sizeof (ray), cudaMemcpyDeviceToHost);
+/////		---- CPU Stream Compaction ----		///
+//		// Inefficient. Grossly inefficient. Need to look over and change as required.
+//		cudaMemcpy (primaryArray, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
+//		cudaMemcpy (rayPool, rayPoolOnDevice, rayPoolLength * sizeof (ray), cudaMemcpyDeviceToHost);
+//
+//		// Stream compaction:
+//		secondaryArrayOnHost [0] = 0;
+//		for (int k = 1; k < rayPoolLength; ++ k)
+//			secondaryArrayOnHost [k] = secondaryArrayOnHost [k-1] + primaryArray [k-1];
+//
+//		int count = 0;
+//		for (int k = 0; k < rayPoolLength; ++ k)
+//		{
+//			if (primaryArray [k])
+//			{
+//				rayPool [secondaryArrayOnHost [k]] = rayPool [k];
+//				++ count;
+//			}
+//		}
+//
+//		rayPoolLength = count;
+//		cudaMemcpy (rayPoolOnDevice, rayPool, rayPoolLength * sizeof (ray), cudaMemcpyHostToDevice);
+//		cudaMemset (primaryArrayOnDevice, true, rayPoolLength * sizeof (bool));
 
-		// Stream compaction:
-		secondaryArray [0] = 0;
-		for (int k = 1; k < rayPoolLength; ++ k)
-			secondaryArray [k] = secondaryArray [k-1] + primaryArray [k-1];
-
-		int count = 0;
-		for (int k = 0; k < rayPoolLength; ++ k)
+		/// ----- Stream Compaction ----- ///
+		// Copy the primary array into secondaryArray and secondaryArray2.
+		copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (primaryArrayOnDevice, secondaryArray, rayPoolLength);
+//		checkCUDAError("copyArray Kernel failed!");
+		copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (secondaryArray, secondaryArray2, rayPoolLength);
+		
+		// Parallel scan. We can't do it in place, so we accumulate in secondaryArray2, and copy back to secondaryArray
+		// at the end of each iteration.
+		for (int k = 1; k <= ceil (log2f (rayPoolLength)); ++ k) 
 		{
-			if (primaryArray [k])
-			{
-				rayPool [secondaryArray [k]] = rayPool [k];
-				++ count;
-			}
+			inclusiveScan<<<fullBlocksPerGrid, threadsPerBlock1D>>>(secondaryArray, secondaryArray2, rayPoolLength, k);
+			copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (secondaryArray2, secondaryArray, rayPoolLength);
 		}
+//		checkCUDAError("inclusiveScan Kernel failed!");
+	
+		// Next, we convert the result of the parallel scan (inclusive) into exclusive scan.
+		// Again, we use secondaryArray2 to store the shifted values, and then copy back to secondaryArray.
+		shiftRight<<<fullBlocksPerGrid, threadsPerBlock1D>>>(secondaryArray, secondaryArray2, rayPoolLength);
+//		checkCUDAError("shiftRight Kernel failed!");
+		copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (secondaryArray2, secondaryArray, rayPoolLength);
+//		checkCUDAError("copyArray-shiftRight Kernel failed!");
 
+		// We're done with the backup secondary array, so let's free the memory.
+		cudaFree (secondaryArray2);
+
+		// Stream compaction. Compact the ray pool into tmpRayPool and copy back.
+		ray *tmpRayPool = NULL;
+		cudaMalloc ((void **)&tmpRayPool, rayPoolLength * sizeof (ray));
+		compactStream<<<fullBlocksPerGrid, threadsPerBlock1D>>> (rayPoolOnDevice, tmpRayPool, primaryArrayOnDevice, secondaryArray, rayPoolLength);
+//		checkCUDAError("compactStream Kernel failed!");
+
+		// But we only need to copy back the compacted array, so first find the length of the reduced array 
+		cudaMemcpy (primaryArray, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
+		int count = 0;
+		for (int k = 0; k < rayPoolLength; ++k)
+			if (primaryArray [k])
+				count ++;
 		rayPoolLength = count;
-		cudaMemcpy (rayPoolOnDevice, rayPool, rayPoolLength * sizeof (ray), cudaMemcpyHostToDevice);
+
+		// Now copy it back.
+		copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (tmpRayPool, rayPoolOnDevice, rayPoolLength);
+		cudaFree (tmpRayPool);
+
+		// Set the primary array to all trues because all rays in the ray pool are alive, 
+		// now that stream compaction has already happened.
 		cudaMemset (primaryArrayOnDevice, true, rayPoolLength * sizeof (bool));
+//		checkCUDAError("copyArray-compactStream Kernel failed!");
 	  }
-      fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
+	  checkCUDAError ("One or more of the raytrace/stream compaction kernels failed. ");
+
+	  fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
 	  // At this point, since stream compaction has already taken place,
 	  // it means that rayPoolOnDevice contains only rays that are still alive.
 	  addNoise<<<fullBlocksPerGrid,threadsPerBlock>>>(cudaimage, rayPoolOnDevice, rayPoolLength, cam.resolution);
@@ -758,17 +941,18 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  accumulateIterationColour<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaFinalImage, cudaimage, cam.resolution);
 	  checkCUDAError("accumulateIterationColour Kernel failed!");
 
-	  delete [] rayPool;
-	  delete [] primaryArray;
-	  delete [] secondaryArray;
-
 	  cudaFree (rayPoolOnDevice);
 	  cudaFree (primaryArrayOnDevice);
+	  cudaFree (secondaryArray);
 	  cudaFree (cudaimage);
 
 	  rayPoolOnDevice = NULL;
 	  primaryArrayOnDevice = NULL;
 	  cudaimage = NULL;
+
+	  delete [] primaryArray;
+	  delete [] secondaryArrayOnHost;
+//	  delete [] rayPool;
 
 	  std::cout << "\rRendering.. " <<  ceil ((float)i/(RenderParams.nLights-1) * 100) << " percent complete.";
   }
@@ -798,6 +982,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	   }*/
 	   cudaFree (materialColours);
    }
+   cudaFree (RenderParamsOnDevice);
 
    cudaFinalImage = NULL;
    cudageoms = NULL;
