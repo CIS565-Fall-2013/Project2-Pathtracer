@@ -52,8 +52,10 @@ int targetFrame;
 int iterations;
 bool finishedRender;
 bool singleFrameMode;
-int mblur;
-int dof;
+int mblur=0;
+int dof=0;
+int currentSelectedObjId = -1;
+
 
 //-------------------------------
 //------------GL STUFF-----------

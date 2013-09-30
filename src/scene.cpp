@@ -215,8 +215,10 @@ int scene::loadCamera(){
 	//set up render camera stuff
 	renderCam.image = new glm::vec4[(int)renderCam.resolution.x*(int)renderCam.resolution.y];
 	renderCam.rayList = new ray[(int)renderCam.resolution.x*(int)renderCam.resolution.y];
+	renderCam.objIdBuffer = new int[(int)renderCam.resolution.x*(int)renderCam.resolution.y];
 	for(int i=0; i<renderCam.resolution.x*renderCam.resolution.y; i++){
 		renderCam.image[i] = glm::vec4(0,0,0,-1);
+		renderCam.objIdBuffer[i] = -1;
 	}
 	
 	cout << "Loaded " << frameCount << " frames for camera!" << endl;

@@ -200,7 +200,7 @@ __global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec4* imag
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec4* colors, 
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, 
+                            int* objidbuffer, staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, 
 							int* lights, int numberOfLights,ray* rays,int dof){
 
   //int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -247,6 +247,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	if (bounce==1 && time< 1.5f)
 	{
 		colors[pixelIndex].w = intersectionPoint.z;
+		objidbuffer[pixelIndex] = objId;
 	}
 	if (objId == -1)
 	{
@@ -292,7 +293,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 		r.rayColor.z *= mtl.color.z;
 	}
 
-	rays[index].origin = r.origin + 0.005f*r.direction;
+	rays[index].origin = r.origin + 0.001f*r.direction;
 	rays[index].direction = r.direction;
 	rays[index].active = r.active;
 	rays[index].pixelIndex = r.pixelIndex;
@@ -444,6 +445,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   glm::vec4* cudaimage = NULL;
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec4));
   cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec4), cudaMemcpyHostToDevice);
+
+  int* cudaobjidbuffer = NULL;
+  cudaMalloc((void**)&cudaobjidbuffer, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(int));
   
    //package lights
   std::vector<int> lightsVector;
@@ -586,7 +590,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   for(int bounce = 1; bounce <= 8; ++bounce)
   {
 	dim3 compactedBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
-	raytraceRay<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays,dof);
+	raytraceRay<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage,cudaobjidbuffer, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays,dof);
 	numberOfThreads = thrust::partition(thrustRaysArray,thrustRaysArray+numberOfThreads,is_active()) - thrustRaysArray;
 	//numberOfThreads = thrust::remove_if(thrustRaysArray,thrustRaysArray+numberOfThreads,is_not_active()) - thrustRaysArray;
 
@@ -607,6 +611,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec4), cudaMemcpyDeviceToHost);
+  if(iterations == 1)
+	cudaMemcpy( renderCam->objIdBuffer, cudaobjidbuffer, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(int), cudaMemcpyDeviceToHost);
+
   //clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaimage);
   //free up stuff, or else we'll leak memory like a madman
   cudaFree( cudaimage );
@@ -618,6 +625,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree(cudaActiveArray);
   cudaFree(dParallelScanTempArray);
   cudaFree(dNumActiveRays);
+  cudaFree(cudaobjidbuffer);
   delete [] geomList;
   delete [] geomListPrevFrame;
   //delete [] rays;

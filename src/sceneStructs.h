@@ -58,6 +58,7 @@ struct camera {
 	glm::vec3* positions;
 	glm::vec3* views;
 	glm::vec3* ups;
+	int* objIdBuffer;
 	int frames;
 	glm::vec2 fov;
 	unsigned int iterations;

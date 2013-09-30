@@ -27,8 +27,7 @@ int main(int argc, char** argv){
 
   targetFrame = 0;
   singleFrameMode = false;
-  dof = 0;
-  mblur = 0;
+
 
   // Load scene file
   for(int i=1; i<argc; i++){
@@ -132,7 +131,6 @@ void runCuda(){
   
     // execute the kernel
     cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), mblur,dof);
-    
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   }else{
@@ -245,7 +243,9 @@ void runCuda(){
 		
 		else if(button == GLUT_LEFT_BUTTON && state== GLUT_DOWN)
 		{
-
+			int pixelX = renderCam->resolution.x -1 - x;
+			int index = pixelX + renderCam->resolution.x*y;
+			currentSelectedObjId = renderCam->objIdBuffer[index];
 		}
 	}
 
@@ -282,11 +282,86 @@ void runCuda(){
 			   renderCam->positions[targetFrame].x-=0.2f;
 			   break;
 
+		   case 'x':
+			   if(currentSelectedObjId != -1)
+			   {
+			   iterations = 0;
+			   resetImage(renderCam);
+			   geom g = renderScene->objects[currentSelectedObjId];
+			   g.translations[targetFrame].x+=0.2;
+			   glm::mat4 transform = utilityCore::buildTransformationMatrix(g.translations[targetFrame],g.rotations[targetFrame],g.scales[targetFrame]);
+			   g.transforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(transform);
+			   g.inverseTransforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+			   }
+			   break;
+
+		   case 'X':
+			   if(currentSelectedObjId != -1)
+			   {
+			   iterations = 0;
+			   resetImage(renderCam);
+			   geom g = renderScene->objects[currentSelectedObjId];
+			   g.translations[targetFrame].x-=0.2;
+			   glm::mat4 transform = utilityCore::buildTransformationMatrix(g.translations[targetFrame],g.rotations[targetFrame],g.scales[targetFrame]);
+			   g.transforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(transform);
+			   g.inverseTransforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+			   }
+			   break;
+
+		   case 'y':
+			   if(currentSelectedObjId != -1)
+			   {
+			   iterations = 0;
+			   resetImage(renderCam);
+			   geom g = renderScene->objects[currentSelectedObjId];
+			   g.translations[targetFrame].y+=0.2;
+			   glm::mat4 transform = utilityCore::buildTransformationMatrix(g.translations[targetFrame],g.rotations[targetFrame],g.scales[targetFrame]);
+			   g.transforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(transform);
+			   g.inverseTransforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+			   }
+			   break;
+
+		   case 'Y':
+			   if(currentSelectedObjId != -1)
+			   {
+			   iterations = 0;
+			   resetImage(renderCam);
+			   geom g = renderScene->objects[currentSelectedObjId];
+			   g.translations[targetFrame].y-=0.2;
+			   glm::mat4 transform = utilityCore::buildTransformationMatrix(g.translations[targetFrame],g.rotations[targetFrame],g.scales[targetFrame]);
+			   g.transforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(transform);
+			   g.inverseTransforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+			   }
+			   break;
+		   case 'z':
+			   if(currentSelectedObjId != -1)
+			   {
+			   iterations = 0;
+			   resetImage(renderCam);
+			   geom g = renderScene->objects[currentSelectedObjId];
+			   g.translations[targetFrame].z+=0.2;
+			   glm::mat4 transform = utilityCore::buildTransformationMatrix(g.translations[targetFrame],g.rotations[targetFrame],g.scales[targetFrame]);
+			   g.transforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(transform);
+			   g.inverseTransforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+			   }
+			   break;
+
+		   case 'Z':
+			   if(currentSelectedObjId != -1)
+			   {
+			   iterations = 0;
+			   resetImage(renderCam);
+			   geom g = renderScene->objects[currentSelectedObjId];
+			   g.translations[targetFrame].z-=0.2;
+			   glm::mat4 transform = utilityCore::buildTransformationMatrix(g.translations[targetFrame],g.rotations[targetFrame],g.scales[targetFrame]);
+			   g.transforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(transform);
+			   g.inverseTransforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+			   }
+			   break;
 		}
 	}
 
 #endif
-
 
 
 
@@ -460,5 +535,6 @@ void resetImage(camera* renderCam)
 		{
 			int index = x + (renderCam->resolution.x*y);
 			renderCam->image[index] = glm::vec4(0,0,0,-1);
+			renderCam->objIdBuffer[index] = -1;
 		}
 }
