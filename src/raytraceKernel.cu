@@ -224,8 +224,7 @@ __device__ glm::vec3 getColour (material Material, glm::vec2 UVcoords)
 }
 
 // Calclates the direct lighting at a given point, which is calculated from castRay and interceptVal of theRightIntercept. 
-__device__ glm::vec3 calcShade (interceptInfo theRightIntercept, glm::vec3 lightVec, glm::vec3 eye, ray castRay, 
-								material* textureArray, float ks, float kd, glm::vec3 lightCol)
+__device__ glm::vec3 calcShade (interceptInfo theRightIntercept, material* textureArray)
 {
 	glm::vec3 shadedColour = glm::vec3 (0,0,0);
 	if ((theRightIntercept.interceptVal > 0))
@@ -234,24 +233,6 @@ __device__ glm::vec3 calcShade (interceptInfo theRightIntercept, glm::vec3 light
 			shadedColour = theRightIntercept.intrMaterial.specularColor;
 		else
 			shadedColour = theRightIntercept.intrMaterial.color;
-		//// Diffuse shading
-		//glm::vec3 intrPoint = castRay.origin + theRightIntercept.interceptVal*castRay.direction;	// The intersection point.
-		//glm::vec3 intrNormal = glm::normalize (eye - intrPoint); // intrNormal is the view vector.
-		//float interceptValue = max (glm::dot (theRightIntercept.intrNormal, lightVec), (float)0); // Diffuse Lighting is given by (N.L); N being normal at intersection pt and L being light vector.
-		//intrPoint = (getColour (theRightIntercept.intrMaterial, theRightIntercept.UV) * kd * interceptValue);			// Reuse intrPoint to store partial product (kdId) of the diffuse shading computation.
-		//shadedColour += multiplyVV (lightCol*emittance, intrPoint);		// shadedColour will have diffuse shaded colour. 
-		//
-		//// Specular shading
-		//lightVec = glm::normalize (reflectRay (-lightVec, theRightIntercept.intrNormal)); // Reuse lightVec for storing the reflection of light vector around the normal.
-		//interceptValue = max (glm::dot (lightVec, intrNormal), (float)0);				// Reuse interceptValue for computing dot pdt of specular.
-		//shadedColour += (lightCol * ks * pow (interceptValue, theRightIntercept.intrMaterial.specularExponent));
-
-		//// Quick and Dirty fix for lights.
-		//if ((theRightIntercept.intrMaterial.emittance > 0) && (interceptValue > 0))
-		//	shadedColour = glm::vec3 (1,1,1);
-		//else 
-//		if ((rayDepth >= 5) && (theRightIntercept.intrMaterial.emittance < 1))
-//			shadedColour = glm::vec3 (0);
 	}
 
 	return	shadedColour;
@@ -261,19 +242,8 @@ __device__ glm::vec3 calcShade (interceptInfo theRightIntercept, glm::vec3 light
 //Core raytracer kernel
 __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3* colors, staticGeom* geoms, 
 							 material* textureArray, renderInfo * RenderParams, sceneInfo objectCountInfo, 
-							 bool *primaryArrayOnDevice, ray *rayPoolOnDevice, int rayPoolLength, glm::vec3 lightPosition)
+							 bool *primaryArrayOnDevice, ray *rayPoolOnDevice, int rayPoolLength)
 {
-  __shared__ staticGeom light;
-  __shared__ renderInfo RenderParamsOnBlock;
-  __shared__ float ks;
-  __shared__ float kd;
-  __shared__ glm::vec3 lightPos;
-  __shared__ glm::vec3 lightCol;
-  __shared__ float nLights;
-  __shared__ int sqrtLights;
-  __shared__ float stepSize;
-//  __shared__ float lightEmittance;
-
   extern __shared__ glm::vec3 arrayPool [];
   __shared__ glm::vec3 *colourBlock; 
   __shared__ bool *primArrayBlock;
@@ -281,69 +251,48 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 
   if ((threadIdx.x == 0) && (threadIdx.y == 0))
   {
-	  RenderParamsOnBlock = *RenderParams;
-	  ks = RenderParams->ks;
-	  kd = RenderParams->kd;
-	  nLights = RenderParams->nLights;
-	  sqrtLights = RenderParams->sqrtLights;
-	  stepSize = RenderParams->lightStepSize;
-	  light = geoms [0];
-	  lightPos = lightPosition;
-	  lightCol = RenderParams->lightCol;
-//	  lightEmittance = textureArray [light.materialid].emittance;
-
 	  colourBlock = arrayPool;
 	  primArrayBlock = (bool *) &colourBlock [blockDim.x * blockDim.y];
 	  rayPoolBlock = (ray *) &primArrayBlock [blockDim.x * blockDim.y];
-	  for (int i = 0; i < blockDim.y; i ++)
-		  for (int j = 0; j < blockDim.x; j ++)
-		  {
-			  // We have a 1-D array of blocks in the grid. From a thread's perspective, it is a 2-D array.
-			  // Ray pool is a massive 1-D array, so we need to compute the index of the element of ray pool
-			  // that each thread will handle.
-			  int index = (blockIdx.x * blockDim.x) + j +			// X-part: straightforward
-						  (i * (int)(blockDim.x * ceil ((float)rayPoolLength / (float)(blockDim.x*blockDim.y))));  // Y-part: as below:
-			  // No. of blocks in the grid = ceil (rayPoolLength / (blockDim.x*blockDim.y))
-			  // Multiplying that with the no. threads in a block gives the no. of threads in a single row of grid.
-			  // Multiplying that with row number (threadIdx.y) and adding the x offset (X-part) gives the index.
-			  int index2 = i*blockDim.x + j;
-			  primArrayBlock [index2] = primaryArrayOnDevice [index];
-			  rayPoolBlock [index2] = rayPoolOnDevice [index];
-
-			  // We recompute the index for the colour array since it represents a frame
-			  // and each index represents a pixel. If we don't, stream compaction would 
-			  // mess things up.
-			  index = rayPoolBlock [index2].y*cam.resolution.x + rayPoolBlock [index2].x;
- 			  colourBlock [index2] = colors [index];
-			  // colourBlock [index2] therefore represents colour computed by ray through the pixel (x,y)
-		  }
   }
-  __syncthreads ();
 
+  __syncthreads ();		// Block all threads until the colourBlock, rayPoolBlock
+						// and primArrayBlock pointers have been bound properly.
 
-  int threadID = (blockIdx.x * blockDim.x) + threadIdx.x +			
-				 (threadIdx.y * (int)(blockDim.x * ceil ((float)rayPoolLength / (float)(blockDim.x*blockDim.y))));
-  int randomSeed = threadID*time;
+  // We have a 1-D array of blocks in the grid. From a thread's perspective, it is a 2-D array.
+  // Ray pool is a massive 1-D array, so we need to compute the index of the element of ray pool
+  // that each thread will handle.
+
+  // No. of blocks in the grid = ceil (rayPoolLength / (blockDim.x*blockDim.y))
+  // Multiplying that with the no. threads in a block gives the no. of threads in a single row of grid.
+  // Multiplying that with row number (threadIdx.y) and adding the x offset (X-part) gives the index.
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x +			// X-part: straightforward
+			(threadIdx.y * (int)(blockDim.x * ceil ((float)rayPoolLength / (float)(blockDim.x*blockDim.y))));  // Y-part: as below:
+  int threadID = threadIdx.y*blockDim.x + threadIdx.x;
+  int colourIndex;
+
   glm::vec3 shadedColour = glm::vec3 (0);
-  if (threadID < rayPoolLength)
+
+  if (index < rayPoolLength)
   {
-	threadID = threadIdx.y*blockDim.x + threadIdx.x;
-	ray currentRay = rayPoolBlock [threadID];
-	interceptInfo theRightIntercept = getIntercept (geoms, objectCountInfo, currentRay, textureArray);
-	glm::vec3 lightVec; 
-		
-	lightVec = glm::normalize (lightPosition - (currentRay.origin + (currentRay.direction*theRightIntercept.interceptVal)));
-	shadedColour += (calcShade (theRightIntercept, lightVec, cam.position, currentRay, textureArray, ks, kd, lightCol));
+    primArrayBlock [threadID] = primaryArrayOnDevice [index];
+    rayPoolBlock [threadID] = rayPoolOnDevice [index];
+	// We compute the index for the colour array separately since it represents a frame
+    // and each index represents a pixel. If we don't, stream compaction would mess things up.
+	colourIndex = rayPoolBlock [threadID].y*cam.resolution.x + rayPoolBlock [threadID].x;
+    colourBlock [threadID] = colors [colourIndex];
+    // colourBlock [threadID] therefore represents colour computed by ray through the pixel (x,y)
+
+	interceptInfo theRightIntercept = getIntercept (geoms, objectCountInfo, rayPoolBlock [threadID], textureArray);		
+	shadedColour += calcShade (theRightIntercept, textureArray);
 
 	if ((theRightIntercept.intrMaterial.emittance > 0) || (theRightIntercept.interceptVal < 0))
 		primArrayBlock [threadID] = false;	// Ray did not hit anything or it hit light, so kill it.
 	else
-		calculateBSDF  (currentRay, 
-						currentRay.origin + currentRay.direction * theRightIntercept.interceptVal, 
+		calculateBSDF  (rayPoolBlock [threadID], 
+						rayPoolBlock [threadID].origin + rayPoolBlock [threadID].direction * theRightIntercept.interceptVal, 
 						theRightIntercept.intrNormal, glm::vec3 (0), AbsorptionAndScatteringProperties (), 
-						randomSeed, theRightIntercept.intrMaterial.color, glm::vec3 (0), theRightIntercept.intrMaterial);
-
-	rayPoolBlock [threadID] = currentRay;
+						index*time, theRightIntercept.intrMaterial.color, glm::vec3 (0), theRightIntercept.intrMaterial);
 	
 	if (glm::length (colourBlock [threadID]) > 0)
 		colourBlock [threadID] *= shadedColour;			// Add computed shade to shadedColour.
@@ -352,24 +301,13 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
   }
 
   __syncthreads ();
-
-  if ((threadIdx.x ==0) && threadIdx.y == 0)
+  
+  // Copy the rayPool, Colour and Primary arrays back to global memory.
+  if (index < rayPoolLength)
   {
-	  for (int i = 0; i < blockDim.y; i ++)
-		  for (int j = 0; j < blockDim.x; j ++)
-		  {
-			  // Calculate the index.
-			  int index = (blockIdx.x * blockDim.x) + j +												// X-part
-						  (i * (int)(blockDim.x * ceil ((float)rayPoolLength / (float)(blockDim.x*blockDim.y))));		// Y-part
-
-			  threadID = i*blockDim.x + j;
-			  primaryArrayOnDevice [index] = primArrayBlock [threadID];
-			  rayPoolOnDevice [index] = rayPoolBlock [threadID];
-
-			  // Recalculate the index for colour array.
-			  index = rayPoolBlock [threadID].y*cam.resolution.x + rayPoolBlock [threadID].x;
-			  colors [index] = colourBlock [threadID];
-		  }
+	  primaryArrayOnDevice [index] = primArrayBlock [threadID];
+	  rayPoolOnDevice [index] = rayPoolBlock [threadID];
+	  colors [colourIndex] = colourBlock [threadID];
   }
 }
 
@@ -798,13 +736,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	  float zAdd = jitter (randomNumGen);
 	  float xAdd = jitter (randomNumGen); 
-	  glm::vec3 curLightSamplePos = glm::vec3 (RenderParams.lightPos.x /*+ ((i%RenderParams.sqrtLights)*RenderParams.lightStepSize)*/, 
-												RenderParams.lightPos.y, 
-												RenderParams.lightPos.z/* + ((i/RenderParams.sqrtLights)*RenderParams.lightStepSize)*/);
+//	  glm::vec3 curLightSamplePos = glm::vec3 (RenderParams.lightPos.x /*+ ((i%RenderParams.sqrtLights)*RenderParams.lightStepSize)*/, 
+//												RenderParams.lightPos.y, 
+//												RenderParams.lightPos.z/* + ((i/RenderParams.sqrtLights)*RenderParams.lightStepSize)*/);
 	  
 	  // Area light sampled in a jittered grid to reduce banding.
-	  curLightSamplePos.z += zAdd;
-	  curLightSamplePos.x += xAdd;
+//	  curLightSamplePos.z += zAdd;
+//	  curLightSamplePos.x += xAdd;
 	  
 	  if (!(i%oneEighthDivisor))	// Supersampling at 8x!
 	  {
@@ -826,7 +764,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  //  Now copy the geometry list to the GPU global memory.
 	  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
 
-	  glm::vec3 lightPos = multiplyMV (geomList [0].transform, glm::vec4 (curLightSamplePos, 1.0));
+//	  glm::vec3 lightPos = multiplyMV (geomList [0].transform, glm::vec4 (curLightSamplePos, 1.0));
 	  
 	  // Create Ray Pool. 
 	  int rayPoolLength = cam.resolution.x * cam.resolution.y;
@@ -863,7 +801,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
 		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock, threadsPerBlock.x*threadsPerBlock.y*(sizeof(glm::vec3) + sizeof (bool) + sizeof(ray))>>>
 			((float)j+(i*nBounces), cam, j, cudaimage, cudageoms, materialColours, RenderParamsOnDevice, 
-			 primCounts, primaryArrayOnDevice, rayPoolOnDevice, rayPoolLength, lightPos);
+			 primCounts, primaryArrayOnDevice, rayPoolOnDevice, rayPoolLength);
 //		checkCUDAError("raytraceRay Kernel failed!");
 
 /////		---- CPU Stream Compaction ----		///

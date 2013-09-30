@@ -44,6 +44,9 @@
   <ItemGroup>
     <CudaCompile Include="..\..\src\raytraceKernel.cu" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\scenes\sampleScene.txt" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{FF21CA49-522E-4E86-B508-EE515B248FC4}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
