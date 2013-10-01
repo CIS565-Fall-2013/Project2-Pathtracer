@@ -152,16 +152,8 @@ __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, g
 	if(glm::dot(normal, incident) > 0.0)
 		normal = -normal;//If the normal is in the wrong direction, flip it
 
-	float cos_thi = glm::dot(normal,incident);
-	float eta  = incidentIOR/transmittedIOR;
-	float radicand = 1.0-(eta*eta)*(1-cos_thi*cos_thi);
-	if(radicand > 0.0)
-		//TODO: Figure out why my code doesn't work.
-			//return glm::refract(incident, normal, eta);
-				return eta*incident - (eta*cos_thi + sqrt(radicand))*normal;
-	else
-		//Total internal reflection, no transmission
-		return glm::vec3(0,0,0);
+	return glm::refract(incident, normal, incidentIOR/transmittedIOR);
+	
 
 }
 
@@ -169,8 +161,7 @@ __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm
 	//nothing fancy here. Just a bounds check
 	if(glm::dot(normal, incident) > 0.0)
 		normal = -normal;//If the normal is in the wrong direction, flip it
-
-	return incident-glm::dot(2.0f*normal, incident) * normal;
+	return incident-(2.0f*glm::dot(normal, incident)) * normal;
 }
 
 

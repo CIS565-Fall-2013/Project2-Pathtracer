@@ -29,7 +29,7 @@
 #define E                           2.7182818284590452353602874713526624977572
 #define EPSILON                     0.000000001f
 #define ZERO_ABSORPTION_EPSILON     0.00001f
-#define RAY_BIAS_AMOUNT             0.0002f
+#define RAY_BIAS_AMOUNT             0.002f
 
 #define MIN(a,b)	((a<b)?a:b)
 #define MAX(a,b)	((a>b)?a:b)

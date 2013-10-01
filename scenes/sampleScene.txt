@@ -64,9 +64,9 @@ SPECEX      0
 SPECRGB     1 1 1      
 REFL        0       
 REFR        1     
-REFRIOR     1       
+REFRIOR     1.5      
 SCATTER     0        
-ABSCOEFF    .02 0.02 0.02     
+ABSCOEFF    0 0 0    
 RSCTCOEFF   13
 EMITTANCE   0
 
@@ -104,7 +104,7 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   1
+EMITTANCE   10
 
 CAMERA
 RES         600 600
@@ -158,7 +158,7 @@ SCALE       .01 10 10
 
 OBJECT 5
 sphere
-material 4
+material 5
 frame 0
 TRANS       0 2 0
 ROTAT       0 180 0
@@ -166,7 +166,7 @@ SCALE       3 3 3
 
 OBJECT 6
 sphere
-material 3
+material 5
 frame 0
 TRANS       2 5 2
 ROTAT       0 180 0
@@ -176,8 +176,8 @@ OBJECT 7
 sphere
 material 5
 frame 0
-TRANS       -2 5 5
-ROTAT       0 45 0
+TRANS       -2 5 0
+ROTAT       0 0 0
 SCALE       3 3 3
 
 OBJECT 8

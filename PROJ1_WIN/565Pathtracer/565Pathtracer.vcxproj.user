@@ -5,7 +5,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug (v5.5)|Win32'">
-    <LocalDebuggerCommandArguments>scene=../../scenes/hallofmirrors.txt</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>scene=../../scenes/sampleScene.txt</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug (v4.0)|Win32'">
@@ -13,7 +13,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release (v5.5)|Win32'">
-    <LocalDebuggerCommandArguments>scene=../../scenes/sampleScene.txt</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>scene=../../scenes/hallofmirrors.txt</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>
