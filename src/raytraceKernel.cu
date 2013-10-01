@@ -27,11 +27,12 @@
 
 #define LIGHT_NUM 1
 #define ANTI_NUM 1
-#define STREAMCOMPATION 1
+#define STREAMCOMPACTION 1
 #define TITLESIZESC 256//this title size is for stream compaction
 #define TITLESIZE 16
-#define MAXDEPTH 20
+#define MOTIONBLUR 1
 //#define DOF 1
+#define MAXDEPTH 20
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
@@ -640,6 +641,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMalloc((void**)&cudaPreImage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
   cudaMemcpy( cudaPreImage, preColors, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
   
+#ifdef MOTIONBLUR
+  float p1 = (((float)rand()/(float)RAND_MAX) + 1.0) / 2.0f;
+	
+  geoms[6].translations[0].x = p1;	
+  glm::mat4 transform = utilityCore::buildTransformationMatrix(geoms[6].translations[0], geoms[6].rotations[0], geoms[6].scales[0]);
+  geoms[6].transforms[0] = utilityCore::glmMat4ToCudaMat4(transform);
+  geoms[6].inverseTransforms[0] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+#endif
+
   //package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
   for(int i=0; i<numberOfGeoms; i++){
@@ -696,7 +706,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   //cudaDeviceGetLimit(&size, cudaLimitStackSize);
 
 //kernel launches
-#ifdef STREAMCOMPATION
+#ifdef STREAMCOMPACTION
 	addPreColors<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaPreImage, cudaimage, renderCam->resolution);
 	//initialize ray pool
 	rayPixel* cudaRayPool = NULL;
@@ -739,7 +749,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudageoms );
   cudaFree( cudamaterial);
   cudaFree( cudaLightPos );
-#ifdef STREAMCOMPATION 
+#ifdef STREAMCOMPACTION 
   cudaFree( cudaRayPool );
 #endif
   cudaFree( cudaPreImage );

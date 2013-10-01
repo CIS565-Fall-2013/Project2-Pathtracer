@@ -1,6 +1,19 @@
-![alt tag](https://github.com/tiansijie/Project2-Pathtracer/blob/master/PROJ1_WIN/565Pathtracer/test3000.0.bmp);
+![ScreenShot](https://github.com/tiansijie/Project2-Pathtracer/blob/master/PROJ1_WIN/565Pathtracer/test3000.0.bmp);
 
-WO diu a , let me see you
+CUDA Path Tracing
+-------------------------------------------------------------------------------
+Description:
+In this project, except for implementing the basic requirement of Pathtracer, I also did motion blur, depth of filed, fresnel-based refraction and OBJ mesh loader.
+
+For the stream compaction in my program, you can find the #define at the very top of .cu file. Comment out this #define STREAMCOMPACTION is to turn off the stream compaction. With great help of our TA, Liam, I also found out the the stream compaction will be faster only when the number of depth for path tracing is bigger than 10. If this depth number is smaller than 10, then the original path tracer actually is faster than stream compaction.
+
+The motion blur part currently is hard coded in my program and using translation motion blur. Basically it's just moving a specific object forward and backward in each iteration. I have #define MOTIONBLUR at the very top of .cn file for turning off or on this effect.
+
+For the depth of filed, I changed the camera aim at position base on the focal length and jitter camera position at the initialization of ray cast from camera. I have #define DOF at the very top of .cu file for turning on and off this effect. 
+
+In fresnel refraction, I treated the light as unpolarised and average the result of reflection coefficient from s-polarised and p-polarized. Then the refraction coefficient is just using T = 1 - R. 
+
+The OBJ mesh loader I am using TinyObjLoader from https://github.com/syoyo/tinyobjloader, which is a simple, robust and easy to use library. Then I added the triangle intersection function for testing the ray intersect with triangle in the mesh. Due to the ability of my graphic card, it cannot load a large mesh file.
 
 
 -------------------------------------------------------------------------------
