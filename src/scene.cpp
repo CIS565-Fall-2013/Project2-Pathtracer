@@ -9,8 +9,6 @@
 #include <cstring>
 #include "tiny_obj_loader.h"
 
-void load_obj(const char* filename, vector<glm::vec3> &vertices, vector<glm::vec3> &normals, vector<int> &elements, vector<triangle> &triangles);
-
 scene::scene(string filename){
 	cout << "Reading scene from " << filename << " ..." << endl;
 	cout << " " << endl;
@@ -321,42 +319,4 @@ int scene::loadMaterial(string materialid){
 		materials.push_back(newMaterial);
 		return 1;
 	}
-}
-
-
-void load_obj(const char* filename, vector<glm::vec3> &vertices, vector<glm::vec3> &normals, vector<int> &elements, vector<triangle> &triangles) {
-  ifstream in(filename, ios::in);
-  if (!in) { cerr << "Cannot open " << filename << endl; exit(1); }
- 
-  string line;
-  while (getline(in, line)) {
-    if (line.substr(0,2) == "v ") {
-      istringstream s(line.substr(2));
-      glm::vec3 v; s >> v.x; s >> v.y; s >> v.z;// v.w = 1.0f;
-      vertices.push_back(v);
-    }  else if (line.substr(0,2) == "f ") {
-      istringstream s(line.substr(2));
-      int a,b,c;
-      s >> a; s >> b; s >> c;
-      a--; b--; c--;
-      elements.push_back(a); elements.push_back(b); elements.push_back(c);
-    }
-  }
- 
-  normals.resize(vertices.size(), glm::vec3(0.0, 0.0, 0.0));
-  for (int i = 0; i < elements.size(); i+=3) {
-    int ia = elements[i];
-    int ib = elements[i+1];
-    int ic = elements[i+2];
-    glm::vec3 normal = glm::normalize(glm::cross(
-      glm::vec3(vertices[ib]) - glm::vec3(vertices[ia]),
-      glm::vec3(vertices[ic]) - glm::vec3(vertices[ia])));
-    normals[ia] = normals[ib] = normals[ic] = normal;
-	triangle tri;
-	tri.normal = normal;
-	tri.p1 =  vertices[ia];
-	tri.p2 =  vertices[ib];
-	tri.p3 =  vertices[ic];
-	triangles.push_back(tri);
-  }
 }
