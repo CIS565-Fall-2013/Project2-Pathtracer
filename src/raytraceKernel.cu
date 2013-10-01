@@ -73,8 +73,6 @@ __global__ void raycastFromCameraKernel(int seed, int frame, cameraData cam, ren
 	int blockId   = blockIdx.y * gridDim.x + blockIdx.x;			 	
 	int rIndex = blockId * blockDim.x + threadIdx.x; 
 	if(rIndex < rayPoolSize){
-		thrust::default_random_engine rng(hash(seed*rIndex));//TODO: Improve randomness
-		thrust::uniform_real_distribution<float> u01(0,1);
 		//read from global mem
 		rayState rstate = cudaraypool[rIndex];
 		int pixelIndex = rstate.index;
@@ -85,7 +83,13 @@ __global__ void raycastFromCameraKernel(int seed, int frame, cameraData cam, ren
 			//Reset other fields
 			rstate.T = glm::vec3(1,1,1);
 			rstate.matIndex = -1;
-			rstate.r =raycastFromCamera(cam.resolution, x+u01(rng)-0.5, y+u01(rng)-0.5, cam.position, cam.view, cam.up, cam.fov);
+			if(rconfig.antialiasing){
+		thrust::default_random_engine rng(hash(seed*rIndex));//TODO: Improve randomness
+		thrust::uniform_real_distribution<float> u01(-0.5,0.5);
+				rstate.r =raycastFromCamera(cam.resolution, x+u01(rng), y+u01(rng), cam.position, cam.view, cam.up, cam.fov);
+			}else{
+				rstate.r =raycastFromCamera(cam.resolution, x, y, cam.position, cam.view, cam.up, cam.fov);
+			}
 			rstate.bounceType = PRIMARY;
 			//write back to global mem
 			cudaraypool[rIndex] = rstate;
@@ -307,10 +311,11 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 						rstate.index = -1;//retire ray
 					}else if(rconfig.mode == PATHTRACE){
 						//Compute global illumination component, we've hit the sky
-						if(rstate.bounceType == DIFFUSE){
+						if(rstate.bounceType == DIFFUSE || rstate.bounceType == TRANSMIT){
 						float globalLightDot = clamp(-glm::dot(rstate.r.direction, rconfig.globalLightDirection),0.0f,1.0f);
 							colors[pixelIndex] += rstate.T*rconfig.globalLightColor*rconfig.globalLightIntensity*globalLightDot;
-						}else{//Primary or specular reflection, display color
+						}else{
+							//Primary or specular reflection, display color
 							colors[pixelIndex] += rstate.T*rconfig.backgroundColor;
 						}
 						rstate.index = -1;//retire ray

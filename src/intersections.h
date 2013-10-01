@@ -42,6 +42,13 @@ __host__ __device__ bool epsilonCheck(float a, float b){
     }
 }
 
+__host__ __device__ bool epsilonCheck(float a, float b, float ep){
+    if(fabs(fabs(a)-fabs(b))<ep){
+        return true;
+    }else{
+        return false;
+    }
+}
 
 //Generic intersection wrapper that dispatches the correct test based on the geometry type
 __host__ __device__ float geomIntersectionTest(staticGeom geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)

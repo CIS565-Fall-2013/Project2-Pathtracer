@@ -29,7 +29,7 @@
 #define E                           2.7182818284590452353602874713526624977572
 #define EPSILON                     0.000000001f
 #define ZERO_ABSORPTION_EPSILON     0.00001f
-#define RAY_BIAS_AMOUNT             0.002f
+#define RAY_BIAS_AMOUNT             0.005f
 
 #define MIN(a,b)	((a<b)?a:b)
 #define MAX(a,b)	((a>b)?a:b)
@@ -41,6 +41,7 @@ namespace utilityCore {
     extern bool replaceString(std::string& str, const std::string& from, const std::string& to);
     extern glm::vec3 clampRGB(glm::vec3 color);
     extern bool epsilonCheck(float a, float b);
+    extern bool epsilonCheck(float a, float b, float ep);
     extern std::vector<std::string> tokenizeString(std::string str); 
     extern cudaMat4 glmMat4ToCudaMat4(glm::mat4 a);
     extern glm::mat4 cudaMat4ToGlmMat4(cudaMat4 a);

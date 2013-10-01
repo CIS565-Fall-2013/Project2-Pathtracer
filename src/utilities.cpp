@@ -53,7 +53,11 @@ glm::vec3 utilityCore::clampRGB(glm::vec3 color){
 }
 
 bool utilityCore::epsilonCheck(float a, float b){
-    if(fabs(fabs(a)-fabs(b))<EPSILON){
+	return epsilonCheck(a,b,EPSILON);
+}
+
+bool utilityCore::epsilonCheck(float a, float b, float ep){
+    if(fabs(fabs(a)-fabs(b))<ep){
         return true;
     }else{
         return false;

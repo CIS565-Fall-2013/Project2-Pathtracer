@@ -111,11 +111,11 @@ __host__ __device__ glm::vec3 sampleSpecularTransmissionDirection(glm::vec3 tran
 
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, glm::vec3 transmitDir, glm::vec3 reflectDir, float n1/*incidentIOR*/, float n2/*transmittedIOR*/) {
 	Fresnel fresnel;
-	if(epsilonCheck(glm::length(transmitDir), 1.0f))
+	if(epsilonCheck(glm::length(transmitDir), 1.0, 0.001))
 	{
 		//Transmission possible
 		//Check if has reflection coefficient
-		if(epsilonCheck(glm::length(reflectDir), 1.0f))
+		if(epsilonCheck(glm::length(reflectDir), 1.0, 0.001))
 		{
 			//Has both, compute fresnel coefficients
 			//take absolute value to make the smallest angle

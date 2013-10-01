@@ -99,10 +99,9 @@ struct renderOptions{
 	glm::vec3 globalLightDirection;
 	float globalLightIntensity;
 
+	bool streamCompaction;
 	
 	bool antialiasing;
-	int maxSamplesPerPixel;
-	glm::vec3 aargbThresholds;
 
 	bool frameFiltering;
 	float minT;//minimum ray transmission function. Lets rays die out if they won't contribute anything.
