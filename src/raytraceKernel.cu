@@ -31,6 +31,16 @@
 
 #define M_PI 3.14159265359f
 
+struct ray_data { 
+  ray Ray; 
+  ray Intersection;
+  int Age;
+  int image_index;
+  glm::vec3 brdf_weight;
+  float Illumination;
+  int collision_index;
+}; 
+
 enum { DEBUG_COLLISIONS, DEBUG_DIRECTIONS, DEBUG_BRDF, DEBUG_DIFFUSE, DEBUG_NORMALS, DEBUG_DISTANCE, DEBUG_ALL }; 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -178,7 +188,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
-__global__ void raycastFromCameraKernel( glm::vec2 resolution, cameraData cam, ray* ray_pool, int numberOfRays, glm::vec3* brdf_accums, int* obj_indices ) {
+__global__ void raycastFromCameraKernel( glm::vec2 resolution, cameraData cam, ray_data* ray_pool, int numberOfRays ) {
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -189,8 +199,6 @@ __global__ void raycastFromCameraKernel( glm::vec2 resolution, cameraData cam, r
     return;
 
   // DEBUG initialize brdf accums to 1.0
-  brdf_accums[index] = glm::vec3( 1.0, 1.0, 1.0 );
-  obj_indices[index] = 0;
 
   // Create ray using pinhole camera projection
   float px_size_x = tan( cam.fov.x * (PI/180.0) );
@@ -202,7 +210,11 @@ __global__ void raycastFromCameraKernel( glm::vec2 resolution, cameraData cam, r
 		     + (-2*px_size_y*y/resolution.y + px_size_y)*cam.up;
 
   // Set ray in ray pool
-  ray_pool[index] = r;
+  ray_pool[index].Ray = r;
+  ray_pool[index].Age = 0;
+  ray_pool[index].image_index = index;
+  ray_pool[index].brdf_weight = glm::vec3(1.0, 1.0, 1.0);
+  ray_pool[index].Illumination = 0.0;
 }
 
 /* 
@@ -211,39 +223,34 @@ __global__ void raycastFromCameraKernel( glm::vec2 resolution, cameraData cam, r
    Checks for collisions with objects 
 */
 
-__global__ void rayCollisions( glm::vec2 resolution, float time, ray* ray_pool, int numberOfRays, staticGeom* geoms, int numberOfGeoms, int* obj_indices, ray* intersection_rays ) {
+__global__ void rayCollisions( int resolution, float time, ray_data* ray_pool, int numberOfRays, staticGeom* geoms, int numberOfGeoms, int* ray_mask ) {
 
+  /*
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
+  int index = x + (y * resolution);
+  */
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
-  int obj_index = -1;
+  int obj_index;
+
   float intersection_dist = -1; // don't actually use
   glm::vec3 intersection_point; 
   glm::vec3 intersection_normal;
-  ray intersection_ray;
-  ray currentRay;
 
   if ( index > numberOfRays ) 
     return;
 
-  // DEBUG if obj_index == -1, then don't process
-  if ( obj_indices[index] == -1 )
-    return;
-
-  // Get ray out of pool
-  currentRay = ray_pool[index]; 
-
   // Find closest intersection
-  obj_index = closestIntersection( currentRay, geoms, numberOfGeoms, intersection_dist, intersection_normal, intersection_point );
+  obj_index = closestIntersection( ray_pool[index].Ray, geoms, numberOfGeoms, intersection_dist, intersection_normal, intersection_point );
 
-  // Update collision indices and normals 
-  obj_indices[index] = obj_index;
+  ray_pool[index].Intersection.origin = intersection_point;
+  ray_pool[index].Intersection.direction= intersection_normal;
+  ray_pool[index].collision_index = obj_index;
 
-  intersection_ray.direction = intersection_normal;
-  intersection_ray.origin = intersection_point;
-  intersection_rays[index] = intersection_ray;
-
+  // Set mask value to 0 if there is no collision
+  if ( obj_index == -1 )
+    ray_mask[index] = 0;
 }
 
 
@@ -251,77 +258,95 @@ __global__ void rayCollisions( glm::vec2 resolution, float time, ray* ray_pool, 
    Sample from BRDF and return new set of rays 
 */
 
-__global__ void sampleBRDF( glm::vec2 resolution, float time, ray* ray_pool, int numberOfRays, int* obj_indices, ray* intersection_rays, material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms, glm::vec3* colors, glm::vec3* brdf_accums, int debugMode ) {
+__global__ void sampleBRDF( int resolution, float time, ray_data* ray_pool, int numberOfRays, material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms, glm::vec3* colors, int debugMode ) {
 
+  /*
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
-  int obj_index;
-  glm::vec3 intersection_normal;
-  glm::vec3 intersection_point;
-  material mat;
+  int index = x + (y * resolution);
+  */
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
-  thrust::default_random_engine rng(hash( time*index ));
-  thrust::uniform_real_distribution<float> xi1(0,1);
-  thrust::uniform_real_distribution<float> xi2(0,1);
+  int obj_index;
+  material mat;
 
   if ( index > numberOfRays )
     return;
+  
+  thrust::default_random_engine rng(hash( index*time ));
+  thrust::uniform_real_distribution<float> xi1(0,1);
+  thrust::uniform_real_distribution<float> xi2(0,1);
 
-  obj_index = obj_indices[index];
-  intersection_normal = intersection_rays[index].direction;
-  intersection_point = intersection_rays[index].origin;
+  obj_index = ray_pool[index].collision_index;
   mat = materials[geoms[obj_index].materialid];
-    
-  // DEBUG if obj_index == -1, then don't process
-  if ( obj_index == -1 )
-    return;
-
-  // If material is a light then return 
-  if ( mat.emittance != 0  && debugMode == DEBUG_ALL) {
-    colors[index] += brdf_accums[index]*mat.emittance;
-
-    // DEBUG if obj_index == -1, then don't process
-    obj_indices[index] = -1;
-    return;
-  }
 
   // Sample new direction
   //thrust::default_random_engine rng(hash( time*index*i ));
-  glm::vec3 new_direction = calculateRandomDirectionInHemisphere( intersection_normal, xi1(rng), xi2(rng) );
+  glm::vec3 new_direction = calculateRandomDirectionInHemisphere( ray_pool[index].Intersection.direction, xi1(rng), xi2(rng) );
 
   // Compute diffuse BRDF
-  float diffuse = glm::dot( new_direction, intersection_normal );
+  float diffuse = glm::dot( new_direction, ray_pool[index].Intersection.direction );
   glm::vec3 brdf = 2*diffuse*mat.color;
 
   // Debug Modes
+  /*
   if ( debugMode == DEBUG_DIRECTIONS ) { 
     colors[index] += 0.5f*new_direction + 0.5f;
-    obj_indices[index] = -1;
+    ray_pool[index].Age = -1;
     return;
   } else if ( debugMode == DEBUG_NORMALS ) {
     colors[index] += 0.5f*intersection_normal + 0.5f;
-    obj_indices[index] = -1;
+    ray_pool[index].Age = -1;
     return;
   } else if ( debugMode == DEBUG_BRDF ) {
     colors[index] += brdf;
-    obj_indices[index] = -1;
+    ray_pool[index].Age = -1;
     return;
-  }
+  }*/
 
   // DEBUG Accumulate brdf
-  brdf_accums[index] *= brdf;
+  ray_pool[index].brdf_weight *= brdf;
+  if ( mat.emittance != 0 ) 
+    ray_pool[index].Illumination = mat.emittance;
 
-  ray_pool[index].origin = intersection_point;
-  ray_pool[index].direction = new_direction;
+  ray_pool[index].Ray.origin = ray_pool[index].Intersection.origin;
+  ray_pool[index].Ray.direction = new_direction;
 
 }
 
+__global__ void updateImage( glm::vec2 image_resolution, glm::vec3* image, int resolution, ray_data* ray_pool, int numberOfRays ) {
+  /*
+  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  int index = x + (y * resolution);
+  */
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+  if ( index > numberOfRays ) 
+    return;
+
+  int image_index = ray_pool[index].image_index;
+  if ( ray_pool[index].Illumination > 0.0 )
+    image[image_index] += ray_pool[index].brdf_weight*ray_pool[index].Illumination;
+  //image[image_index] += glm::vec3(1.0,1.0,1.0)*ray_pool[index].Illumination;
+}
+
+/* 
+   Reset ray_mask
+*/
+__global__ void resetRayMask( int resolution, int* ray_mask, int numberOfRays ) { 
+  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  int index = x + (y * resolution);
+  if ( index > numberOfRays ) 
+    return;
+  ray_mask[index] = 1;
+}
+  
+
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
-__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, ray* ray_pool, int numberOfRays, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, 
-			    int debugMode ){
+__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, ray_data* ray_pool, int numberOfRays, int rayDepth, glm::vec3* colors, staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, int debugMode ){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -345,14 +370,15 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, ra
 
   glm::vec3 brdf_accum(1.0, 1.0, 1.0);
 
-  if((x<=resolution.x && y<=resolution.y)){
+  if ( index <= numberOfRays ) { 
+  //if((x<=resolution.x && y<=resolution.y)){
 	  
     // Calculate initial ray as projected from camera
     //ray currentRay = raycastFromCameraKernel( cam.resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov );
     ray lightRay;
 
     // Get ray from ray pool
-    ray currentRay = ray_pool[index]; 
+    ray currentRay = ray_pool[index].Ray; 
 
     // Iteratively trace rays until depth is reached
     /*j
@@ -367,16 +393,15 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, ra
       obj_index = closestIntersection( currentRay, geoms, numberOfGeoms, intersection_dist, intersection_normal, intersection_point );
       if (obj_index == -1) {
 	// Black color
-	colors[index] += glm::vec3( 0.0, 0.0, 0.0);
+	//colors[index] += glm::vec3( 1.0, 0.0, 0.0);
 	return;
       }
-
       mat = materials[geoms[obj_index].materialid];
 
       // If material is a light then return 
       if ( mat.emittance != 0 ) {
-	colors[index] += brdf_accum*mat.emittance;
-	return;
+	colors[index] = colors[index] + brdf_accum*mat.emittance;
+	//return;
       }
 
       // Sample new direction
@@ -424,24 +449,14 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, ra
 
 }
 
-__global__ void copyRays( ray* new_ray_pool, int number_of_rays_new, ray* old_ray_pool, int number_of_rays_old, int* ray_mask, int* scan_indices ) {
-     
+__global__ void copyRays( ray_data* new_ray_pool, int number_of_rays_new, ray_data* old_ray_pool, int number_of_rays_old, int* ray_mask, int* scan_indices, int resolution ) {
+    
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-
-  if ( index > number_of_rays_old )
-    return;
-
-  if ( !ray_mask[index]  )
-    return;
-
-  new_ray_pool[scan_indices[index]] = old_ray_pool[index];
-  
-}
-
-
-__global__ void copyElements( int* new_ray_pool, int number_of_rays_new, int* old_ray_pool, int number_of_rays_old, int* ray_mask, int* scan_indices ) {
-     
-  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+ /* 
+  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  int index = x + (y * resolution);
+  */
 
   if ( index > number_of_rays_old-1 )
     return;
@@ -453,18 +468,19 @@ __global__ void copyElements( int* new_ray_pool, int number_of_rays_new, int* ol
   
 }
 
-
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
-  int traceDepth = 2; //determines how many bounces the raytracer traces
 
   // set up crucial magic
   int tileSize = 8;
   dim3 threadsPerBlock(tileSize, tileSize);
   dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
-  
+
+  //printf( "threadsPerBlock: %d \n", threadsPerBlock.x );
+  //printf( "fullBlocksPerGrid: %d \n", fullBlocksPerGrid.x);
+
   //send image to GPU
   glm::vec3* cudaimage = NULL;
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
@@ -508,97 +524,103 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   // Allocate memory for ray pool
   int numberOfRays = (int)renderCam->resolution.x*(int)renderCam->resolution.y;
-  ray* rayPool = NULL;
-  cudaMalloc( (void**)&rayPool, numberOfRays*sizeof(ray) );
+  ray_data* rayPool = NULL;
+  cudaMalloc( (void**)&rayPool, numberOfRays*sizeof(ray_data) );
 
-  // Allocate normals and object indices
-  int* obj_indices = NULL; 
-  cudaMalloc( (void**)&obj_indices, numberOfRays*sizeof(int) );
+  int numberOfRaysNew;
+  ray_data* rayPoolNew = NULL;
+  cudaMalloc( (void**)&rayPoolNew, numberOfRays*sizeof(ray_data) );
 
-  ray* intersectionRays = NULL;
-  cudaMalloc( (void**)&intersectionRays, numberOfRays*sizeof(ray) );
+  ray_data* rayPoolSwap;
 
-  glm::vec3* brdf_accums = NULL;
-  cudaMalloc( (void**)&brdf_accums, numberOfRays*sizeof(glm::vec3) );
+  // Allocate ray mask and index array for stream compaction
+  int* ray_mask = NULL;
+  cudaMalloc( (void**)&ray_mask, numberOfRays*sizeof(int) ); 
+
+  int* cuda_indices = NULL;
+  cudaMalloc( (void**)&cuda_indices, numberOfRays*sizeof(int) );
 
   // Perform initial raycasts from camera
-  raycastFromCameraKernel<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, cam, rayPool, numberOfRays, brdf_accums, obj_indices );
+  raycastFromCameraKernel<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, cam, rayPool, numberOfRays );
 
-  int numberOfElements = 6;
-  int numberOfElementsNew;
-  int data[6] = {1, 0, 2, 2, 1, 3};
-  int* cuda_data = NULL;
-  cudaMalloc( (void**)&cuda_data, numberOfElements*sizeof(int) );
-  cudaMemcpy( cuda_data, data, numberOfElements*sizeof(int), cudaMemcpyHostToDevice );
+  int res = (int)ceil(sqrt((float(numberOfRays))));
+  //printf("resolution: %d \n", res);
+  threadsPerBlock = dim3(tileSize*tileSize);
+  //fullBlocksPerGrid = dim3((int)ceil(float(res)/float(tileSize)), (int)ceil(float(res)/float(tileSize)));
+  fullBlocksPerGrid = dim3((int)ceil(float(numberOfRays)/float(tileSize*tileSize)));
+  //printf( "threadsPerBlock: %d \n", threadsPerBlock.x );
+  //printf( "fullBlocksPerGrid: %d \n", fullBlocksPerGrid.x);
 
-  int mask[6] = {0, 1, 0, 0, 1, 0};
-  int* cuda_mask = NULL;
-  cudaMalloc( (void**)&cuda_mask, numberOfElements*sizeof(int) );
-  cudaMemcpy( cuda_mask, mask, numberOfElements*sizeof(int), cudaMemcpyHostToDevice );
-
-  int* cuda_data_new = NULL;
-  cudaMalloc( (void**)&cuda_data_new, numberOfElements*sizeof(int) );
-  
-  int* cuda_indices = NULL;
-  cudaMalloc( (void**)&cuda_indices, numberOfElements*sizeof(int) );
-  
-  threadsPerBlock = dim3(tileSize);
-  fullBlocksPerGrid = dim3((int)ceil(float(numberOfElements)/float(tileSize)));
-
-  thrust::device_ptr<int> msk_dptr = thrust::device_pointer_cast(cuda_mask);  
+  thrust::device_ptr<int> msk_dptr = thrust::device_pointer_cast(ray_mask);  
   thrust::device_ptr<int> idx_dptr = thrust::device_pointer_cast(cuda_indices);  
 
-  thrust::device_vector<int> indices(numberOfElements); 
-  printf("anything please \n");
-  thrust::exclusive_scan(msk_dptr, msk_dptr+numberOfElements, idx_dptr ); // in-place scan
-  printf("after exclusive_scan \n");
+  int traceDepth = 3; //determines how many bounces the raytracer traces
+  // Iterate through ray calls accumulating in brdf_accums 
+  for ( int i=0; i < traceDepth; ++i ) {
 
-  // Gotta copy over data that you want to print or the program crashes ... I think
-  numberOfElementsNew = cuda_indices[numberOfElements-1];
-  printf("Number of new elements: %d \n", numberOfElementsNew );
-  // data is now {0, 1, 1, 3, 5, 6}
-  for(int i=0; i<numberOfElements; i++)
-      printf("%d %d\n", i, mask[i]);     
-  printf("Number of new elements: %d \n", numberOfElementsNew );
+    resetRayMask<<<fullBlocksPerGrid, threadsPerBlock>>>( res, ray_mask, numberOfRays );
+    cudaThreadSynchronize();
 
-  /*
+    rayCollisions<<<fullBlocksPerGrid, threadsPerBlock>>>( res, (float)iterations, rayPool, numberOfRays, cudageoms, numberOfGeoms, ray_mask );
+    cudaThreadSynchronize();
 
-  copyElements<<<fullBlocksPerGrid, threadsPerBlock>>>( data_new, numberOfElementsNew, data, numberOfElements, mask, indices );
 
-  for(int i=0; i<numberOfElementsNew; i++)
-      printf("%d %d\n", i, data_new[i]);     
+    //thrust::device_vector<int> indices(numberOfElements); 
+    thrust::device_ptr<int> msk_dptr = thrust::device_pointer_cast(ray_mask);  
+    thrust::exclusive_scan(msk_dptr, msk_dptr+numberOfRays, idx_dptr ); // in-place scan
+    numberOfRaysNew = idx_dptr[numberOfRays-1]+1;
 
-  */
-  printf( "\n\n" );
+    //printf("numberOfRays: %d \n", numberOfRays);
 
-  // V remains {-2, 0, -1, 0, 1, 2}
-  // result is now {-2, 0, 0, 2}
+    copyRays<<<fullBlocksPerGrid, threadsPerBlock>>>( rayPoolNew, numberOfRaysNew, rayPool, numberOfRays, ray_mask, cuda_indices, res  );
 
-  //for ( int i=0; i < traceDepth; ++i ) {
-    // Perform collision checks for rays in rayPool
-  /*
+    // Update ray count
+    numberOfRays = idx_dptr[numberOfRays-1]+1;
+    //printf("numberOfRaysNew: %d \n", numberOfRays);
+    
+    // Update number of threads running
+    threadsPerBlock = dim3(tileSize*tileSize);
+    //fullBlocksPerGrid = dim3((int)ceil(float(res)/float(tileSize)), (int)ceil(float(res)/float(tileSize)));
+    fullBlocksPerGrid = dim3((int)ceil(float(numberOfRays)/float(tileSize*tileSize)));
+    //printf( "threadsPerBlock: %d \n", threadsPerBlock );
+    //printf( "fullBlocksPerGrid: %d \n", fullBlocksPerGrid);
 
-    rayCollisions<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, (float)iterations, rayPool, numberOfRays, cudageoms, numberOfGeoms, obj_indices, intersectionRays );
+    // Swap array pointers 
+    rayPoolSwap = rayPool;
+    rayPool = rayPoolNew;
+    rayPoolNew = rayPoolSwap;
 
-    sampleBRDF<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, (float)iterations, rayPool, numberOfRays, obj_indices, intersectionRays, cudamaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaimage, brdf_accums, debugMode );
+    sampleBRDF<<<fullBlocksPerGrid, threadsPerBlock>>>( res, (float)(i+1)*iterations, rayPool, numberOfRays, cudamaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaimage, debugMode );
+    cudaThreadSynchronize();
+  }
 
-  */
+  // Update image data
+  updateImage<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, cudaimage, res, rayPool, numberOfRays );
+  // make certain the kernel has completed
+  cudaThreadSynchronize();
+  
 
   // Old ray tracing code
-  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, rayPool, numberOfRays, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, debugMode);
+  //raycastFromCameraKernel<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, cam, rayPool, numberOfRays );
+  //raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, rayPool, numberOfRays, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, debugMode);
 
-  //sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, iterations);
+
+  // Return block counts, etc ... back to image size
+  threadsPerBlock = dim3(tileSize, tileSize);
+  fullBlocksPerGrid = dim3((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
+  //printf( "send image to PBO \n\n\n" );
+  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, iterations);
 
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
   //free up stuff, or else we'll leak memory like a madman
   cudaFree( rayPool );
+  cudaFree( rayPoolNew );
+  cudaFree( ray_mask );
+  cudaFree( cuda_indices );
   cudaFree( cudaimage );
   cudaFree( cudageoms );
-  cudaFree( intersectionRays );
-  cudaFree( obj_indices );
-  cudaFree( brdf_accums );
   delete geomList;
 
   // make certain the kernel has completed
