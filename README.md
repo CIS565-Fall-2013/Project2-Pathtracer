@@ -5,7 +5,9 @@ CUDA Path Tracing
 Description:
 In this project, except for implementing the basic requirement of Pathtracer, I also did motion blur, depth of filed, fresnel-based refraction and OBJ mesh loader.
 
-For the stream compaction in my program, you can find the #define at the very top of .cu file. Comment out this #define STREAMCOMPACTION is to turn off the stream compaction. With great help of our TA, Liam, I also found out the the stream compaction will be faster only when the number of depth for path tracing is bigger than 10. If this depth number is smaller than 10, then the original path tracer actually is faster than stream compaction.
+For the path tracer, due the recursion ability of GPU, I decided to change the path tracer to a iterative one. I multiply the color for each time the ray hit an object. If before the max depth of iteration, the ray hit the light, then add this color to scene, otherwise, just simply set this color to black. I accumulate the color for each iteration and divide by the iteration for rendering. At the every beginning of each iteration, I will jitter around the ray direction using random number, which can has the effect of supersampled antialiasing. 
+
+For the stream compaction in my program, you can find the #define at the very top of .cu file. Comment out this #define STREAMCOMPACTION is to turn off the stream compaction. With great help of our TA, Liam, I also found out the the stream compaction will be faster only when the number of depth for path tracing is bigger than 10. If this depth number is smaller than 10, then the original path tracer actually is faster than stream compaction. I am using thrust to manage the ray pool.
 
 The motion blur part currently is hard coded in my program and using translation motion blur. Basically it's just moving a specific object forward and backward in each iteration. I have #define MOTIONBLUR at the very top of .cn file for turning off or on this effect.
 
