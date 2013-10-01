@@ -282,7 +282,7 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 							//TODO: Improve randomness with point sets?
 							thrust::default_random_engine rng(hash(time*rIndex));
 							thrust::uniform_real_distribution<float> u01(0,1);
-							rstate.bounceType = bounceRay(rstate, rconfig, intersectionPoint, normal, materials, geoms[ind].materialid, u01(rng), u01(rng), u01(rng));
+							bounceRay(rstate, rconfig, intersectionPoint, normal, materials, geoms[ind].materialid, u01(rng), u01(rng), u01(rng));
 
 						}else{
 							//This was the last bounce. 

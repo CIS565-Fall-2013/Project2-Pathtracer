@@ -91,7 +91,7 @@ int main(int argc, char** argv){
 	renderOpts->aargbThresholds = glm::vec3(0.01,0.01,0.01);
 
 	renderOpts->frameFiltering = true;
-	renderOpts->backgroundColor = glm::vec3(137, 207, 240)/255.0f;//sky blue
+	renderOpts->backgroundColor =glm::vec3(0,0,0); //glm::vec3(137, 207, 240)/255.0f;//sky blue
 	renderOpts->airIOR = 1.0;
 	renderOpts->airAbsorbtion = glm::vec3(0.0, 0.0, 0.0);//No air absorbtion effects for now
 	renderOpts->minT = 0.001;

@@ -27,7 +27,7 @@ __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, g
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident);
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2);
-__host__ __device__ BounceType bounceRay(rayState& r, glm::vec3 intersect, glm::vec3 normal, material* mats, int mhitIndex, float xi0/*for bounce type*/, float xi1/*for importance sampling*/,float xi2/*for importance sampling*/);
+__host__ __device__ void bounceRay(rayState& r, glm::vec3 intersect, glm::vec3 normal, material* mats, int mhitIndex, float xi0/*for bounce type*/, float xi1/*for importance sampling*/,float xi2/*for importance sampling*/);
 
 //LOOK: This function demonstrates cosine weighted random direction generation in a sphere!
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2) {
@@ -81,65 +81,63 @@ __host__ __device__ glm::vec3 sphericalToCartesian(float phi, float th)
 	dir.z = glm::cos(th);
 	return dir;
 }
-
-__host__ __device__ glm::vec3 sampleSpecularReflectionDirection(glm::vec3 incident, glm::vec3 normal, float specularExp, float xi1, float xi2)
+__host__ __device__ glm::vec3 sampleSpecularReflectionDirection(glm::vec3 reflectDir,  float specularExp, float xi1, float xi2)
 {
 	float th = glm::acos(glm::pow(xi1, 1/(specularExp+1)));
 	float phi = 2*PI*xi2;
 
 	glm::vec3 randDirZ = sphericalToCartesian(phi, th);
-	glm::vec3 idealMirror = calculateReflectionDirection(normal, incident);
 
 	//TODO: Compute exponential specular
 	//Rotate rand direction to specular space
 	//glm::vec3 zUnit = glm::vec3(0,0,1);
 	//glm::vec3 rotAxis = glm::cross(zUnit, 
-	return idealMirror;
+	return reflectDir;
 }
 
-__host__ __device__ glm::vec3 sampleSpecularTransmissionDirection(glm::vec3 incident, glm::vec3 normal, float incidentIOR, float transmissionIOR, float specularExp, float xi1, float xi2)
+__host__ __device__ glm::vec3 sampleSpecularTransmissionDirection(glm::vec3 transmitDir, float specularExp, float xi1, float xi2)
 {
 
 	float th = glm::acos(glm::pow(xi1, 1/(specularExp+1)));
 	float phi = 2*PI*xi2;
 
 	glm::vec3 randDirZ = sphericalToCartesian(phi, th);
-	glm::vec3 idealMirror = calculateReflectionDirection(normal, incident);
-
 	//TODO: Compute exponential specular
 	//Rotate rand direction to specular space
 	//glm::vec3 zUnit = glm::vec3(0,0,1);
 	//glm::vec3 rotAxis = glm::cross(zUnit, 
-	return calculateTransmissionDirection(normal, incident, incidentIOR, transmissionIOR);
+	return transmitDir;
 }
 
-
-__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float n1/*incidentIOR*/, float n2/*transmittedIOR*/) {
+__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, glm::vec3 transmitDir, glm::vec3 reflectDir, float n1/*incidentIOR*/, float n2/*transmittedIOR*/) {
 	Fresnel fresnel;
+	if(epsilonCheck(glm::length(transmitDir), 1.0f))
+	{
+		//Transmission possible
+		//Check if has reflection coefficient
+		if(epsilonCheck(glm::length(reflectDir), 1.0f))
+		{
+			//Has both, compute fresnel coefficients
+			//take absolute value to make the smallest angle
+			float cos_i = abs(glm::dot(normal,incident));
+			float cos_t = abs(glm::dot(normal,transmitDir));
 
-	float cos_i = glm::dot(normal,incident);
-	float eta  = n1/n2;
-	float sin2_tht = (eta*eta)*(1-cos_i*cos_i);
-	//Check if transmission possible
-	if(sin2_tht < 1.0f){
-		//Transmission possible, compute coefficients
-		//Assume unpolarized light
-		float cos_t = glm::sqrt(1-sin2_tht);
-		float Rdenom = (n1*cos_i+n2*cos_t);
-		Rdenom *= Rdenom;//Squared
-
-		float Rp = (n1*cos_i-n2*cos_t);
-		Rp *= Rp/Rdenom;
-		float Rs = (n2*cos_i-n2*cos_t);
-		Rs *= Rs/Rdenom;
-
-		fresnel.reflectionCoefficient = (Rp+Rs)/2;
-		fresnel.transmissionCoefficient = 1-fresnel.reflectionCoefficient;
+			float Rp = (n1*cos_i-n2*cos_t)/(n1*cos_i+n2*cos_t);
+			Rp *= Rp;
+			float Rs = (n2*cos_i-n1*cos_t)/(n2*cos_i+n1*cos_t);
+			Rs *= Rs;
+			fresnel.reflectionCoefficient = (Rs+Rp)/2;
+			fresnel.transmissionCoefficient = 1-fresnel.reflectionCoefficient;
+		}else{
+			fresnel.transmissionCoefficient = 1;
+			fresnel.reflectionCoefficient = 0;
+		}
 	}else{
-		//total internal reflection
-		fresnel.reflectionCoefficient = 1;
 		fresnel.transmissionCoefficient = 0;
+		fresnel.reflectionCoefficient = 1;
+
 	}
+
 	return fresnel;
 }
 
@@ -151,14 +149,16 @@ __host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoeffici
 
 __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR)
 {
+	if(glm::dot(normal, incident) > 0.0)
+		normal = -normal;//If the normal is in the wrong direction, flip it
 
 	float cos_thi = glm::dot(normal,incident);
 	float eta  = incidentIOR/transmittedIOR;
 	float radicand = 1.0-(eta*eta)*(1-cos_thi*cos_thi);
 	if(radicand > 0.0)
 		//TODO: Figure out why my code doesn't work.
-		//return glm::refract(incident, normal, eta);
-		return eta*incident - (eta*cos_thi + sqrt(radicand))*normal;
+			//return glm::refract(incident, normal, eta);
+				return eta*incident - (eta*cos_thi + sqrt(radicand))*normal;
 	else
 		//Total internal reflection, no transmission
 		return glm::vec3(0,0,0);
@@ -166,7 +166,10 @@ __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, g
 }
 
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
-	//nothing fancy here
+	//nothing fancy here. Just a bounds check
+	if(glm::dot(normal, incident) > 0.0)
+		normal = -normal;//If the normal is in the wrong direction, flip it
+
 	return incident-glm::dot(2.0f*normal, incident) * normal;
 }
 
@@ -174,7 +177,7 @@ __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm
 //returns type of bounce that was performed
 //Takes three random numbers to use in sampling
 //Do not call this function if ray hit a light source.
-__host__ __device__ BounceType bounceRay(rayState& r, renderOptions rconfig, glm::vec3 intersect, glm::vec3 normal, material* mats, int mhitIndex, float xi0/*for bounce type*/, float xi1/*for importance sampling*/,float xi2/*for importance sampling*/)
+__host__ __device__ void bounceRay(rayState& r, renderOptions rconfig, glm::vec3 intersect, glm::vec3 normal, material* mats, int mhitIndex, float xi0/*for bounce type*/, float xi1/*for importance sampling*/,float xi2/*for importance sampling*/)
 {
 	material m = mats[mhitIndex];//material we hit
 
@@ -194,66 +197,49 @@ __host__ __device__ BounceType bounceRay(rayState& r, renderOptions rconfig, glm
 	//Specular or diffuse?
 	if(xi1 <= ks)
 	{
-		//Specular. Determine if reflective or transmited
-		if(m.hasReflective && m.hasRefractive){
-			//both options available, compute fresnel coeffs
-			Fresnel f = calculateFresnel(normal, r.r.direction, mLastIOR, m.indexOfRefraction);
+		glm::vec3 reflectDir = glm::vec3(0,0,0);
+		glm::vec3 transmitDir = glm::vec3(0,0,0);
 
-			//scale our random number by ks
-			//0 <= xi1 <= ks, therefore 0 <= xi1/ks <= 1
-			if(xi1/ks <= f.reflectionCoefficient){
-				//reflect
-				bounceType = REFLECT;
-			}else{
-				//transmit
-				bounceType = TRANSMIT;
-			}
+		if(m.hasReflective){
+			reflectDir = calculateReflectionDirection(normal, r.r.direction);
+		}
+		if(m.hasRefractive){
+			transmitDir = calculateTransmissionDirection(normal, r.r.direction, mLastIOR, m.indexOfRefraction);
+		}
 
-		}else if(m.hasReflective){
-			bounceType = REFLECT;
+		//compute fresnel coeffs
+		Fresnel f = calculateFresnel(normal, r.r.direction, transmitDir, reflectDir, mLastIOR, m.indexOfRefraction);
 
+		//scale our random number by ks
+		//0 <= xi1 <= ks, therefore 0 <= xi1/ks <= 1
+		if(xi1/ks <= f.reflectionCoefficient){
+			//reflect
+			r.r.direction = sampleSpecularReflectionDirection(reflectDir, m.specularExponent, xi1, xi2);
+			r.r.origin = intersect;
+			r.T *= m.specularColor;
+			r.bounceType = REFLECT;
 		}else{
-			//Refractive only
-			bounceType = TRANSMIT;
+			//transmit
+			r.r.direction = sampleSpecularTransmissionDirection(transmitDir, m.specularExponent, xi1, xi2);
+			r.r.origin = intersect;
+			if(glm::dot(normal, r.r.direction) < 0.0)
+			{
+				//entering the material
+				r.matIndex = mhitIndex;
+			}else{
+				//exiting
+				r.matIndex = -1;
+			}
+			r.bounceType = TRANSMIT;
 		}
 	}else{
-		//Diffuse 
-		bounceType = DIFFUSE;
-	}
 
-	//at this point we know what type of bounce has occured. Perform bounce
-	switch(bounceType)
-	{
-	case DIFFUSE:
 		//Randomly select direction in hemisphere. Medium doesn't change. Accumulate diffuse refection color
 		r.r.direction = calculateRandomDirectionInHemisphere(normal, xi1, xi2);
 		r.r.origin = intersect;
 		r.T *= m.color;
-		break;
-	case REFLECT:
-		r.r.direction = sampleSpecularReflectionDirection(r.r.direction, normal, m.specularExponent, xi1, xi2);
-		r.r.origin = intersect;
-		r.T *= m.specularColor;
-		break;
-	case TRANSMIT:
-
-		//TODO: Fix refraction
-		//if(r.matIndex >= 0)
-		//	normal = -normal;
-		r.r.direction = sampleSpecularTransmissionDirection(r.r.direction, normal, mLastIOR, m.indexOfRefraction, m.specularExponent, xi1, xi2);
-		r.r.origin = intersect;
-		if(glm::dot(normal, r.r.direction) < 0.0)
-		{
-			//entering the material
-			r.matIndex = mhitIndex;
-		}else{
-			//exiting
-			r.matIndex = -1;
-		}
-		break;
+		r.bounceType = DIFFUSE;
 	}
-
-	return bounceType;
 };
 
 
