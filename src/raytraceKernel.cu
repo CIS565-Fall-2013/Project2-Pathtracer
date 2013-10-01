@@ -231,70 +231,115 @@ if ( index < num )
 		  curNorm =  intersectionNormal;
         }
     }
-
+	// If you are hitting a object that is not light
 	if(geoIndex != -1 && materials[geoms[geoIndex].materialid].emittance < 0.01f && (r.life == false))
 	{
 	
-	thrust::default_random_engine rng (hash (time * index * bou));
-	thrust::uniform_real_distribution<float> xi1(0,1);
-    thrust::uniform_real_distribution<float> xi2(0,1);
-	if ( materials[geoms[geoIndex].materialid].hasReflective < 0.01f)
-	{
-	newr[index].direction =  glm::normalize(calculateRandomDirectionInHemisphere(glm::normalize(curNorm),  (float)xi1(rng),(float)xi2(rng)));
-	newr[index].origin    =  curIps + newr[index].direction  * 0.001f ; //glm::vec3 neyep = dips + ref1 * 0.001f ;
-	newr[index].rcolor    =  newr[index].rcolor * materials[geoms[geoIndex].materialid].color;
-	}
-	else
-	{
+		thrust::default_random_engine rng (hash (time * index * bou));
+		thrust::uniform_real_distribution<float> xi1(0,1);
+		thrust::uniform_real_distribution<float> xi2(0,1);
 
-	thrust::uniform_real_distribution<float> xi3(0,1);
-	float rtest =  (float)xi3(rng) ;
-	if( rtest < materials[geoms[geoIndex].materialid].hasReflective)
-	{
-	glm::vec3 inc = curIps - cam.position ;
-	newr[index].direction = inc - (2.0f * glm::normalize(curNorm) * (glm::dot(glm::normalize(curNorm),inc))); //glm::vec3 ref1  =  lig - (2.0f * dnorm * (glm::dot(dnorm,lig))); 
-	newr[index].rcolor    =  newr[index].rcolor * materials[geoms[geoIndex].materialid].specularColor;
-	}
-	else
-	{
-	newr[index].direction =  glm::normalize(calculateRandomDirectionInHemisphere(glm::normalize(curNorm),  (float)xi1(rng),(float)xi2(rng)));
-	newr[index].rcolor    =  newr[index].rcolor * materials[geoms[geoIndex].materialid].color;
-	}
-	newr[index].origin    =  curIps + newr[index].direction  * 0.001f ; //glm::vec3 neyep = dips + ref1 * 0.001f ;
+		// If the object that you hit is not reflective
+		if ( materials[geoms[geoIndex].materialid].hasReflective < 0.01f &&  materials[geoms[geoIndex].materialid].hasRefractive < 0.01f)
+		{
+			newr[index].direction =  glm::normalize(calculateRandomDirectionInHemisphere(glm::normalize(curNorm),  (float)xi1(rng),(float)xi2(rng)));
+			newr[index].origin    =  curIps + newr[index].direction  * 0.001f ; //glm::vec3 neyep = dips + ref1 * 0.001f ;
+			newr[index].rcolor    =  newr[index].rcolor * materials[geoms[geoIndex].materialid].color;
+		}
+		// If the object that you hit is reflective
+		else if ( materials[geoms[geoIndex].materialid].hasReflective > 0.01f &&  materials[geoms[geoIndex].materialid].hasRefractive < 0.01f) 
+		{
+			// Reflectitivity works based on probabbility of the random number generated 
+			thrust::uniform_real_distribution<float> xi3(0,1);
+			float rtest =  (float)xi3(rng) ;
+			if( rtest < materials[geoms[geoIndex].materialid].hasReflective)
+			{
+				glm::vec3 inc = glm::normalize(newr[index].direction)  ; 
+				newr[index].direction = inc - (2.0f * glm::normalize(curNorm) * (glm::dot(glm::normalize(curNorm),inc))); //glm::vec3 ref1  =  lig - (2.0f * dnorm * (glm::dot(dnorm,lig))); 
+				newr[index].rcolor    =  newr[index].rcolor * materials[geoms[geoIndex].materialid].specularColor;
+			}
+			else
+			{
+				newr[index].direction =  glm::normalize(calculateRandomDirectionInHemisphere(glm::normalize(curNorm),  (float)xi1(rng),(float)xi2(rng)));
+				newr[index].rcolor    =  newr[index].rcolor * materials[geoms[geoIndex].materialid].color;
+			}
+			newr[index].origin    =  curIps + newr[index].direction  * 0.001f ; //glm::vec3 neyep = dips + ref1 * 0.001f ;
 	
+		}
+
+		// If the object that you hit is refractive
+		if ( materials[geoms[geoIndex].materialid].hasRefractive > 0.01f)
+		{
+			thrust::uniform_real_distribution<float> xi4(0,2);
+			float rfr = 0.1f;// (float)xi4(rng) ;
+			if (rfr < materials[geoms[geoIndex].materialid].hasRefractive )
+			{
+				float n1 = 1.0f;
+				float n2 = materials[geoms[geoIndex].materialid].hasRefractive;
+				float angleofincidence  = acos(glm::dot(newr[index].direction ,glm::normalize(curNorm))/(glm::length(newr[index].direction) * glm::length(newr[index].direction)));
+				angleofincidence  = abs(angleofincidence * (180.0f/PI));
+				//float angleofreflection = asin(sin(angleofincidence) * (n1/n2));
+				float io = glm::dot( glm::normalize(curIps),glm::normalize(curNorm));
+				float criticalAngle = asin(n2/n1);// * (180.0f/PI) ;
+
+				if(io > 0.0f  )
+				{
+					glm::vec3 refractedray = glm::refract(glm::normalize(newr[index].direction),glm::normalize(curNorm),(n1/n2));
+					newr[index].direction  = glm::normalize(refractedray);
+					newr[index].origin     =  curIps + newr[index].direction  * 0.001f ;	
+					//newr[index].rcolor    =  newr[index].rcolor * materials[geoms[geoIndex].materialid].color;
+				}
+				else if(io < 0.0f  ) // && (angleofincidence < criticalAngle )
+				{
+					glm::vec3 refractedray = glm::refract(glm::normalize(newr[index].direction),-1.0f * glm::normalize(curNorm),(n2/n1));
+					newr[index].direction  = glm::normalize(refractedray);
+					newr[index].origin     =  curIps + newr[index].direction  * 0.001f ;	
+					//newr[index].rcolor    =  newr[index].rcolor * materials[geoms[geoIndex].materialid].color;
+				}
+			
+				
+
+			}
+			else
+			{
+				newr[index].direction =  glm::normalize(calculateRandomDirectionInHemisphere(glm::normalize(curNorm),  (float)xi1(rng),(float)xi2(rng)));
+				newr[index].rcolor    =  newr[index].rcolor * materials[geoms[geoIndex].materialid].color;
+				newr[index].origin    =  curIps + newr[index].direction  * 0.001f ;	
+			}
+		}
 	
 	}
-	//colors[index] = materials[geoms[geoIndex].materialid].color;
-	//colBounce[index] = colBounce[index] * materials[geoms[geoIndex].materialid].color;
-	}
+	// If the ray hits an object that is light
 	else if(geoIndex != -1 && materials[geoms[geoIndex].materialid].emittance > 0.01f && (r.life == false))
 	{
-	//colBounce[index]   =  colBounce[index]   * materials[geoms[geoIndex].materialid].emittance ;
-	newr[index].rcolor =  newr[index].rcolor  * materials[geoms[geoIndex].materialid].emittance;//* materials[geoms[geoIndex].materialid].color
-	newr[index].life = true;
+	
+		newr[index].rcolor =  newr[index].rcolor  * materials[geoms[geoIndex].materialid].emittance;
+		newr[index].life = true;
+
 	}
+	// If the ray keeps hitting the light once it dies - This case actually never happens
 	else if(geoIndex != -1 && materials[geoms[geoIndex].materialid].emittance > 0.01f && (r.life == true))
 	{
-	//colBounce[index] = colBounce[index];
-	newr[index].rcolor =  newr[index].rcolor ;
-	newr[index].life = true;
+	
+		newr[index].rcolor =  newr[index].rcolor ;
+		newr[index].life = true;
 
 	}
+	// The final case where the ray does not hit any object at all 
 	else
 	{
-	//colBounce[index] = colBounce[index] * glm::vec3(0,0,0);
-	newr[index].rcolor =  newr[index].rcolor * glm::vec3(0,0,0);
-	newr[index].life = true;
+	
+		newr[index].rcolor =  newr[index].rcolor * glm::vec3(0,0,0);
+		newr[index].life = true;
+
 	}
-	//colBounce[index] = glm::vec3(0.01,0.01,0.01) ;//colors[index] = glm::vec3(0,0,0);
+	
 
-
-    //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
    }
 }
 }
 
-  //kernel launches
+  //A thrust based structure 
    struct is_dead
   {
     __host__ __device__
@@ -304,14 +349,7 @@ if ( index < num )
     }
   };
 
-   struct is_even
-  {
-    __host__ __device__
-    bool operator()(const int x)
-    {
-      return (x % 2) == 0;
-    }
-  };
+
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
