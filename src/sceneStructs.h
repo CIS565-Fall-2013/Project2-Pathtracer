@@ -9,7 +9,10 @@
 #include "glm/glm.hpp"
 #include "cudaMat4.h"
 #include <cuda_runtime.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
 #include <string>
+#include <vector>
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
@@ -19,9 +22,9 @@ struct ray {
 };
 
 struct mesh {
-	glm::vec3* vertices;
-	glm::vec3* normals;
-	unsigned int* indices;
+	std::vector<glm::vec3> vertices;
+	std::vector<glm::vec3> normals;
+	std::vector<unsigned int> indices; // iterate through these indices to access vertices and normals.
 	int indicesCount;
 };
 
@@ -34,7 +37,7 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
-	mesh* triMesh;
+	mesh triMesh;
 };
 
 struct staticGeom {
@@ -45,6 +48,7 @@ struct staticGeom {
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
+	mesh triMesh;
 };
 
 struct cameraData {

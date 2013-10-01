@@ -258,6 +258,76 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   return glm::length(r.origin - realIntersectionPoint);
 }
 
+__host__ __device__ float meshIntersectionTest(staticGeom geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
+{
+	
+	return -1;
+}
+
+// triangle intersection. Helper method for meshIntersectionTest
+__host__ __device__ float triangleIntersectionTest(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, 
+												   const glm::vec3& n1, const glm::vec3& n2, const glm::vec3& n3,
+												   staticGeom geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
+{
+	// convert ray to object space
+	glm::vec3 ro = multiplyMV(geom.inverseTransform, glm::vec4(r.origin, 1.0f));
+	glm::vec3 rd = glm::normalize(multiplyMV(geom.inverseTransform, glm::vec4(r.direction, 0.0f)));
+
+	float nd = glm::dot (n1, rd);
+
+	if (nd == 0) // parallel to plane, no intersection
+		return -1;
+
+	float t = (glm::dot(n1, v1) - glm::dot(n1, ro)) / nd;
+	glm::vec3 localIntersectionPoint = ro + rd * t;
+
+	if( glm::dot(glm::cross((v2-v1),(localIntersectionPoint-v1)),n1) >= 0 &&
+		glm::dot(glm::cross((v3-v2),(localIntersectionPoint-v2)),n1) >= 0 &&
+		glm::dot(glm::cross((v1-v3),(localIntersectionPoint-v3)),n1) >= 0 )
+	{
+		normal = glm::normalize(multiplyMV(geom.transform, glm::vec4(n1,0.0f)));
+		intersectionPoint = multiplyMV(geom.transform, glm::vec4(localIntersectionPoint, 1.0));
+		return t;
+	}
+	else
+	{
+		return -1;
+	}
+
+	//vec3 objSpP0 = r.OSrayPos;
+	//vec3 objSpV0 = r.OSrayDir;
+
+	//vec3 n = cross((point2-point1),(point3-point1)); // assume ccw order of vertices
+	//n = normalize(n);
+
+	//float nd = dot(n,objSpV0); // dot product between normal and ray direction
+
+	//if(nd == 0) // parallel to plane, no intersection
+	//	return -1;
+
+	//float t = (dot(n,point1) - dot(n,objSpP0)) / nd;
+
+	//vec3 ip = objSpP0 + objSpV0 * t;
+
+	//if( dot(cross((point2-point1),(ip-point1)),n) >= 0 &&
+	//	dot(cross((point3-point2),(ip-point2)),n) >= 0 &&
+	//	dot(cross((point1-point3),(ip-point3)),n) >= 0 )
+	//{
+	//	if(isect.t > t || isect.t == -1)
+	//	{				
+	//		isect.t = t;
+	//		isect.normal = n;
+	//		isect.computeNormalWS = true;
+	//	}
+
+	//	return t;
+	//}
+	//else
+	//{
+	//	return -1;
+	//}
+}
+
 //returns x,y,z half-dimensions of tightest bounding box
 __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){
     glm::vec3 origin = multiplyMV(geom.transform, glm::vec4(0,0,0,1));

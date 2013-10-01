@@ -296,71 +296,129 @@ void scene::loadObjFile(geom &newObject, const char* filePath)
 	}
 
 	std::cout << "# of shapes : " << shapes.size() << std::endl;
-
+	
 	// looping through all shapes (if obj file contains multiple shapes)
 	for (size_t i = 0 ; i < shapes.size() ; ++i)
 	{
-
-		// preparing indices
-		int numIndices = shapes[i].mesh.indices.size();
-		unsigned int* indices = new unsigned int[numIndices];
-		assert((shapes[i].mesh.indices.size() % 3) == 0);
+				int numIndices = shapes[i].mesh.indices.size();
 		for (size_t f = 0 ; f < numIndices ; ++f)
 		{
-			indices[f] = shapes[i].mesh.indices[f];
-			printf("  idx[%ld] = %d\n", f, shapes[i].mesh.indices[f]);
+			newObject.triMesh.indices.push_back(shapes[i].mesh.indices[f]);
 		}
 
-		// preparing vertices
-		assert((shapes[i].mesh.positions.size() % 3) == 0);
+		assert(shapes[i].mesh.positions.size() % 3 == 0);
 		int numVerts = shapes[i].mesh.positions.size() / 3;
-		glm::vec3* vertices = new glm::vec3[numVerts];
 		for (size_t v = 0 ; v < numVerts ; ++v)
 		{
-			vertices[v].x = shapes[i].mesh.positions[3*v+0];
-			vertices[v].y = shapes[i].mesh.positions[3*v+1];
-			vertices[v].z = shapes[i].mesh.positions[3*v+2];
+			glm::vec3 pos = glm::vec3(shapes[i].mesh.positions[3*v+0],
+									  shapes[i].mesh.positions[3*v+1],
+		             				  shapes[i].mesh.positions[3*v+2]);
+
+			newObject.triMesh.vertices.push_back(pos);
 		}
 
-		// preparing normals
 		assert((shapes[i].mesh.positions.size() % 3) == 0);
 		int numNormals = shapes[i].mesh.normals.size() / 3;
-		glm::vec3* normals = new glm::vec3[numNormals];
 		for (size_t n = 0 ; n < numNormals ; ++n)
 		{
-			normals[n].x = shapes[i].mesh.normals[3*n+0];
-			normals[n].y = shapes[i].mesh.normals[3*n+1];
-			normals[n].z = shapes[i].mesh.normals[3*n+2];
+			glm::vec3 normal = glm::vec3(shapes[i].mesh.normals[3*n+0],
+										 shapes[i].mesh.normals[3*n+1],
+		             					 shapes[i].mesh.normals[3*n+2]);
+
+			newObject.triMesh.normals.push_back(normal);
 		}
+
+		newObject.triMesh.indicesCount = shapes[i].mesh.indices.size();
+
+
+
+		//int numIndices = shapes[i].mesh.indices.size();
+		//for (size_t f = 0 ; f < numIndices ; ++f)
+		//{
+		//	newObject.triMesh->indices.push_back(shapes[i].mesh.indices[f]);
+		//}
+
+		//assert(shapes[i].mesh.positions.size() % 3 == 0);
+		//int numVerts = shapes[i].mesh.positions.size() / 3;
+		//for (size_t v = 0 ; v < numVerts ; ++v)
+		//{
+		//	glm::vec3 pos = glm::vec3(shapes[i].mesh.positions[3*v+0],
+		//							  shapes[i].mesh.positions[3*v+1],
+		//             				  shapes[i].mesh.positions[3*v+2]);
+
+		//	newObject.triMesh->vertices.push_back(pos);
+		//}
+
+		//assert((shapes[i].mesh.positions.size() % 3) == 0);
+		//int numNormals = shapes[i].mesh.normals.size() / 3;
+		//for (size_t n = 0 ; n < numNormals ; ++n)
+		//{
+		//	glm::vec3 normal = glm::vec3(shapes[i].mesh.normals[3*n+0],
+		//								 shapes[i].mesh.normals[3*n+1],
+		//             					 shapes[i].mesh.normals[3*n+2]);
+
+		//	newObject.triMesh->normals.push_back(normal);
+		//}
+
+		//newObject.triMesh->indicesCount = shapes[i].mesh.indices.size();
 		
-		// TODO set geom mesh to all these values
-		newObject.triMesh = new mesh;
-		newObject.triMesh->vertices = vertices;
-		newObject.triMesh->indices = indices;
-		newObject.triMesh->normals = normals;
 
-		for (int ii = 0 ; ii < numVerts ; ++ii)
-		{
-			std::cout << "vert: ";
-			utilityCore::printVec3(newObject.triMesh->vertices[ii]);
-			std::cout << std::endl;
-			
-			std::cout << "normal: ";
-			utilityCore::printVec3(newObject.triMesh->normals[ii]);
-			std::cout << std::endl;
-		}
 
-		for (int jj = 0 ; jj < shapes[i].mesh.indices.size() ; ++jj)
-		{
-			std::cout << "indices[" << jj << "]: " << newObject.triMesh->indices[jj] << std::endl;
-		}
+		// old with pointers
+		//// preparing indices 
+		//int numIndices = shapes[i].mesh.indices.size();
+		//unsigned int* indices = new unsigned int[numIndices];
+		//assert((shapes[i].mesh.indices.size() % 3) == 0);
+		//for (size_t f = 0 ; f < numIndices ; ++f)
+		//{
+		//	indices[f] = shapes[i].mesh.indices[f];
+		//	printf("  idx[%ld] = %d\n", f, shapes[i].mesh.indices[f]);
+		//}
 
-		std::cout << "triMesh->indicesCount" << newObject.triMesh->indicesCount << std::endl;
-				
+		//// preparing vertices
+		//assert((shapes[i].mesh.positions.size() % 3) == 0);
+		//int numVerts = shapes[i].mesh.positions.size() / 3;
+		//glm::vec3* vertices = new glm::vec3[numVerts];
+		//for (size_t v = 0 ; v < numVerts ; ++v)
+		//{
+		//	vertices[v].x = shapes[i].mesh.positions[3*v+0];
+		//	vertices[v].y = shapes[i].mesh.positions[3*v+1];
+		//	vertices[v].z = shapes[i].mesh.positions[3*v+2];
+		//}
+
+		//// preparing normals
+		//assert((shapes[i].mesh.positions.size() % 3) == 0);
+		//int numNormals = shapes[i].mesh.normals.size() / 3;
+		//glm::vec3* normals = new glm::vec3[numNormals];
+		//for (size_t n = 0 ; n < numNormals ; ++n)
+		//{
+		//	normals[n].x = shapes[i].mesh.normals[3*n+0];
+		//	normals[n].y = shapes[i].mesh.normals[3*n+1];
+		//	normals[n].z = shapes[i].mesh.normals[3*n+2];
+		//}
+		//
+		//// TODO set geom mesh to all these values
+		//newObject.triMesh = new mesh;
+		//newObject.triMesh->vertices = vertices;
+		//newObject.triMesh->indices = indices;
+		//newObject.triMesh->normals = normals;
+
+		//for (int ii = 0 ; ii < numVerts ; ++ii)
+		//{
+		//	std::cout << "vert: ";
+		//	utilityCore::printVec3(newObject.triMesh->vertices[ii]);
+		//	std::cout << std::endl;
+		//	
+		//	std::cout << "normal: ";
+		//	utilityCore::printVec3(newObject.triMesh->normals[ii]);
+		//	std::cout << std::endl;
+		//}
+
+		//for (int jj = 0 ; jj < shapes[i].mesh.indices.size() ; ++jj)
+		//{
+		//	std::cout << "indices[" << jj << "]: " << newObject.triMesh->indices[jj] << std::endl;
+		//}
+
+		//std::cout << "triMesh->indicesCount" << newObject.triMesh->indicesCount << std::endl;			
 	}
-
-
-	
-
-
 }
