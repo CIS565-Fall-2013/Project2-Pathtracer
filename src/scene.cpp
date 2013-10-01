@@ -28,6 +28,9 @@ scene::scene(string filename){
 				}else if(strcmp(tokens[0].c_str(), "CAMERA")==0){
 				    loadCamera();
 				    cout << " " << endl;
+				}else if(strcmp(tokens[0].c_str(), "MAP")==0){
+				    loadMap(tokens[1]);
+				    cout << " " << endl;
 				}
 			}
 		}
@@ -233,30 +236,9 @@ int scene::loadMaterial(string materialid){
 	}else{
 		cout << "Loading Material " << id << "..." << endl;
 		material newMaterial;
-
-		string line;
-        //load object type 
-   //     utilityCore::safeGetline(fp_in,line);
-   //     if (!line.empty() && fp_in.good()){
-   //         if(strcmp(line.c_str(), "base")==0){
-   //             cout << "Creating new base material..." << endl;
-			//	newMaterial.type = BASE;
-   //         }else if(strcmp(line.c_str(), "grid")==0){
-   //             cout << "Creating new grid material..." << endl;
-			//	newMaterial.type = GRID;
-			//}else if(strcmp(line.c_str(), "vstripe")==0){
-   //             cout << "Creating new grid material..." << endl;
-			//	newMaterial.type = VSTRIPE;
-			//}else if(strcmp(line.c_str(), "hstripe")==0){
-   //             cout << "Creating new grid material..." << endl;
-			//	newMaterial.type = HSTRIPE;
-			//}else if(strcmp(line.c_str(), "marble")==0){
-   //             cout << "Creating new grid material..." << endl;
-			//	newMaterial.type = MARBLE;
-			//}
- 
+	
 		//load static properties
-		for(int i=0; i<10; i++){
+		for(int i=0; i<12; i++){
 			string line;
             utilityCore::safeGetline(fp_in,line);
 			vector<string> tokens = utilityCore::tokenizeString(line);
@@ -286,10 +268,56 @@ int scene::loadMaterial(string materialid){
 			
 			}else if(strcmp(tokens[0].c_str(), "DIFFCOEFF")==0){
 				newMaterial.diffuseCoefficient = atof(tokens[1].c_str());					  
+			}else if(strcmp(tokens[0].c_str(), "MAPID")==0){
+				newMaterial.mapID = atoi(tokens[1].c_str());	
 			}
 		}
 		materials.push_back(newMaterial);
 		return 1;
 	}
 }
+
+int scene::loadMap(string mapid){
+	int id = atoi(mapid.c_str());
+	if(id!=maps.size()){
+		cout << "ERROR: MAP ID does not match expected number of maps" << endl;
+		return -1;
+	}else{
+		cout << "Loading Map " << id << "..." << endl;
+		map newMap;
 	
+		//load static properties
+		for(int i=0; i<5; i++){
+			string line;
+            utilityCore::safeGetline(fp_in,line);
+			vector<string> tokens = utilityCore::tokenizeString(line);
+            if(strcmp(line.c_str(), "base")==0){
+                cout << "Creating new base map..." << endl;
+				newMap.type = BASE;
+            }else if(strcmp(line.c_str(), "hstripe")==0){
+                cout << "Creating new hstripe map..." << endl;
+				newMap.type = HSTRIPE;
+			}else if(strcmp(line.c_str(), "vstripe")==0){
+                cout << "Creating new vstripe map..." << endl;
+				newMap.type = VSTRIPE;
+			}else if(strcmp(line.c_str(), "checkerboard")==0){
+                cout << "Creating new checkerboard map..." << endl;
+				newMap.type = CHECKERBOARD;
+			}else if(strcmp(tokens[0].c_str(), "COL1")==0){
+				glm::vec3 color( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
+				newMap.color1 = color;
+			}else if(strcmp(tokens[0].c_str(), "WIDTH1")==0){
+				newMap.width1 = atof(tokens[1].c_str());				  
+			}else if(strcmp(tokens[0].c_str(), "COL2")==0){
+				glm::vec3 color( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
+				newMap.color2 = color;
+			}else if(strcmp(tokens[0].c_str(), "WIDTH2")==0){
+				newMap.width2 = atof(tokens[1].c_str());
+			}else if(strcmp(tokens[0].c_str(), "SMOOTH")==0){
+				newMap.smooth = atoi(tokens[1].c_str());
+			}
+		}
+		maps.push_back(newMap);
+		return 1;
+	}
+}

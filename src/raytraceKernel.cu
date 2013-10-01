@@ -20,6 +20,7 @@
 #include <thrust/partition.h>
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/matrix_inverse.hpp"
+#include "materials.h"
 
 
 void checkCUDAError(const char *msg) {
@@ -201,7 +202,7 @@ __global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec4* imag
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec4* colors, 
                             int* objidbuffer, staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, 
-							int* lights, int numberOfLights,ray* rays,int dof){
+							map* maps, int numberOfMaps,int* lights, int numberOfLights,ray* rays,int dof){
 
   //int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   //int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -275,10 +276,11 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	int bsdf = calculateBSDF(r,intersectionPoint,intersectionNormal,emittedColor,colors[index],unabsorbedColor,mtl,bounce*time*index);
 	
 	if (bsdf == 0)
-	{		
-		r.rayColor.x *= mtl.color.x;
-		r.rayColor.y *= mtl.color.y;
-		r.rayColor.z *= mtl.color.z;
+	{
+		glm::vec3 surfaceColor = getSurfaceColor(intersectionPoint,intersectionNormal,mtl,objId,geoms,maps);
+		r.rayColor.x *= surfaceColor.x;
+		r.rayColor.y *= surfaceColor.y;
+		r.rayColor.z *= surfaceColor.z;
 	}
 	else if(bsdf == 1)
 	{
@@ -288,9 +290,10 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	}
 	else if (bsdf == 2)
 	{
-		r.rayColor.x *= mtl.color.x;
-		r.rayColor.y *= mtl.color.y;
-		r.rayColor.z *= mtl.color.z;
+		glm::vec3 surfaceColor = getSurfaceColor(intersectionPoint,intersectionNormal,mtl,objId,geoms,maps);
+		r.rayColor.x *= surfaceColor.x;
+		r.rayColor.y *= surfaceColor.y;
+		r.rayColor.z *= surfaceColor.z;
 	}
 
 	rays[index].origin = r.origin + 0.001f*r.direction;
@@ -429,7 +432,7 @@ __global__ void moveWorld( staticGeom* geoms, staticGeom* prevGeoms, float t,int
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms,int mblur,int dof){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials,map* maps,int numberOfMaps, geom* geoms, int numberOfGeoms,int mblur,int dof){
   
   int traceDepth = 1; //determines how many bounces the raytracer traces
 
@@ -533,6 +536,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMalloc((void**)&cudamaterials, numberOfMaterials*sizeof(material));
   cudaMemcpy( cudamaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
 
+  map* cudamaps = NULL;
+  cudaMalloc((void**)&cudamaps, numberOfMaps*sizeof(map));
+  cudaMemcpy( cudamaps, maps, numberOfMaps*sizeof(map), cudaMemcpyHostToDevice);
+
+
   int numberOfLights = lightsVector.size();
   int* cudalights = NULL;
   cudaMalloc( (void**)&cudalights, numberOfLights*sizeof(int));
@@ -590,7 +598,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   for(int bounce = 1; bounce <= 8; ++bounce)
   {
 	dim3 compactedBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
-	raytraceRay<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage,cudaobjidbuffer, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalights,numberOfLights,cudarays,dof);
+	raytraceRay<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage,cudaobjidbuffer, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials,cudamaps,numberOfMaps, cudalights,numberOfLights,cudarays,dof);
 	numberOfThreads = thrust::partition(thrustRaysArray,thrustRaysArray+numberOfThreads,is_active()) - thrustRaysArray;
 	//numberOfThreads = thrust::remove_if(thrustRaysArray,thrustRaysArray+numberOfThreads,is_not_active()) - thrustRaysArray;
 
@@ -619,6 +627,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudaimage );
   cudaFree( cudageoms );
   cudaFree( cudamaterials );
+  cudaFree(cudamaps);
   cudaFree(cudalights);
   cudaFree(cudarays);
   cudaFree(cudatemprays);

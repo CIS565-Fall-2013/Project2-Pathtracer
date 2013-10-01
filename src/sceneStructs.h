@@ -12,7 +12,7 @@
 #include <string>
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
-enum MATTYPE{ BASE,GRID,VSTRIPE,HSTRIPE,MARBLE};
+enum MAPTYPE{ BASE,CHECKERBOARD,VSTRIPE,HSTRIPE};
 
 struct ray {
 	glm::vec3 origin;
@@ -70,7 +70,7 @@ struct camera {
 };
 
 struct material{
-	enum MATTYPE type;
+	int mapID;
 	glm::vec3 color;
 	float specularExponent;
 	glm::vec3 specularColor;
@@ -82,6 +82,16 @@ struct material{
 	float reducedScatterCoefficient;
 	float emittance;
 	float diffuseCoefficient;
+};
+
+struct map
+{
+	enum MAPTYPE type; 
+	glm::vec3 color1;
+	glm::vec3 color2;
+	float width1;
+	float width2;
+	int smooth;
 };
 
 #endif //CUDASTRUCTS_H
