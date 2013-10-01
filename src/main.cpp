@@ -76,20 +76,21 @@ int main(int argc, char** argv){
 
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
-	renderOpts->mode = TRACEDEPTH_DEBUG;
-	renderOpts->traceDepth = 1;
+	renderOpts->mode = PATHTRACE;
+	renderOpts->traceDepth = 10;
 	renderOpts->rayPoolSize =1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
 	renderOpts->stocasticRayAssignment = false;
-
-	renderOpts->ambientLightColor = glm::vec3(1,1,1);
-	renderOpts->ambientLightIntensity = 0.05;
+	
+	renderOpts->globalLightColor = glm::vec3(1,1,1);
+	renderOpts->globalLightDirection = glm::normalize(glm::vec3(0,-1,0));
+	renderOpts->globalLightIntensity = 1;
 
 	//Rendering toggle options
 	renderOpts->antialiasing = false;
 	renderOpts->maxSamplesPerPixel = 1;
 	renderOpts->aargbThresholds = glm::vec3(0.01,0.01,0.01);
 
-	renderOpts->frameFiltering = false;
+	renderOpts->frameFiltering = true;
 	renderOpts->backgroundColor = glm::vec3(137, 207, 240)/255.0f;//sky blue
 	renderOpts->airIOR = 1.0;
 	renderOpts->airAbsorbtion = glm::vec3(0.0, 0.0, 0.0);//No air absorbtion effects for now

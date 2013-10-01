@@ -18,7 +18,6 @@ struct AbsorptionAndScatteringProperties{
 	float reducedScatteringCoefficient;
 };
 
-enum BounceType{DIFFUSE, REFLECT, TRANSMIT};
 
 //forward declaration
 //__host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);

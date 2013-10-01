@@ -75,16 +75,21 @@ __global__ void raycastFromCameraKernel(int seed, int frame, cameraData cam, ren
 	if(rIndex < rayPoolSize){
 		thrust::default_random_engine rng(hash(seed*rIndex));//TODO: Improve randomness
 		thrust::uniform_real_distribution<float> u01(0,1);
-
-		int pixelIndex = cudaraypool[rIndex].index;
+		//read from global mem
+		rayState rstate = cudaraypool[rIndex];
+		int pixelIndex = rstate.index;
 		if(pixelIndex >= 0){
 			int x = pixelIndex % int(cam.resolution.x);
 			int y = (pixelIndex - x)/int(cam.resolution.x);
 
 			//Reset other fields
-			cudaraypool[rIndex].T = glm::vec3(1,1,1);
-			cudaraypool[rIndex].matIndex = -1;
-			cudaraypool[rIndex].r =raycastFromCamera(cam.resolution, x+u01(rng)-0.5, y+u01(rng)-0.5, cam.position, cam.view, cam.up, cam.fov);
+			rstate.T = glm::vec3(1,1,1);
+			rstate.matIndex = -1;
+			rstate.r =raycastFromCamera(cam.resolution, x+u01(rng)-0.5, y+u01(rng)-0.5, cam.position, cam.view, cam.up, cam.fov);
+			rstate.bounceType = PRIMARY;
+			//write back to global mem
+			cudaraypool[rIndex] = rstate;
+
 		}
 	}
 
@@ -277,26 +282,37 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 							//TODO: Improve randomness with point sets?
 							thrust::default_random_engine rng(hash(time*rIndex));
 							thrust::uniform_real_distribution<float> u01(0,1);
-							BounceType bounce = bounceRay(rstate, rconfig, intersectionPoint, normal, materials, geoms[ind].materialid, u01(rng), u01(rng), u01(rng));
+							rstate.bounceType = bounceRay(rstate, rconfig, intersectionPoint, normal, materials, geoms[ind].materialid, u01(rng), u01(rng), u01(rng));
 
 						}else{
-							//This was the last bounce, either add in ambient or kill ray.
+							//This was the last bounce. 
 							if(rconfig.mode == TRACEDEPTH_DEBUG)
 							{
 								colors[pixelIndex] += bounce/float(rconfig.traceDepth)*glm::vec3(1,1,1);
 								rstate.index = -1;//retire ray
+							}else if(rconfig.mode == PATHTRACE)
+							{
+								//This photon didn't come from anything
+								rstate.index = -1;
+
 							}
 						}
 					}
 				}else{
 					//How could you miss it was right in front of you!!
-					//retire ray, add background color.
+					//retire ray, add global illumination compnent
 
 					if(rconfig.mode == TRACEDEPTH_DEBUG){
 						colors[pixelIndex] += bounce/float(rconfig.traceDepth)*glm::vec3(1,1,1);
 						rstate.index = -1;//retire ray
 					}else if(rconfig.mode == PATHTRACE){
-						colors[pixelIndex] += rstate.T*rconfig.backgroundColor;
+						//Compute global illumination component, we've hit the sky
+						if(rstate.bounceType == DIFFUSE){
+						float globalLightDot = clamp(-glm::dot(rstate.r.direction, rconfig.globalLightDirection),0.0f,1.0f);
+							colors[pixelIndex] += rstate.T*rconfig.globalLightColor*rconfig.globalLightIntensity*globalLightDot;
+						}else{//Primary or specular reflection, display color
+							colors[pixelIndex] += rstate.T*rconfig.backgroundColor;
+						}
 						rstate.index = -1;//retire ray
 					}
 				}
@@ -385,6 +401,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	{
 		clearImage<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage);
 		frameFilterCounter = 1;
+
 	}
 	//else{
 	//	scaleImageIntensity<<<fullBlocksPerGridByPixel, threadsPerBlockByPixel>>>(renderCam->resolution, cudaimage, (float)(frameFilterCounter-1));
@@ -406,7 +423,19 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 		{
 			traceRay<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, iterations, bounce, cudaimage, 
 				cudaraypool, rayPoolSize, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+			/*if(rconfig.streamCompaction)
+			{
+			int rayPoolSize = raypoolCompaction(&cudaraypool, rayPoolSize);
 
+			blockCount = (int)ceil(float(rayPoolSize)/float(blockSize));
+
+			dim3 fullBlocksPerGridByRay;
+			if(blockCount > maxGridX){
+			fullBlocksPerGridByRay = dim3(maxGridX, (int)ceil( blockCount / float(maxGridX)));
+			}else{
+			fullBlocksPerGridByRay = dim3(blockCount);
+			}
+			}*/
 		}
 
 		break;

@@ -13,6 +13,7 @@
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 enum RENDERMODE{PATHTRACE, RAYCOUNT_DEBUG, TRACEDEPTH_DEBUG, FIRST_HIT_DEBUG, NORMAL_DEBUG};
+enum BounceType{PRIMARY, DIFFUSE, REFLECT, TRANSMIT};
 
 struct ray {
 	glm::vec3 origin;
@@ -25,6 +26,7 @@ struct rayState{
 	int index;//pixel to contribute to
 	glm::vec3 T;//accumulated light attenuation by color
 	int matIndex;//Index of transmission medium material. -1 if in free space.
+	BounceType bounceType;//Type of last bounce. 
 };
 
 struct geom {
@@ -93,8 +95,9 @@ struct renderOptions{
 	glm::vec3 airAbsorbtion;
 	float airIOR;
 
-	glm::vec3 ambientLightColor;
-	float ambientLightIntensity;
+	glm::vec3 globalLightColor;
+	glm::vec3 globalLightDirection;
+	float globalLightIntensity;
 
 	
 	bool antialiasing;
