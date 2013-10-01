@@ -261,7 +261,6 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
 
 // triangle intersection.
 __host__ __device__ float triangleIntersectionTest(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, 
-												   const glm::vec3& n5, const glm::vec3& n2, const glm::vec3& n3,
 												   staticGeom geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
 {
 	// convert ray to object space

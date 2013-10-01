@@ -317,17 +317,6 @@ void scene::loadObjFile(geom &newObject, const char* filePath)
 			newObject.triMesh.vertices.push_back(pos);
 		}
 
-		assert((shapes[i].mesh.positions.size() % 3) == 0);
-		int numNormals = shapes[i].mesh.normals.size() / 3;
-		for (size_t n = 0 ; n < numNormals ; ++n)
-		{
-			glm::vec3 normal = glm::vec3(shapes[i].mesh.normals[3*n+0],
-										 shapes[i].mesh.normals[3*n+1],
-		             					 shapes[i].mesh.normals[3*n+2]);
-
-			newObject.triMesh.normals.push_back(normal);
-		}
-
 		newObject.triMesh.indicesCount = shapes[i].mesh.indices.size();
 
 

@@ -8,6 +8,8 @@
 #ifndef RAYTRACEKERNEL_H
 #define PATHTRACEKERNEL_H
 
+#include <thrust/remove.h>
+#include <thrust/device_ptr.h>
 #include <stdio.h>
 #include <thrust/random.h>
 #include <cuda.h>
@@ -20,6 +22,15 @@
     #include <cutil_math.h>
 #endif
 
+
+struct is_terminated
+{
+	__host__ __device__ bool operator() (const ray r)
+	{
+		return r.isTerminated;
+	}
+};
+void cleanupTriMesh(thrust::device_ptr<staticGeom> geoms, int numberOfGeoms);
 void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
 
 #endif

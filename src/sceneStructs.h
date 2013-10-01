@@ -19,12 +19,13 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	bool isTerminated;			// whether the ray should be removed during the stream compaction step
+	int pixelID;				// store the pixel that this ray is responsible for computing the color of
 };
 
 // constructed in scene
 struct mesh {
 	std::vector<glm::vec3> vertices;
-	std::vector<glm::vec3> normals;
 	std::vector<unsigned int> indices; // iterate through these indices to access vertices and normals.
 	int indicesCount;
 };
@@ -32,7 +33,6 @@ struct mesh {
 // used to pass to cuda
 struct staticMesh {
 	glm::vec3* vertices;
-	glm::vec3* normals;
 	unsigned int* indices;
 	int indicesCount;
 };

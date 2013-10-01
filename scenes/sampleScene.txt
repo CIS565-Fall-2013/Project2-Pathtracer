@@ -220,10 +220,10 @@ OBJECT 8
 cube
 material 8 
 frame 0
-TRANS       0 10 0
+TRANS       0 9.4 0
 ROTAT       0 0 90
 SCALE       .3 3 3
 frame 1
-TRANS       0 10 0
+TRANS       0 9.4 0
 ROTAT       0 0 90
 SCALE       .3 3 3

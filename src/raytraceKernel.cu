@@ -51,6 +51,7 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
   return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
 }
 
+
 //TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
@@ -128,6 +129,19 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
   }
 }
 
+__global__ void constructRayPool(ray* rayPool, cameraData cam, float time)
+{
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+    int index = x + (y * cam.resolution.x);
+
+	ray r = raycastFromCameraKernel(cam.resolution, time, (float)x, (float)y, cam.position, cam.view, cam.up, cam.fov);
+	r.isTerminated = false;
+	r.pixelID = index;
+	rayPool[index] = r;
+}
+
+
 // Loop through geometry and test against ray.
 // Returns FLT_MAX if no object is intersected with the ray, else returns t such that isectPoint = P + Dt 
 // Input:  staticGeom* geoms: array of geometry in the scene
@@ -203,14 +217,10 @@ __device__ float intersectionTest(staticGeom* geoms, int numberOfGeoms, ray r, i
 				vec3 v2 = geoms[i].triMesh.vertices[index2];
 				vec3 v3 = geoms[i].triMesh.vertices[index3];
 
-				vec3 n1 = geoms[i].triMesh.normals[index1];
-				vec3 n2 = geoms[i].triMesh.normals[index2];
-				vec3 n3 = geoms[i].triMesh.normals[index3];
-
 				vec3 isectPointTemp = vec3(0,0,0);
 				vec3 isectNormalTemp = vec3(0,0,0);
 				
-				float dist = triangleIntersectionTest(v1, v2, v3, n1, n2, n3, geoms[i], r, isectPointTemp, isectNormalTemp);
+				float dist = triangleIntersectionTest(v1, v2, v3, geoms[i], r, isectPointTemp, isectNormalTemp);
 
 				if (dist < t && dist != -1)
 				{
@@ -236,7 +246,7 @@ __device__ vec3 shadowFeeler(staticGeom* geoms, int numberOfGeoms, material* mat
 	vec3 shadowRayIsectNormal = vec3(0,0,0);
 	int shadowRayIsectMatId = -1;
 	float t = FLT_MAX;
-	float eps = 1e-4;
+	float eps = 1e-5;
 	int numShadowRays = SHADOWRAY_NUM;  
 	
 	// number of times the shadowRays hit the light
@@ -274,10 +284,43 @@ __device__ vec3 shadowFeeler(staticGeom* geoms, int numberOfGeoms, material* mat
 }
 
 //Core pathtracer kernel
-__device__ void pathtraceRay(ray r, float ssratio, int index, int rayDepth, glm::vec3* colors, cameraData cam,
+__global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cameraData cam,
                             staticGeom* geoms, int numberOfGeoms, material* cudamat, int numberOfMat, int* cudalightIndex, int numberOfLights, float iter)
 {
+	// Note: For ray parallelization, these ids will not necessarily correspond to the index of the pixel that can be used for the color array.
+	// So instead of using these IDs directly, store pixel index that the ray is responsible for during rayPool construction
+	int rayIdx = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int rayIdy = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int rayIndex = rayIdx + (rayIdy * cam.resolution.x);
+	int rayPixelIndex = rayPool[rayIndex].pixelID;
+
+	ray r = rayPool[rayIndex];
+
+	vec3 isectPoint = vec3(0,0,0);
+	vec3 isectNormal = vec3(0,0,0);
+	int matId = -1;
+	int geomId = -1;
+	float t = FLT_MAX;
+
+	// passing in -1 for geomToSkipId because we want to check against all geometry
+	t = intersectionTest(geoms, numberOfGeoms, r, -1, isectPoint, isectNormal, matId, geomId); 
+
+	if (t != FLT_MAX)
+	{
+		material isectMat = cudamat[matId];
+		
+		colors[rayPixelIndex] = isectMat.color;
+	}
 	
+
+
+
+	// check if rayIdx and rayPixelIndex are correct
+	//if (rayIdy > 400)
+	//{
+	//	colors[rayPixelIndex] = vec3(1,0,0);
+	//}
+
 
 
 
@@ -369,6 +412,7 @@ __device__ void raytraceRay(ray r, float ssratio, int index, int rayDepth, glm::
 			{
 				staticGeom lightSource = geoms[cudalightIndex[i]];
 				vec3 tint = shadowFeeler(geoms, numberOfGeoms, cudamat, isectPoint, isectNormal, geomId, lightSource, iter, index);
+				//vec3 tint = shadowFeeler(geoms, numberOfGeoms, cudamat, isectPoint, isectNormal, -1, lightSource, iter, index);
 
 				vec3 IsectToLight = normalize(lightSource.translation - isectPoint);
 				vec3 IsectToEye = normalize(cam.position - isectPoint);
@@ -388,9 +432,6 @@ __device__ void raytraceRay(ray r, float ssratio, int index, int rayDepth, glm::
 				
 				color = color + (1 - reflectance) * tint * ssratio * (lightIntensity * lightColor * distAttenuation * 
 					(kd * materialColor * diffuseTerm + ks * isectMat.specularColor * specularTerm * isectMat.specularExponent));
-
-				// TODO: Lighting seem not to work. Without the tint, the colors show up for cube on one side.
-				//color = color + (1 - reflectance) * ssratio * lightIntensity * lightColor * distAttenuation * (kd * materialColor * diffuseTerm + ks * isectMat.specularColor * specularTerm * isectMat.specularExponent);
 			}
 		}
 	}
@@ -425,15 +466,7 @@ __global__ void launchRaytraceRay(glm::vec2 resolution, float time, cameraData c
 			float ssy = j / ss - 1 / (ss*2.0f);
 
 			ray r = raycastFromCameraKernel(resolution, 0, ssx + x, ssy + y, cam.position, cam.view, cam.up, cam.fov);
-
-			if (PATHTRACING_SWITCH)
-			{
-				pathtraceRay(r, ssratio, index, rayDepth, colors, cam, geoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, time);
-			}
-			else
-			{
-				raytraceRay(r, ssratio, index, rayDepth, colors, cam, geoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, time);
-			}
+			raytraceRay(r, ssratio, index, rayDepth, colors, cam, geoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, time);
 
 			color = color + colors[index];
 		}
@@ -442,129 +475,181 @@ __global__ void launchRaytraceRay(glm::vec2 resolution, float time, cameraData c
 	colors[index] = color;
 }
 
+void cleanupTriMesh(thrust::device_ptr<staticGeom> geoms, int numberOfGeoms)
+{
+	for (int i = 0 ; i < numberOfGeoms ; ++i)
+	{
+		staticGeom sg = geoms[i];
+		if (sg.type == MESH)
+		{
+			cudaFree(sg.triMesh.indices);
+			cudaFree(sg.triMesh.vertices);
+		}
+	}
+}
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
 {
-  // increase stack size so recursion can be used.
-  cudaDeviceSetLimit(cudaLimitStackSize, 50000*sizeof(float)); 
+	// increase stack size so recursion can be used.
+	cudaDeviceSetLimit(cudaLimitStackSize, 50000*sizeof(float)); 
 
-  int traceDepth = 1; //determines how many bounces the raytracer traces
+	int traceDepth = 1; //determines how many bounces the raytracer traces
 
-  // set up crucial magic
-  int tileSize = 8;
-  dim3 threadsPerBlock(tileSize, tileSize);
-  dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
+	// set up crucial magic
+	int tileSize = 8;
+	dim3 threadsPerBlock(tileSize, tileSize);
+	dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
   
-  //send image to GPU
-  glm::vec3* cudaimage = NULL;
-  cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
-  cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+	//send image to GPU
+	glm::vec3* cudaimage = NULL;
+	cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
+	cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
   
-  //package geometry and materials and sent to GPU
-  int numberOfLights = 0;
-  std::vector<int> lightIndices;
+	//package geometry and materials and sent to GPU
+	int numberOfLights = 0;
+	std::vector<int> lightIndices;
 
-  staticGeom* geomList = new staticGeom[numberOfGeoms];
-  for(int i=0; i<numberOfGeoms; i++){
-    staticGeom newStaticGeom;
-    newStaticGeom.type = geoms[i].type;
-    newStaticGeom.materialid = geoms[i].materialid;
-    newStaticGeom.translation = geoms[i].translations[frame];
-    newStaticGeom.rotation = geoms[i].rotations[frame];
-    newStaticGeom.scale = geoms[i].scales[frame];
-    newStaticGeom.transform = geoms[i].transforms[frame];
-    newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+	staticGeom* geomList = new staticGeom[numberOfGeoms];
+	for(int i=0; i<numberOfGeoms; i++)
+	{
+		staticGeom newStaticGeom;
+		newStaticGeom.type = geoms[i].type;
+		newStaticGeom.materialid = geoms[i].materialid;
+		newStaticGeom.translation = geoms[i].translations[frame];
+		newStaticGeom.rotation = geoms[i].rotations[frame];
+		newStaticGeom.scale = geoms[i].scales[frame];
+		newStaticGeom.transform = geoms[i].transforms[frame];
+		newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
    
-	if (newStaticGeom.type == MESH)
-	{
-		// need to set vertices, normals, indices, and indicesCount for newStaticGeom.triMesh
-		int numVerts = geoms[i].triMesh.vertices.size();
-		cudaMalloc((void**)&(newStaticGeom.triMesh.vertices), numVerts*sizeof(glm::vec3));
-		cudaMemcpy(newStaticGeom.triMesh.vertices, &(geoms[i].triMesh.vertices[0]), numVerts*sizeof(glm::vec3), cudaMemcpyHostToDevice);
-
-		int numNormals = geoms[i].triMesh.normals.size();
-		cudaMalloc((void**)&(newStaticGeom.triMesh.normals), numNormals*sizeof(glm::vec3));
-		cudaMemcpy(newStaticGeom.triMesh.normals, &(geoms[i].triMesh.normals[0]), numNormals*sizeof(glm::vec3), cudaMemcpyHostToDevice);
-
-		int numIndices = geoms[i].triMesh.indices.size();
-		cudaMalloc((void**)&(newStaticGeom.triMesh.indices), numIndices*sizeof(unsigned int));
-		cudaMemcpy(newStaticGeom.triMesh.indices, &(geoms[i].triMesh.indices[0]), numIndices*sizeof(unsigned int), cudaMemcpyHostToDevice);
+		if (newStaticGeom.type == MESH)
+		{
+			// need to set vertices, normals, indices, and indicesCount for newStaticGeom.triMesh
+			int numVerts = geoms[i].triMesh.vertices.size();
+			cudaMalloc((void**)&(newStaticGeom.triMesh.vertices), numVerts*sizeof(glm::vec3));
+			cudaMemcpy(newStaticGeom.triMesh.vertices, &(geoms[i].triMesh.vertices[0]), numVerts*sizeof(glm::vec3), cudaMemcpyHostToDevice);
 		
-		newStaticGeom.triMesh.indicesCount = geoms[i].triMesh.indicesCount;
+			int numIndices = geoms[i].triMesh.indices.size();
+			cudaMalloc((void**)&(newStaticGeom.triMesh.indices), numIndices*sizeof(unsigned int));
+			cudaMemcpy(newStaticGeom.triMesh.indices, &(geoms[i].triMesh.indices[0]), numIndices*sizeof(unsigned int), cudaMemcpyHostToDevice);
+		
+			newStaticGeom.triMesh.indicesCount = geoms[i].triMesh.indicesCount;
+		}
+	
+		geomList[i] = newStaticGeom;
+	
+		if (materials[newStaticGeom.materialid].emittance != 0)
+		{
+			numberOfLights++;
+			lightIndices.push_back(i);
+		}
+
 	}
-	
-	geomList[i] = newStaticGeom;
-	
-	if (materials[newStaticGeom.materialid].emittance != 0)
+  
+	staticGeom* cudageoms = NULL;
+	cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
+	cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+
+	// check number of materials
+	int numberOfMat = 0;
+
+	for (int i = 0 ; i < numberOfMaterials ; ++i)
 	{
-		numberOfLights++;
-		lightIndices.push_back(i);
+		numberOfMat++;
 	}
-  }
+
+	// set up lights indices to pass to cuda
+	int* cudalightIndex = NULL;
+	cudaMalloc((void**) &cudalightIndex, numberOfLights * sizeof(int));
+	cudaMemcpy(cudalightIndex, &(lightIndices[0]), numberOfLights * sizeof(int), cudaMemcpyHostToDevice);
+
+	// Regaring (void**) ...
+	// All CUDA API functions return an error code (or cudaSuccess if no error occured). 
+	// All other parameters are passed by reference. However, in plain C you cannot have references, 
+	// that's why you have to pass an address of the variable that you want the return information to be stored. 
+	// Since you are returning a pointer, you need to pass a double-pointer.
+	material* cudamat = NULL;
+	cudaMalloc((void**)&cudamat, numberOfMat * sizeof(material));
+	cudaMemcpy(cudamat, materials, numberOfMat * sizeof(material), cudaMemcpyHostToDevice);
   
-  staticGeom* cudageoms = NULL;
-  cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
-  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+	//package camera
+	//Q: Why don't we need to use cudaMalloc and cudaMemcpy here?
+	//A: During kernel execution, the value cam will be put onto GPU memory stack since this value is not being passed by reference.
+	cameraData cam;
+	cam.resolution = renderCam->resolution;
+	cam.position = renderCam->positions[frame];
+	cam.view = renderCam->views[frame];
+	cam.up = renderCam->ups[frame];
+	cam.fov = renderCam->fov;
+	
+	// LOOK: Currently assuming number of rays is the number of pixels on screen.
+	int numRays = cam.resolution.x * cam.resolution.y;
+	ray* cudaRayPool = NULL;
+	
+	//kernel launch
+	if (PATHTRACING_SWITCH)
+	{
+		// construct ray pool
+		cudaMalloc((void**)&cudaRayPool, numRays * sizeof(ray));
+		constructRayPool<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaRayPool, cam, (float)iterations);
 
-  // check number of materials
-  int numberOfMat = 0;
+		// Trace all bounces of the ray in a BFS manner
+		for(int bounce = 1; bounce <= MAX_BOUNCE; ++bounce)
+		{
+			// Update blockSize based on the number of rays.
+			float sqrtNumRays = sqrtf((float)numRays);
+			int blockSize = (int)ceil(sqrtNumRays/(float)tileSize);
+			dim3 rayBlockPerGrid(blockSize, blockSize);
 
-  for (int i = 0 ; i < numberOfMaterials ; ++i)
-  {
-	numberOfMat++;
-  }
+			// LOOK: ssratio is just 1 for now in path tracing mode.
+			pathtraceRay<<<rayBlockPerGrid,threadsPerBlock>>>(cudaRayPool, 1, cudaimage, cam, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, (float)iterations);
 
-  // set up lights indices to pass to cuda
- int* cudalightIndex = NULL;
- cudaMalloc((void**) &cudalightIndex, numberOfLights * sizeof(int));
- cudaMemcpy(cudalightIndex, &(lightIndices[0]), numberOfLights * sizeof(int), cudaMemcpyHostToDevice);
 
-  // Regaring (void**) ...
-  // All CUDA API functions return an error code (or cudaSuccess if no error occured). 
-  // All other parameters are passed by reference. However, in plain C you cannot have references, 
-  // that's why you have to pass an address of the variable that you want the return information to be stored. 
-  // Since you are returning a pointer, you need to pass a double-pointer.
-  material* cudamat = NULL;
-  cudaMalloc((void**)&cudamat, numberOfMat * sizeof(material));
-  cudaMemcpy(cudamat, materials, numberOfMat * sizeof(material), cudaMemcpyHostToDevice);
-  
-  //package camera
-  //Q: Why don't we need to use cudaMalloc and cudaMemcpy here?
-  //A: During kernel execution, the value cam will be put onto GPU memory stack since this value is not being passed by reference.
-  cameraData cam;
-  cam.resolution = renderCam->resolution;
-  cam.position = renderCam->positions[frame];
-  cam.view = renderCam->views[frame];
-  cam.up = renderCam->ups[frame];
-  cam.fov = renderCam->fov;
-
-  //kernel launch
-  launchRaytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights);
+			// TODO: Stream compaction and update numRays using thrust
+			thrust::device_ptr<ray> cudaRayPoolDevicePtr(cudaRayPool);
+			thrust::device_ptr<ray> compactCudaRayPoolDevicePtr = thrust::remove_if(cudaRayPoolDevicePtr, cudaRayPoolDevicePtr + numRays, is_terminated());
+			numRays = compactCudaRayPoolDevicePtr.get() - cudaRayPoolDevicePtr.get();
+			bool bleh = 0;
+		}
+	}
+	else
+	{
+		launchRaytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights);
+	}
  
-  // setting up previous image accumulation
-  vec3* imageAccum = NULL;
-  cudaMalloc((void**)&imageAccum,(int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
-  cudaMemcpy(imageAccum, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+	// setting up previous image accumulation
+	vec3* imageAccum = NULL;
+	cudaMalloc((void**)&imageAccum,(int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
+	cudaMemcpy(imageAccum, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
   
-  //kernel launch
-  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, (float)iterations, renderCam->resolution, cudaimage, imageAccum);
+	//kernel launch
+	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, (float)iterations, renderCam->resolution, cudaimage, imageAccum);
 
-  //retrieve image from GPU
-  cudaMemcpy( renderCam->image, imageAccum, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+	//retrieve image from GPU
+	cudaMemcpy( renderCam->image, imageAccum, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
-  //free up stuff, or else we'll leak memory like a madman
-  //TODO: free triMesh in cudageoms
-  cudaFree( cudaimage );
-  cudaFree( cudageoms );
-  cudaFree( imageAccum );
-  cudaFree( cudamat );
-  cudaFree( cudalightIndex );
-  delete geomList;
+	//free up stuff, or else we'll leak memory like a madman
+	
+	//freeing triMesh
+	thrust::device_ptr<staticGeom> cudageomsPtr(cudageoms);
+	cleanupTriMesh(cudageomsPtr, numberOfGeoms);
+	cudaFree( cudaimage );
+	cudaFree( cudageoms );
+	cudaFree( imageAccum );
+	cudaFree( cudamat );
+	cudaFree( cudalightIndex );
 
-  // make certain the kernel has completed
-  cudaThreadSynchronize();
+	if (PATHTRACING_SWITCH)
+	{
+		cudaFree( cudaRayPool );
+	}
 
-  checkCUDAError("Kernel failed!");
+
+	delete[] geomList;
+
+	// make certain the kernel has completed
+	cudaThreadSynchronize();
+
+	checkCUDAError("Kernel failed!");
 }
 

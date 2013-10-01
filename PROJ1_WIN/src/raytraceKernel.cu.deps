@@ -807,6 +807,23 @@ C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\algorithm
 C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\include\sstream
 c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\cudaMat4.h
 c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\raytraceKernel.h
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/remove.h
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/detail/remove.inl
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/detail/generic/remove.h
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/detail/generic/remove.inl
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/detail/copy_if.h
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/detail/copy_if.inl
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/detail/generic/copy_if.h
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/detail/generic/copy_if.inl
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/detail/adl/copy_if.h
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/cpp/detail/copy_if.h
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/detail/internal/scalar/copy_if.h
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/cuda/detail/copy_if.h
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/cuda/detail/copy_if.inl
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/detail/adl/remove.h
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/cpp/detail/remove.h
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/detail/internal/scalar/remove.h
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/system/cuda/detail/remove.h
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/random.h
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/random/discard_block_engine.h
 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/random/detail/random_core_access.h
