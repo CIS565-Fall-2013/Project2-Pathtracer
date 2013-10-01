@@ -110,6 +110,15 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
       if(color.z>255){
         color.z = 255;
       }
+
+	  if(color.x < 0)
+		  color.x = 0;
+
+	  if(color.y < 0)
+		  color.y = 0;
+
+	  if(color.z < 0)
+		  color.z = 0;
       
       // Each thread writes one pixel location in the texture (textel)
       PBOpos[index].w = 0;
@@ -124,17 +133,22 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
 // Input:  staticGeom* geoms: array of geometry in the scene
 //         int numberOfGeoms: number of geoms in the scene
 //		   ray r: the ray that is to be intersected with all the geometry
+//		   int geomIdToSkip indicates the id of the geometry to skip intersection test. This prevents self-intersection for meshes.
 // Output: vec3 isectPoint: holders the intersection point.
 //		   vec3 isectNormal: holds the normal at the intersection point.
 //		   int matId: the index of the material of the intersected geometry
-//		   
-__device__ float intersectionTest(staticGeom* geoms, int numberOfGeoms, ray r, vec3 &isectPoint, vec3 &isectNormal, int &matId)
+//		   int geomId: the index of the geom that was hit
+__device__ float intersectionTest(staticGeom* geoms, int numberOfGeoms, ray r, int geomIdToSkip, vec3 &isectPoint, vec3 &isectNormal, int &matId, int& geomId)
 {
 	float t = FLT_MAX;
+	geomId = -1;
 
 	// testing intersections
 	for (int i = 0 ; i < numberOfGeoms ; ++i)
 	{
+		if (i == geomIdToSkip)
+			continue;
+
 		if (geoms[i].type == GEOMTYPE::SPHERE)
 		{
 			// do sphere intersection
@@ -149,6 +163,7 @@ __device__ float intersectionTest(staticGeom* geoms, int numberOfGeoms, ray r, v
 				isectPoint = isectPointTemp;
 				isectNormal = isectNormalTemp;
 				matId = geoms[i].materialid;
+				geomId = i;
 			}
 		}
 		else if (geoms[i].type == GEOMTYPE::CUBE)
@@ -165,6 +180,7 @@ __device__ float intersectionTest(staticGeom* geoms, int numberOfGeoms, ray r, v
 				isectPoint = isectPointTemp;
 				isectNormal = isectNormalTemp;
 				matId = geoms[i].materialid;
+				geomId = i;
 			}
 		}
 		else if (geoms[i].type == GEOMTYPE::MESH)
@@ -202,6 +218,7 @@ __device__ float intersectionTest(staticGeom* geoms, int numberOfGeoms, ray r, v
 					isectPoint = isectPointTemp;
 					isectNormal = isectNormalTemp;
 					matId = geoms[i].materialid;
+					geomId = i;
 				}
 			}
 		}
@@ -212,14 +229,14 @@ __device__ float intersectionTest(staticGeom* geoms, int numberOfGeoms, ray r, v
 
 // send out shadow feeler rays and compute the tint color
 // this will generate hard shadows if num shadows is set to 1
-__device__ vec3 shadowFeeler(staticGeom* geoms, int numberOfGeoms, material* materials, vec3 isectPoint, vec3 isectNormal, staticGeom lightSource, float iter, int index)
+__device__ vec3 shadowFeeler(staticGeom* geoms, int numberOfGeoms, material* materials, vec3 isectPoint, vec3 isectNormal, int hitGeomId, staticGeom lightSource, float iter, int index)
 {
 	vec3 tint = vec3(1,1,1);
 	vec3 shadowRayIsectPoint = vec3(0,0,0);
 	vec3 shadowRayIsectNormal = vec3(0,0,0);
 	int shadowRayIsectMatId = -1;
 	float t = FLT_MAX;
-	float eps = 1e-5;
+	float eps = 1e-4;
 	int numShadowRays = SHADOWRAY_NUM;  
 	
 	// number of times the shadowRays hit the light
@@ -245,7 +262,8 @@ __device__ vec3 shadowFeeler(staticGeom* geoms, int numberOfGeoms, material* mat
 		shadowRay.direction = normalize(lightToIsect);
 		shadowRay.origin = isectPoint + shadowRay.direction * eps; // consider moving this in the shadow ray direction
 
-		t = intersectionTest(geoms, numberOfGeoms, shadowRay, shadowRayIsectPoint, shadowRayIsectNormal, shadowRayIsectMatId);
+		int geomId = -1;
+		t = intersectionTest(geoms, numberOfGeoms, shadowRay, hitGeomId, shadowRayIsectPoint, shadowRayIsectNormal, shadowRayIsectMatId, geomId);
 
 		if (t != FLT_MAX)
 			hitLight += materials[shadowRayIsectMatId].emittance / (materials[shadowRayIsectMatId].emittance + eps);
@@ -303,9 +321,11 @@ __device__ void raytraceRay(ray r, float ssratio, int index, int rayDepth, glm::
 	vec3 isectPoint = vec3(0,0,0);
 	vec3 isectNormal = vec3(0,0,0);
 	int matId = -1;
+	int geomId = -1;
 	float t = FLT_MAX;
 
-	t = intersectionTest(geoms, numberOfGeoms, r, isectPoint, isectNormal, matId); 
+	// passing in -1 for geomToSkipId because we want to check against all geometry
+	t = intersectionTest(geoms, numberOfGeoms, r, -1, isectPoint, isectNormal, matId, geomId); 
 
 	if (t != FLT_MAX)
 	{
@@ -323,7 +343,10 @@ __device__ void raytraceRay(ray r, float ssratio, int index, int rayDepth, glm::
 			vec3 reflectedIsectPoint = vec3(0,0,0);
 			vec3 reflectedIsectNormal = vec3(0,0,0);
 			int reflectedMatId = -1;
-			float rt = intersectionTest(geoms, numberOfGeoms, reflectedRay, reflectedIsectPoint, reflectedIsectNormal, reflectedMatId);
+			int reflectedGeomId = -1;
+
+			// passing in -1 for geomToSkipId because we want to check against all geometry
+			float rt = intersectionTest(geoms, numberOfGeoms, reflectedRay, -1, reflectedIsectPoint, reflectedIsectNormal, reflectedMatId, reflectedGeomId);
 
 			// recurse
 			raytraceRay(reflectedRay, ssratio, index, rayDepth+1, colors, cam, geoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, iter);
@@ -345,7 +368,7 @@ __device__ void raytraceRay(ray r, float ssratio, int index, int rayDepth, glm::
 			for (int i = 0 ; i < numberOfLights ; ++i)
 			{
 				staticGeom lightSource = geoms[cudalightIndex[i]];
-				vec3 tint = shadowFeeler(geoms, numberOfGeoms, cudamat, isectPoint, isectNormal, lightSource, iter, index);
+				vec3 tint = shadowFeeler(geoms, numberOfGeoms, cudamat, isectPoint, isectNormal, geomId, lightSource, iter, index);
 
 				vec3 IsectToLight = normalize(lightSource.translation - isectPoint);
 				vec3 IsectToEye = normalize(cam.position - isectPoint);
@@ -365,6 +388,9 @@ __device__ void raytraceRay(ray r, float ssratio, int index, int rayDepth, glm::
 				
 				color = color + (1 - reflectance) * tint * ssratio * (lightIntensity * lightColor * distAttenuation * 
 					(kd * materialColor * diffuseTerm + ks * isectMat.specularColor * specularTerm * isectMat.specularExponent));
+
+				// TODO: Lighting seem not to work. Without the tint, the colors show up for cube on one side.
+				//color = color + (1 - reflectance) * ssratio * lightIntensity * lightColor * distAttenuation * (kd * materialColor * diffuseTerm + ks * isectMat.specularColor * specularTerm * isectMat.specularExponent);
 			}
 		}
 	}
