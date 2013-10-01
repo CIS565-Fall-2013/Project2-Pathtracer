@@ -242,7 +242,7 @@ __device__ glm::vec3 calcShade (interceptInfo theRightIntercept, material* textu
 //Core raytracer kernel
 __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3* colors, staticGeom* geoms, 
 							 material* textureArray, renderInfo * RenderParams, sceneInfo objectCountInfo, 
-							 bool *primaryArrayOnDevice, ray *rayPoolOnDevice, int rayPoolLength)
+							 bool *primaryArrayOnDevice, ray *rayPoolOnDevice, int rayPoolLength, glm::vec3 lightPos)
 {
   extern __shared__ glm::vec3 arrayPool [];
   __shared__ glm::vec3 *colourBlock; 
@@ -285,6 +285,8 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 
 	interceptInfo theRightIntercept = getIntercept (geoms, objectCountInfo, rayPoolBlock [threadID], textureArray);		
 	shadedColour += calcShade (theRightIntercept, textureArray);
+	glm::vec3 lightDir = glm::normalize (lightPos - 
+										 (rayPoolBlock [threadID].origin + rayPoolBlock [threadID].direction * theRightIntercept.interceptVal));
 
 	if ((theRightIntercept.intrMaterial.emittance > 0) || (theRightIntercept.interceptVal < 0))
 		primArrayBlock [threadID] = false;	// Ray did not hit anything or it hit light, so kill it.
@@ -292,7 +294,7 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 		calculateBSDF  (rayPoolBlock [threadID], 
 						rayPoolBlock [threadID].origin + rayPoolBlock [threadID].direction * theRightIntercept.interceptVal, 
 						theRightIntercept.intrNormal, glm::vec3 (0), AbsorptionAndScatteringProperties (), 
-						index*time, theRightIntercept.intrMaterial.color, glm::vec3 (0), theRightIntercept.intrMaterial);
+						index*time, theRightIntercept.intrMaterial.color, glm::vec3 (0), theRightIntercept.intrMaterial, lightDir);
 	
 	if (glm::length (colourBlock [threadID]) > 0)
 		colourBlock [threadID] *= shadedColour;			// Add computed shade to shadedColour.
@@ -349,7 +351,7 @@ __global__ void copyArray (bool *from, int *to, int fromLength)
 	int globalIndex = blockDim.x*blockIdx.x + threadIdx.x;
 
 	if (globalIndex < fromLength)
-		to [globalIndex] = from [globalIndex];
+		to [globalIndex] = (int)from [globalIndex];
 }
 
 __global__ void copyArray (ray *from, ray *to, int fromLength)
@@ -736,9 +738,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	  float zAdd = jitter (randomNumGen);
 	  float xAdd = jitter (randomNumGen); 
-//	  glm::vec3 curLightSamplePos = glm::vec3 (RenderParams.lightPos.x /*+ ((i%RenderParams.sqrtLights)*RenderParams.lightStepSize)*/, 
-//												RenderParams.lightPos.y, 
-//												RenderParams.lightPos.z/* + ((i/RenderParams.sqrtLights)*RenderParams.lightStepSize)*/);
+	  glm::vec3 curLightSamplePos = glm::vec3 (RenderParams.lightPos.x /*+ ((i%RenderParams.sqrtLights)*RenderParams.lightStepSize)*/, 
+												RenderParams.lightPos.y, 
+												RenderParams.lightPos.z/* + ((i/RenderParams.sqrtLights)*RenderParams.lightStepSize)*/);
 	  
 	  // Area light sampled in a jittered grid to reduce banding.
 //	  curLightSamplePos.z += zAdd;
@@ -764,7 +766,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  //  Now copy the geometry list to the GPU global memory.
 	  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
 
-//	  glm::vec3 lightPos = multiplyMV (geomList [0].transform, glm::vec4 (curLightSamplePos, 1.0));
+	  glm::vec3 lightPos = multiplyMV (geomList [0].transform, glm::vec4 (curLightSamplePos, 1.0));
 	  
 	  // Create Ray Pool. 
 	  int rayPoolLength = cam.resolution.x * cam.resolution.y;
@@ -801,7 +803,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
 		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock, threadsPerBlock.x*threadsPerBlock.y*(sizeof(glm::vec3) + sizeof (bool) + sizeof(ray))>>>
 			((float)j+(i*nBounces), cam, j, cudaimage, cudageoms, materialColours, RenderParamsOnDevice, 
-			 primCounts, primaryArrayOnDevice, rayPoolOnDevice, rayPoolLength);
+			 primCounts, primaryArrayOnDevice, rayPoolOnDevice, rayPoolLength, lightPos);
 //		checkCUDAError("raytraceRay Kernel failed!");
 
 /////		---- CPU Stream Compaction ----		///

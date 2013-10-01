@@ -86,12 +86,13 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
     
 }
 
-// Given the refractive index of the material, cosine of the incident angle and a random number uniformly distributed between 0 and 1, 
-// this function returns true if the Fresnel reflectance term is greater than or equal to the random number, signifying reflectance.
-// Otherwise, it will return false, signifying refractance/transmittance.
-__host__ __device__ bool calculateFresnelReflectance (float outRefIndex, float intoRefIndex, float cosineIncidentAngle, float uniformRandomBetween01)
+// Given the refractive indices of the materials at intersection, cosine of the incident angle and
+// a random number uniformly distributed between 0 and 1, this function returns true if the Fresnel
+// reflectance term is greater than or equal to the random number, signifying reflection. Otherwise, 
+// it will return false, signifying refraction/transmittance.
+__host__ __device__ bool calculateFresnelReflectance (float outsideRefIndex, float insideRefIndex, float cosineIncidentAngle, float uniformRandomBetween01)
 {
-	float RF0 = (intoRefIndex - outRefIndex) / (intoRefIndex + outRefIndex);
+	float RF0 = (insideRefIndex - outsideRefIndex) / (insideRefIndex + outsideRefIndex);
 	RF0 = RF0 * RF0;
 	
 	if (cosineIncidentAngle < 0)		// External Reflection
@@ -104,7 +105,7 @@ __host__ __device__ bool calculateFresnelReflectance (float outRefIndex, float i
 	}
 	else								// Internal Reflection.
 	{
-		float sinCritAngle = intoRefIndex / outRefIndex;
+		float sinCritAngle = insideRefIndex / outsideRefIndex;
 		float sinIncidentAngle = sqrt (1 - (cosineIncidentAngle * cosineIncidentAngle));
 		if (sinIncidentAngle > sinCritAngle)
 			return true;	// reflection
@@ -128,8 +129,8 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 //returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
 __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
                                        AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
-									   float randomSeed, 
-                                       glm::vec3& color, glm::vec3& unabsorbedColor, material m)
+									   float randomSeed, glm::vec3& color, glm::vec3& unabsorbedColor, 
+									   material m, glm::vec3 lightDir)
 {
 	int retVal = 0;
 	r.origin = intersect+0.01f*normal; //slightly perturb along normal to avoid self-intersection.
@@ -145,20 +146,24 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 	else if (m.hasRefractive)
 	{
 		float cosIncidentAngle = glm::dot (r.direction, normal);
-		float intoRefIndex = m.indexOfRefraction; float outRefIndex = 1.0;
-		if (cosIncidentAngle > 0)
+		float insideRefIndex = m.indexOfRefraction; float outsideRefIndex = 1.0;
+		if (cosIncidentAngle > 0)	// If ray going from inside to outside.
 		{
-			outRefIndex = m.indexOfRefraction;
-			intoRefIndex = 1.0;
+			outsideRefIndex = m.indexOfRefraction;
+			insideRefIndex = 1.0;
 		}
-		if (calculateFresnelReflectance (outRefIndex, intoRefIndex, cosIncidentAngle, u01(rng)))
+
+		if (calculateFresnelReflectance (outsideRefIndex, insideRefIndex, cosIncidentAngle, u01(rng)))
 		{	
 			r.direction = glm::normalize (reflectRay (r.direction, normal));
 			retVal = 1;
 		}
 		else
 		{
-			// TODO: Code for refraction.
+			// As given in Real-Time Rendering, Third Edition, pp. 396.
+			float w = (outsideRefIndex / insideRefIndex) * glm::dot (lightDir, normal);
+			float k = sqrt (1 + ((w + (outsideRefIndex / insideRefIndex)) * (w - (outsideRefIndex / insideRefIndex))));
+			r.direction = (w - k)*normal - (outsideRefIndex / insideRefIndex)*lightDir;
 			retVal = 2;
 		}
 	}
