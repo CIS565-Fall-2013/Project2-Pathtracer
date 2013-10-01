@@ -306,8 +306,7 @@ __global__ void sampleBRDF( int resolution, float time, ray_data* ray_pool, int 
 
   // DEBUG Accumulate brdf
   ray_pool[index].brdf_weight *= brdf;
-  if ( mat.emittance != 0 ) 
-    ray_pool[index].Illumination = mat.emittance;
+  ray_pool[index].Illumination += mat.emittance;
 
   ray_pool[index].Ray.origin = ray_pool[index].Intersection.origin;
   ray_pool[index].Ray.direction = new_direction;
@@ -315,11 +314,7 @@ __global__ void sampleBRDF( int resolution, float time, ray_data* ray_pool, int 
 }
 
 __global__ void updateImage( glm::vec2 image_resolution, glm::vec3* image, int resolution, ray_data* ray_pool, int numberOfRays ) {
-  /*
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution);
-  */
+
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
   if ( index > numberOfRays ) 
@@ -335,9 +330,7 @@ __global__ void updateImage( glm::vec2 image_resolution, glm::vec3* image, int r
    Reset ray_mask
 */
 __global__ void resetRayMask( int resolution, int* ray_mask, int numberOfRays ) { 
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution);
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if ( index > numberOfRays ) 
     return;
   ray_mask[index] = 1;
@@ -471,7 +464,6 @@ __global__ void copyRays( ray_data* new_ray_pool, int number_of_rays_new, ray_da
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
-  
 
   // set up crucial magic
   int tileSize = 8;
@@ -599,11 +591,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   // make certain the kernel has completed
   cudaThreadSynchronize();
   
-
-  // Old ray tracing code
-  //raycastFromCameraKernel<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, cam, rayPool, numberOfRays );
-  //raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, rayPool, numberOfRays, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, debugMode);
-
 
   // Return block counts, etc ... back to image size
   threadsPerBlock = dim3(tileSize, tileSize);
