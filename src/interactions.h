@@ -95,22 +95,22 @@ __host__ __device__ bool calculateFresnelReflectance (float outsideRefIndex, flo
 	float RF0 = (insideRefIndex - outsideRefIndex) / (insideRefIndex + outsideRefIndex);
 	RF0 = RF0 * RF0;
 	
-	if (cosineIncidentAngle < 0)		// External Reflection
-	{
-		float fresnelRefl = RF0 + (1-RF0)*pow ((1-cosineIncidentAngle), 5);
+	//if (cosineIncidentAngle < 0)		// External Reflection
+	//{
+		float fresnelRefl = RF0 + (1-RF0)*pow ((1-abs(cosineIncidentAngle)), 5);
 
 		if (uniformRandomBetween01 <= fresnelRefl)
 			return true;	// reflectance
 		return false;	// refraction
-	}
-	else								// Internal Reflection.
-	{
-		float sinCritAngle = insideRefIndex / outsideRefIndex;
-		float sinIncidentAngle = sqrt (1 - (cosineIncidentAngle * cosineIncidentAngle));
-		if (sinIncidentAngle > sinCritAngle)
-			return true;	// reflection
-		return false;	// refraction
-	}
+	//}
+	//else								// Internal Reflection.
+	//{
+	//	float sinCritAngle = insideRefIndex / outsideRefIndex;
+	//	float sinIncidentAngle = sqrt (1 - (cosineIncidentAngle * cosineIncidentAngle));
+	//	if (sinIncidentAngle > sinCritAngle)
+	//		return true;	// reflection
+	//	return false;	// refraction
+	//}
 }
 
 //TODO: Done!
@@ -133,7 +133,7 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 									   material m, glm::vec3 lightDir)
 {
 	int retVal = 0;
-	r.origin = intersect+0.01f*normal; //slightly perturb along normal to avoid self-intersection.
+	r.origin = intersect-0.01f*r.direction; //slightly perturb along normal to avoid self-intersection.
 	thrust::default_random_engine rng(hash(randomSeed));
     thrust::uniform_real_distribution<float> u01(0, 1);
     thrust::uniform_real_distribution<float> u02(0, 1);
@@ -151,19 +151,24 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 		{
 			outsideRefIndex = m.indexOfRefraction;
 			insideRefIndex = 1.0;
+			normal = -normal;
 		}
 
 		if (calculateFresnelReflectance (outsideRefIndex, insideRefIndex, cosIncidentAngle, u01(rng)))
 		{	
+//			if (cosIncidentAngle > 0)	// If ray going from inside to outside.
+//				normal = -normal;		// Flip the normal for reflection.
 			r.direction = glm::normalize (reflectRay (r.direction, normal));
 			retVal = 1;
 		}
 		else
 		{
 			// As given in Real-Time Rendering, Third Edition, pp. 396.
-			float w = (outsideRefIndex / insideRefIndex) * glm::dot (lightDir, normal);
+			/*float w = (outsideRefIndex / insideRefIndex) * glm::dot (lightDir, normal);
 			float k = sqrt (1 + ((w + (outsideRefIndex / insideRefIndex)) * (w - (outsideRefIndex / insideRefIndex))));
-			r.direction = (w - k)*normal - (outsideRefIndex / insideRefIndex)*lightDir;
+			r.direction = (w - k)*normal - (outsideRefIndex / insideRefIndex)*lightDir;*/
+			r.direction = glm::normalize (glm::refract (r.direction, normal, outsideRefIndex/insideRefIndex));
+			r.origin = intersect+0.01f*r.direction;
 			retVal = 2;
 		}
 	}

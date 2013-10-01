@@ -174,7 +174,7 @@ SCALE       2.5 2.5 2.5
 
 OBJECT 7
 sphere
-material 6
+material 5
 frame 0
 TRANS       -2 5 1
 ROTAT       0 180 0

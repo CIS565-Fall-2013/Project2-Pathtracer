@@ -229,7 +229,7 @@ __device__ glm::vec3 calcShade (interceptInfo theRightIntercept, material* textu
 	glm::vec3 shadedColour = glm::vec3 (0,0,0);
 	if ((theRightIntercept.interceptVal > 0))
 	{
-		if (theRightIntercept.intrMaterial.hasReflective)
+		if ((theRightIntercept.intrMaterial.hasReflective) || (theRightIntercept.intrMaterial.hasRefractive))
 			shadedColour = theRightIntercept.intrMaterial.specularColor;
 		else
 			shadedColour = theRightIntercept.intrMaterial.color;
