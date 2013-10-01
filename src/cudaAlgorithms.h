@@ -26,9 +26,9 @@
 
 #ifdef NO_BANK_CONFLICTS
 #define CONFLICT_FREE_OFFSET(n)    \
-	(((n) >> NUM_BANKS) + ((n) >> (2 * LOG_NUM_BANKS)))  
+	(((n) >> (2 * LOG_NUM_BANKS)))  
 #else
-	#define CONFLICT_FREE_OFFSET(n)    ((n) >> NUM_BANKS)  
+	#define CONFLICT_FREE_OFFSET(a)    (0)  
 #endif
 #define MAX_BLOCK_DIM_X 1024
 #define MAX_GRID_DIM_X 65535

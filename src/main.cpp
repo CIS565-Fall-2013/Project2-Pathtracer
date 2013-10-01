@@ -89,8 +89,8 @@ int main(int argc, char** argv){
 
 	//Rendering toggle options
 	renderOpts->antialiasing = true;
-	renderOpts->streamCompaction = false;
-	renderOpts->frameFiltering = true;
+	renderOpts->streamCompaction = true;
+	renderOpts->frameFiltering = false;
 
 	renderOpts->airIOR = 1.0;
 	renderOpts->airAbsorbtion = glm::vec3(0.0, 0.0, 0.0);//No air absorbtion effects for now

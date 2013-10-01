@@ -300,7 +300,7 @@ __host__ DataType exclusive_scan_sum(DataType* datain, DataType* dataout, int N)
 template<typename DataType, typename BinaryOperation>
 __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, int N, BinaryOperation op)
 {  
-	extern __shared__ float temp[];
+	extern __shared__ int temp[];
 	int index = threadIdx.x;  
 	int offset = 1;  
 	int n = 2*blockDim.x;//get actual temp padding
@@ -314,17 +314,13 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 	if(ai < N){
 		temp[ai+bankOffsetA] = datain[ai]; // load input into shared memory  
 	}else{
-		temp[ai+bankOffsetA] = datain[0];
+		temp[ai+bankOffsetA] = 0;
 	}
 	if(bi < N){
 		temp[bi+bankOffsetB] = datain[bi];  
 	}else{
-		temp[bi+bankOffsetB] = datain[0];//if out of range, pad shared memory with junk (i.e. first element).
+		temp[bi+bankOffsetB] = 0;//if out of range, pad shared memory with junk (i.e. first element).
 	}
-	__syncthreads();
-
-	//Pre load last element in block in case it gets overwritten later
-	DataType total =  temp[(N - 1)+CONFLICT_FREE_OFFSET(N-1)];
 
 	// build sum in place up the tree  
 	// d limits the number of active threads, halving it each iteration.
@@ -344,6 +340,7 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 	}
 	//Reduction step complete. 
 	__syncthreads();
+	DataType total = temp[(n-1)+CONFLICT_FREE_OFFSET(n-1)];
 	if (index == 0) { temp[(n - 1)+CONFLICT_FREE_OFFSET(n-1)] = 0; } // clear the last element in prep for down scan
 
 	//
@@ -372,7 +369,7 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 		dataout[bi] = temp[bi+bankOffsetB];  
 
 	//Return last element of shared memory plus the last element of the array.
-	return total + temp[(N - 1)+CONFLICT_FREE_OFFSET(N-1)];
+	return total;
 }
 
 
@@ -385,7 +382,7 @@ __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, in
 template<typename DataType, typename BinaryOperation>
 __device__ DataType inclusive_scan_block(DataType* datain, DataType* dataout, int N, BinaryOperation op)
 {  
-	extern __shared__ float temp[];
+	extern __shared__ int temp[];
 	int index = threadIdx.x;  
 	int offset = 1;  
 	int n = 2*blockDim.x;//get actual temp padding
@@ -463,9 +460,9 @@ __device__ DataType inclusive_scan_block(DataType* datain, DataType* dataout, in
 
 ///Explicit template instantiations. Do this to avoid code bloat in .h file.
 template int exclusive_scan_sum<int>(int*, int*, int);
-template float exclusive_scan_sum<float>(float*, float*, int);
+//template float exclusive_scan_sum<float>(float*, float*, int);
 
 template int inclusive_scan_sum<int>(int*, int*, int);
-template float inclusive_scan_sum<float>(float*, float*, int);
+//template float inclusive_scan_sum<float>(float*, float*, int);
 
 template int streamCompaction<rayState, RayAlive>(rayState*, rayState**, int, RayAlive);
