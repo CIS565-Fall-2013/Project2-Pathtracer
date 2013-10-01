@@ -1,6 +1,6 @@
 ![alt tag](https://github.com/tiansijie/Project2-Pathtracer/blob/master/PROJ1_WIN/565Pathtracer/test3000.0.bmp);
 
-
+WO diu a , let me see you
 
 
 -------------------------------------------------------------------------------
