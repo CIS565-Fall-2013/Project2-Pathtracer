@@ -342,9 +342,9 @@ __host__ int raypoolCompaction(rayState** cudaraypool, int rayPoolSize)
 	rayState* compactPool;
 	RayAlive op;
 	int newCount = streamCompaction(*cudaraypool, &compactPool, rayPoolSize, op);
-	
 	cudaFree(*cudaraypool);
 	*cudaraypool = compactPool;
+
 	return newCount;
 }
 
@@ -440,7 +440,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	case PATHTRACE:
 		raycastFromCameraKernel<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(iterations, frame, cam, *rconfig, cudaraypool, rayPoolSize);
 
-		for(int bounce = 0; bounce < traceDepth; bounce++)
+		for(int bounce = 0; bounce < traceDepth && rayPoolSize > 0; bounce++)
 		{
 			traceRay<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, iterations, bounce, cudaimage, 
 				cudaraypool, rayPoolSize, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);

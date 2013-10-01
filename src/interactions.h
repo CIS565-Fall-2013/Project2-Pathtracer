@@ -184,7 +184,6 @@ __host__ __device__ void bounceRay(rayState& r, renderOptions rconfig, glm::vec3
 	float ks = clamp(MAX(m.hasReflective, m.hasRefractive), 0.0f,1.0f);
 	//float kd = 1.0f-ks; //not actually needed, but implicit in this definition
 
-	BounceType bounceType;
 	//Specular or diffuse?
 	if(xi1 <= ks)
 	{

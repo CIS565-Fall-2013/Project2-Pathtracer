@@ -50,18 +50,20 @@ __host__ int streamCompaction(DataType* streamIn, DataType** streamOut, int N, F
 
 	//Set flags
 	flagCheck<<<fullBlocksPerGrid, threadsPerBlock>>>(streamIn, flagArray, N, op);
-
+	printf("Flag Check Done, running exclusive scan\n");
 	//Sum Flags
 	int newN = exclusive_scan_sum(flagArray, indecies, N);
+	printf("Flag Sum: %d\n", newN);
 
 	//Allocate new array
 	cudaMalloc((void**)streamOut, newN*sizeof(DataType));
-
+	if(newN > 0)
+	{
 	//Scatter
 	scatter<<<fullBlocksPerGrid, threadsPerBlock>>>(streamIn, *streamOut, indecies, flagArray, N);
+	}
 	cudaFree(indecies);
 	cudaFree(flagArray);
-
 	return newN;
 }
 
@@ -70,7 +72,7 @@ template<typename DataType, typename BinaryOperation>
 __global__ void inclusive_scan_kernel(DataType* datain, DataType* dataout, DataType* blockResults, int N, BinaryOperation op)
 {
 	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
-	int dataIndex  = threadIdx.x + blockIndex*blockDim.x;
+	//int dataIndex  = threadIdx.x + blockIndex*blockDim.x;
 	//Remember that we have two elements per thread.
 	int blockOffset = blockIndex * (blockDim.x*2);
 
@@ -96,7 +98,7 @@ template<typename DataType, typename BinaryOperation>
 __global__ void exclusive_scan_kernel(DataType* datain, DataType* dataout, DataType* blockResults, int N, BinaryOperation op)
 {
 	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
-	int dataIndex  = threadIdx.x + blockIndex*blockDim.x;
+	//int dataIndex  = threadIdx.x + blockIndex*blockDim.x;
 	//Remember that we have two elements per thread.
 	int blockOffset = blockIndex * (blockDim.x*2);
 
