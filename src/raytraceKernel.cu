@@ -16,6 +16,13 @@
 #include "interactions.h"
 #include <vector>
 
+// Include thrust components ( scan, etc ... ) needed for stream compaction
+#include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/scan.h>
+#include <thrust/fill.h>
+#include <thrust/copy.h>
+
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
 #else
@@ -417,6 +424,36 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, ra
 
 }
 
+__global__ void copyRays( ray* new_ray_pool, int number_of_rays_new, ray* old_ray_pool, int number_of_rays_old, int* ray_mask, int* scan_indices ) {
+     
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+  if ( index > number_of_rays_old )
+    return;
+
+  if ( !ray_mask[index]  )
+    return;
+
+  new_ray_pool[scan_indices[index]] = old_ray_pool[index];
+  
+}
+
+
+__global__ void copyElements( int* new_ray_pool, int number_of_rays_new, int* old_ray_pool, int number_of_rays_old, int* ray_mask, int* scan_indices ) {
+     
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+  if ( index > number_of_rays_old-1 )
+    return;
+
+  if ( !ray_mask[index]  )
+    return;
+
+  new_ray_pool[scan_indices[index]] = old_ray_pool[index];
+  
+}
+
+
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
@@ -483,32 +520,74 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   glm::vec3* brdf_accums = NULL;
   cudaMalloc( (void**)&brdf_accums, numberOfRays*sizeof(glm::vec3) );
-  
 
   // Perform initial raycasts from camera
   raycastFromCameraKernel<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, cam, rayPool, numberOfRays, brdf_accums, obj_indices );
 
+  int numberOfElements = 6;
+  int numberOfElementsNew;
+  int data[6] = {1, 0, 2, 2, 1, 3};
+  int* cuda_data = NULL;
+  cudaMalloc( (void**)&cuda_data, numberOfElements*sizeof(int) );
+  cudaMemcpy( cuda_data, data, numberOfElements*sizeof(int), cudaMemcpyHostToDevice );
+
+  int mask[6] = {0, 1, 0, 0, 1, 0};
+  int* cuda_mask = NULL;
+  cudaMalloc( (void**)&cuda_mask, numberOfElements*sizeof(int) );
+  cudaMemcpy( cuda_mask, mask, numberOfElements*sizeof(int), cudaMemcpyHostToDevice );
+
+  int* cuda_data_new = NULL;
+  cudaMalloc( (void**)&cuda_data_new, numberOfElements*sizeof(int) );
+  
+  int* cuda_indices = NULL;
+  cudaMalloc( (void**)&cuda_indices, numberOfElements*sizeof(int) );
+  
+  threadsPerBlock = dim3(tileSize);
+  fullBlocksPerGrid = dim3((int)ceil(float(numberOfElements)/float(tileSize)));
+
+  thrust::device_ptr<int> msk_dptr = thrust::device_pointer_cast(cuda_mask);  
+  thrust::device_ptr<int> idx_dptr = thrust::device_pointer_cast(cuda_indices);  
+
+  thrust::device_vector<int> indices(numberOfElements); 
+  printf("anything please \n");
+  thrust::exclusive_scan(msk_dptr, msk_dptr+numberOfElements, idx_dptr ); // in-place scan
+  printf("after exclusive_scan \n");
+
+  // Gotta copy over data that you want to print or the program crashes ... I think
+  numberOfElementsNew = cuda_indices[numberOfElements-1];
+  printf("Number of new elements: %d \n", numberOfElementsNew );
+  // data is now {0, 1, 1, 3, 5, 6}
+  for(int i=0; i<numberOfElements; i++)
+      printf("%d %d\n", i, mask[i]);     
+  printf("Number of new elements: %d \n", numberOfElementsNew );
+
+  /*
+
+  copyElements<<<fullBlocksPerGrid, threadsPerBlock>>>( data_new, numberOfElementsNew, data, numberOfElements, mask, indices );
+
+  for(int i=0; i<numberOfElementsNew; i++)
+      printf("%d %d\n", i, data_new[i]);     
+
+  */
+  printf( "\n\n" );
+
+  // V remains {-2, 0, -1, 0, 1, 2}
+  // result is now {-2, 0, 0, 2}
 
   //for ( int i=0; i < traceDepth; ++i ) {
     // Perform collision checks for rays in rayPool
+  /*
 
     rayCollisions<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, (float)iterations, rayPool, numberOfRays, cudageoms, numberOfGeoms, obj_indices, intersectionRays );
 
     sampleBRDF<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, (float)iterations, rayPool, numberOfRays, obj_indices, intersectionRays, cudamaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaimage, brdf_accums, debugMode );
 
-    rayCollisions<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, (float)iterations, rayPool, numberOfRays, cudageoms, numberOfGeoms, obj_indices, intersectionRays );
-
-    sampleBRDF<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, (float)iterations, rayPool, numberOfRays, obj_indices, intersectionRays, cudamaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaimage, brdf_accums, debugMode );
-
-    rayCollisions<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, (float)iterations, rayPool, numberOfRays, cudageoms, numberOfGeoms, obj_indices, intersectionRays );
-
-    sampleBRDF<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, (float)iterations, rayPool, numberOfRays, obj_indices, intersectionRays, cudamaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaimage, brdf_accums, debugMode );
-
+  */
 
   // Old ray tracing code
-  //raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, rayPool, numberOfRays, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, debugMode);
+  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, rayPool, numberOfRays, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, debugMode);
 
-  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, iterations);
+  //sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, iterations);
 
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
