@@ -84,8 +84,8 @@ __global__ void raycastFromCameraKernel(int seed, int frame, cameraData cam, ren
 			rstate.T = glm::vec3(1,1,1);
 			rstate.matIndex = -1;
 			if(rconfig.antialiasing){
-		thrust::default_random_engine rng(hash(seed*rIndex));//TODO: Improve randomness
-		thrust::uniform_real_distribution<float> u01(-0.5,0.5);
+				thrust::default_random_engine rng(hash(seed*rIndex));//TODO: Improve randomness
+				thrust::uniform_real_distribution<float> u01(-0.5,0.5);
 				rstate.r =raycastFromCamera(cam.resolution, x+u01(rng), y+u01(rng), cam.position, cam.view, cam.up, cam.fov);
 			}else{
 				rstate.r =raycastFromCamera(cam.resolution, x, y, cam.position, cam.view, cam.up, cam.fov);
@@ -312,7 +312,7 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 					}else if(rconfig.mode == PATHTRACE){
 						//Compute global illumination component, we've hit the sky
 						if(rstate.bounceType == DIFFUSE || rstate.bounceType == TRANSMIT){
-						float globalLightDot = clamp(-glm::dot(rstate.r.direction, rconfig.globalLightDirection),0.0f,1.0f);
+							float globalLightDot = clamp(-glm::dot(rstate.r.direction, rconfig.globalLightDirection),0.0f,1.0f);
 							colors[pixelIndex] += rstate.T*rconfig.globalLightColor*rconfig.globalLightIntensity*globalLightDot;
 						}else{
 							//Primary or specular reflection, display color
@@ -330,6 +330,22 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 			raypool[rIndex] = rstate;
 		}	
 	}
+}
+
+
+
+
+//Compacts the ray pool by removing all dead rays
+__host__ int raypoolCompaction(rayState** cudaraypool, int rayPoolSize)
+{
+	//Temporary variable to point to new pool
+	rayState* compactPool;
+	RayAlive op;
+	int newCount = streamCompaction(*cudaraypool, &compactPool, rayPoolSize, op);
+	
+	cudaFree(*cudaraypool);
+	*cudaraypool = compactPool;
+	return newCount;
 }
 
 
@@ -428,19 +444,20 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 		{
 			traceRay<<<fullBlocksPerGridByRay, threadsPerBlockByRay>>>(cam, *rconfig, iterations, bounce, cudaimage, 
 				cudaraypool, rayPoolSize, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
-			/*if(rconfig.streamCompaction)
+			if(rconfig->streamCompaction)
 			{
-			int rayPoolSize = raypoolCompaction(&cudaraypool, rayPoolSize);
+				printf("Raypool size%d\n", rayPoolSize);
+				rayPoolSize = raypoolCompaction(&cudaraypool, rayPoolSize);
 
-			blockCount = (int)ceil(float(rayPoolSize)/float(blockSize));
+				blockCount = (int)ceil(float(rayPoolSize)/float(blockSize));
 
-			dim3 fullBlocksPerGridByRay;
-			if(blockCount > maxGridX){
-			fullBlocksPerGridByRay = dim3(maxGridX, (int)ceil( blockCount / float(maxGridX)));
-			}else{
-			fullBlocksPerGridByRay = dim3(blockCount);
+				dim3 fullBlocksPerGridByRay;
+				if(blockCount > maxGridX){
+					fullBlocksPerGridByRay = dim3(maxGridX, (int)ceil( blockCount / float(maxGridX)));
+				}else{
+					fullBlocksPerGridByRay = dim3(blockCount);
+				}
 			}
-			}*/
 		}
 
 		break;

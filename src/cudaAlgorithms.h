@@ -34,6 +34,10 @@
 #define MAX_GRID_DIM_X 65535
 
 
+struct RayAlive : std::unary_function<rayState, bool>{
+	__host__ __device__ bool operator() (rayState r) {return r.index >= 0;}
+};
+
 struct Add : std::binary_function<float,float,float> {
 __host__ __device__   float operator() (float a, float b) {return (a+b);}
 };
@@ -44,16 +48,20 @@ __host__ __device__ float operator() (float a, float b) {return (a*b);}
 };
 
 
+
 template<typename DataType>
 __host__ DataType exclusive_scan_sum(DataType* datain, DataType* dataout, int N);
+template<typename DataType>
+__host__ DataType inclusive_scan_sum(DataType* datain, DataType* dataout, int N);
+
 template<typename DataType, typename BinaryOperation>
 __device__ DataType exclusive_scan_block(DataType* datain, DataType* dataout, int N, BinaryOperation op);
 template<typename DataType, typename BinaryOperation>
 __device__ DataType inclusive_scan_block(DataType* datain, DataType* dataout, int N, BinaryOperation op);
 
+template<typename DataType, typename FlagOperation>
+__host__ int streamCompaction(DataType* streamIn, DataType** streamOut, int N, FlagOperation op);
 
 
-template<typename DataType>
-__host__ DataType inclusive_scan_sum(DataType* datain, DataType* dataout, int N);
 
 #endif

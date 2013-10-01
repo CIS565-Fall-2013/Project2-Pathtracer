@@ -77,7 +77,7 @@ int main(int argc, char** argv){
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
 	renderOpts->mode = PATHTRACE;
-	renderOpts->traceDepth = 10;
+	renderOpts->traceDepth = 8;
 	renderOpts->rayPoolSize =1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
 	renderOpts->stocasticRayAssignment = false;
 	
@@ -86,10 +86,11 @@ int main(int argc, char** argv){
 	renderOpts->globalLightDirection = glm::normalize(glm::vec3(0,-1,0));
 	renderOpts->globalLightIntensity = 1;
 	
-	renderOpts->frameFiltering = true;
 
 	//Rendering toggle options
 	renderOpts->antialiasing = true;
+	renderOpts->streamCompaction = false;
+	renderOpts->frameFiltering = true;
 
 	renderOpts->airIOR = 1.0;
 	renderOpts->airAbsorbtion = glm::vec3(0.0, 0.0, 0.0);//No air absorbtion effects for now
@@ -307,10 +308,13 @@ void keyboard(unsigned char key, int x, int y)
 		renderOpts->mode = NORMAL_DEBUG;
 		cout <<  "Normal Debug Mode" <<endl;
 		break;
-		
 	case 'A':
 		renderOpts->antialiasing = !renderOpts->antialiasing;
 		cout << "Antialiasing: " << renderOpts->antialiasing<< endl;
+		break;
+	case 'S':
+		renderOpts->streamCompaction = !renderOpts->streamCompaction;
+		cout << "Stream Compaction: " << renderOpts->streamCompaction<< endl;
 		break;
 	case 'F':
 		renderOpts->frameFiltering = !renderOpts->frameFiltering;

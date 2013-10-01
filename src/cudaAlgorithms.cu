@@ -1,5 +1,70 @@
 #include "cudaAlgorithms.h"
 
+template<typename DataType, typename FlagOperation>
+__global__ void	flagCheck(DataType* data, int* flagArray, int N, FlagOperation op)
+{
+	
+	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
+	int dataIndex  = threadIdx.x + blockIndex*blockDim.x;
+	
+	if(dataIndex < N)
+	{
+		flagArray[dataIndex] = op(data[dataIndex])?1:0;
+	}
+}
+
+template<typename DataType>
+__global__ void scatter(DataType* streamIn, DataType* streamOut, int* indecies, int* flagArray, int N)
+{
+	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
+	int dataIndex  = threadIdx.x + blockIndex*blockDim.x;
+	
+	if(dataIndex < N)
+	{
+		if(flagArray[dataIndex])
+			streamOut[indecies[dataIndex]] = streamIn[dataIndex];
+	}
+}
+//Warning, this function allocates memory to fit the new array on the GPU.
+//Be sure to clean up after it
+template<typename DataType, typename FlagOperation>
+__host__ int streamCompaction(DataType* streamIn, DataType** streamOut, int N, FlagOperation op)
+{
+	
+	int blockSize = MAX_BLOCK_DIM_X;
+	dim3 threadsPerBlock(blockSize);;
+	dim3 fullBlocksPerGrid;
+
+	int numBlocks = ceil(float(N)/(blockSize));
+	if(numBlocks > MAX_GRID_DIM_X){
+		fullBlocksPerGrid = dim3(MAX_GRID_DIM_X, (int)ceil( numBlocks / float(MAX_GRID_DIM_X)));
+	}else{
+		fullBlocksPerGrid = dim3(numBlocks);
+	}
+
+	//Create flag array
+	int* flagArray;
+	cudaMalloc((void**)&flagArray, N*sizeof(int));
+	int* indecies;
+	cudaMalloc((void**)&indecies, N*sizeof(int));
+
+	//Set flags
+	flagCheck<<<fullBlocksPerGrid, threadsPerBlock>>>(streamIn, flagArray, N, op);
+
+	//Sum Flags
+	int newN = exclusive_scan_sum(flagArray, indecies, N);
+
+	//Allocate new array
+	cudaMalloc((void**)streamOut, newN*sizeof(DataType));
+
+	//Scatter
+	scatter<<<fullBlocksPerGrid, threadsPerBlock>>>(streamIn, *streamOut, indecies, flagArray, N);
+	cudaFree(indecies);
+	cudaFree(flagArray);
+
+	return newN;
+}
+
 
 template<typename DataType, typename BinaryOperation>
 __global__ void inclusive_scan_kernel(DataType* datain, DataType* dataout, DataType* blockResults, int N, BinaryOperation op)
@@ -400,3 +465,5 @@ template float exclusive_scan_sum<float>(float*, float*, int);
 
 template int inclusive_scan_sum<int>(int*, int*, int);
 template float inclusive_scan_sum<float>(float*, float*, int);
+
+template int streamCompaction<rayState, RayAlive>(rayState*, rayState**, int, RayAlive);

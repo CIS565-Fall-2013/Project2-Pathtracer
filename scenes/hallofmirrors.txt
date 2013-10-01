@@ -92,7 +92,7 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   10
+EMITTANCE   1
 
 MATERIAL 8				//light
 RGB         0 1 0
@@ -104,7 +104,7 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   5
+EMITTANCE   1
 
 
 MATERIAL 9				//light
@@ -117,7 +117,7 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   5
+EMITTANCE   1
 
 MATERIAL 10 				//bronze mirror
 RGB         0.8 0.5 0.195
