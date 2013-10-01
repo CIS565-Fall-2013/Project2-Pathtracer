@@ -7,6 +7,9 @@
 #include <iostream>
 #include "scene.h"
 #include <cstring>
+#include "tiny_obj_loader.h"
+
+void load_obj(const char* filename, vector<glm::vec3> &vertices, vector<glm::vec3> &normals, vector<int> &elements, vector<triangle> &triangles);
 
 scene::scene(string filename){
 	cout << "Reading scene from " << filename << " ..." << endl;
@@ -36,13 +39,14 @@ scene::scene(string filename){
 
 int scene::loadObject(string objectid){
     int id = atoi(objectid.c_str());
-    if(id!=objects.size()){
-        cout << "ERROR: OBJECT ID does not match expected number of objects" << endl;
-        return -1;
-    }else{
+    //if(id!=objects.size()){
+      //  cout << "ERROR: OBJECT ID does not match expected number of objects" << endl;
+        //return -1;
+    //}else{
         cout << "Loading Object " << id << "..." << endl;
         geom newObject;
         string line;
+		std::vector<triangle> triangles;
         
         //load object type 
         utilityCore::safeGetline(fp_in,line);
@@ -64,6 +68,48 @@ int scene::loadObject(string objectid){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
 		    		newObject.type = MESH;
+
+					//for obj loader
+					std::vector<tinyobj::shape_t> shapes;
+
+					std::string err = tinyobj::LoadObj(shapes, objline.c_str());
+
+					if (!err.empty()) {
+						std::cerr << err << std::endl;
+						exit(1);
+					}
+
+					for(int i = 0; i < shapes[0].mesh.indices.size(); i+=3)
+					{
+						int i1 = shapes[0].mesh.indices[i];
+						int i2 = shapes[0].mesh.indices[i+1];
+						int i3 = shapes[0].mesh.indices[i+2];
+
+						glm::vec3 p1 = glm::vec3(shapes[0].mesh.positions[3 * i1 + 0], 
+							shapes[0].mesh.positions[3 * i1 + 1], 
+							shapes[0].mesh.positions[3 * i1 + 2]);
+						
+						glm::vec3 p2 = glm::vec3(shapes[0].mesh.positions[3 * i2 + 0], 
+							shapes[0].mesh.positions[3 * i2 + 1], 
+							shapes[0].mesh.positions[3 * i2 + 2]);
+
+						glm::vec3 p3 = glm::vec3(shapes[0].mesh.positions[3 * i3 + 0], 
+							shapes[0].mesh.positions[3 * i3 + 1], 
+							shapes[0].mesh.positions[3 * i3 + 2]);
+
+						 glm::vec3 normal = glm::normalize(glm::cross(
+							glm::vec3(p2) - glm::vec3(p1),
+							glm::vec3(p3) - glm::vec3(p1)));
+						//normals[ia] = normals[ib] = normals[ic] = normal;
+						triangle tri;
+						tri.normal = normal;
+						tri.p1 =  p1;
+						tri.p2 =  p2;
+						tri.p3 =  p3;
+						triangles.push_back(tri);
+					}
+
+					//load_obj(objline.c_str(), vertices, normals, elements, triangles);
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;
@@ -126,12 +172,24 @@ int scene::loadObject(string objectid){
 		newObject.transforms[i] = utilityCore::glmMat4ToCudaMat4(transform);
 		newObject.inverseTransforms[i] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
 	}
-	
+	triangle triTemp;
+	triTemp.normal = triTemp.p1 = triTemp.p2 = triTemp.p3 = glm::vec3(0,0,0);
+	newObject.tri = triTemp;
+	if(newObject.type != MESH)
         objects.push_back(newObject);
+	else
+	{
+		for(int i = 0; i < triangles.size(); i++)
+		{
+			geom triObject = newObject;
+			triObject.tri = triangles[i];
+			objects.push_back(triObject);
+		}
+	}
 	
 	cout << "Loaded " << frameCount << " frames for Object " << objectid << "!" << endl;
         return 1;
-    }
+    //}
 }
 
 int scene::loadCamera(){
@@ -217,6 +275,7 @@ int scene::loadCamera(){
 	
 	cout << "Loaded " << frameCount << " frames for camera!" << endl;
 	return 1;
+
 }
 
 int scene::loadMaterial(string materialid){
@@ -262,4 +321,42 @@ int scene::loadMaterial(string materialid){
 		materials.push_back(newMaterial);
 		return 1;
 	}
+}
+
+
+void load_obj(const char* filename, vector<glm::vec3> &vertices, vector<glm::vec3> &normals, vector<int> &elements, vector<triangle> &triangles) {
+  ifstream in(filename, ios::in);
+  if (!in) { cerr << "Cannot open " << filename << endl; exit(1); }
+ 
+  string line;
+  while (getline(in, line)) {
+    if (line.substr(0,2) == "v ") {
+      istringstream s(line.substr(2));
+      glm::vec3 v; s >> v.x; s >> v.y; s >> v.z;// v.w = 1.0f;
+      vertices.push_back(v);
+    }  else if (line.substr(0,2) == "f ") {
+      istringstream s(line.substr(2));
+      int a,b,c;
+      s >> a; s >> b; s >> c;
+      a--; b--; c--;
+      elements.push_back(a); elements.push_back(b); elements.push_back(c);
+    }
+  }
+ 
+  normals.resize(vertices.size(), glm::vec3(0.0, 0.0, 0.0));
+  for (int i = 0; i < elements.size(); i+=3) {
+    int ia = elements[i];
+    int ib = elements[i+1];
+    int ic = elements[i+2];
+    glm::vec3 normal = glm::normalize(glm::cross(
+      glm::vec3(vertices[ib]) - glm::vec3(vertices[ia]),
+      glm::vec3(vertices[ic]) - glm::vec3(vertices[ia])));
+    normals[ia] = normals[ib] = normals[ic] = normal;
+	triangle tri;
+	tri.normal = normal;
+	tri.p1 =  vertices[ia];
+	tri.p2 =  vertices[ib];
+	tri.p3 =  vertices[ic];
+	triangles.push_back(tri);
+  }
 }

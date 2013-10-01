@@ -18,6 +18,13 @@ struct ray {
 	glm::vec3 direction;
 };
 
+struct triangle{
+	glm::vec3 p1;
+	glm::vec3 p2;
+	glm::vec3 p3;
+	glm::vec3 normal;
+};
+
 struct geom {
 	enum GEOMTYPE type;
 	int materialid;
@@ -27,6 +34,7 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+	triangle tri;
 };
 
 struct staticGeom {
@@ -37,6 +45,7 @@ struct staticGeom {
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
+	triangle tri;
 };
 
 struct cameraData {

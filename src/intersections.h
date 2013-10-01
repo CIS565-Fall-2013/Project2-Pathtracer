@@ -20,6 +20,7 @@ __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
 __host__ __device__ bool rayBoxIntersect(ray r, float t[2]);
 __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float triangleIntersectionTest(staticGeom triangle, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
 
 
@@ -228,6 +229,48 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   normal = glm::normalize(realIntersectionPoint - realOrigin);
         
   return glm::length(r.origin - realIntersectionPoint);
+}
+
+__host__ __device__ float triangleIntersectionTest(staticGeom mesh, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
+{
+
+	//return -1.0f;
+
+	glm::vec3 ro = multiplyMV(mesh.inverseTransform, glm::vec4(r.origin,1.0f));
+	glm::vec3 rd = glm::normalize(multiplyMV(mesh.inverseTransform, glm::vec4(r.direction,0.0f)));
+
+	ray rt; rt.origin = ro; rt.direction = rd;
+
+	glm::vec3 p1 = mesh.tri.p1;
+	glm::vec3 p2 = mesh.tri.p2;
+	glm::vec3 p3 = mesh.tri.p3;
+	glm::vec3 trinormal = mesh.tri.normal;
+	float d = glm::dot(trinormal,p1);
+	
+	if(glm::abs(glm::dot(trinormal,rt.direction)-0.0f)<0.001){
+		return -1.0f;//parallel to the plane
+	}
+
+	float t = (d - glm::dot(trinormal, rt.origin))/ glm::dot(trinormal,rt.direction);
+
+	if(t<0.0 )
+		return -1.0f;
+
+	glm::vec3 qPoint = rt.origin + t * rt.direction;
+
+	if(glm::dot(glm::cross((p2-p1),(qPoint-p1)),trinormal)>0 )
+		if(glm::dot(glm::cross((p3-p2),(qPoint-p2)),trinormal)>0)
+			if(glm::dot(glm::cross((p1-p3),(qPoint-p3)),trinormal)>0)
+			{
+				glm::vec3 realIntersectionPoint = multiplyMV(mesh.transform, glm::vec4(qPoint, 1.0));
+				intersectionPoint = realIntersectionPoint;
+				glm::mat4 tempMat4 = utilityCore::cudaMat4ToGlmMat4(mesh.inverseTransform);
+				cudaMat4 inverseTranspose = utilityCore::glmMat4ToCudaMat4(glm::transpose(tempMat4));				
+				normal = glm::normalize(multiplyMV(mesh.transform, glm::vec4(trinormal,1)));
+				return t;
+			}
+
+	return -1.0f;
 }
 
 //returns x,y,z half-dimensions of tightest bounding box

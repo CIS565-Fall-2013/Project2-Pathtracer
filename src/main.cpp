@@ -127,23 +127,13 @@ void runCuda(){
 	// translational motion blur
 	//genrate random number from -1 to 1
 	
-	float p1 = ((float)rand()/(float)RAND_MAX) + 1.0;
-	//float p2 = ((float)rand()/(float)RAND_MAX) * 2.0f - 1.0; 
-	//float p3 = ((float)rand()/(float)RAND_MAX) * 2.0f - 1.0;
-
-	//printf(" what is p1 is  %f ", geoms[6].translations[0].y);
-
-
+	/*float p1 = (((float)rand()/(float)RAND_MAX) + 1.0) / 2.0f;
 	
-	//if(iterations % 2 == 0)
-		geoms[6].translations[0].x = p1;
-	//else
-		//geoms[6].translations[0].x -= 1;
-	//geoms[6].translations[0].y += p2;
-	//geoms[6].translations[0].z += p3;	
+	geoms[6].translations[0].x = p1;
+	
 	glm::mat4 transform = utilityCore::buildTransformationMatrix(geoms[6].translations[0], geoms[6].rotations[0], geoms[6].scales[0]);
 	geoms[6].transforms[0] = utilityCore::glmMat4ToCudaMat4(transform);
-	geoms[6].inverseTransforms[0] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+	geoms[6].inverseTransforms[0] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));*/
 
 	// execute the kernel
 	cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), preColors);

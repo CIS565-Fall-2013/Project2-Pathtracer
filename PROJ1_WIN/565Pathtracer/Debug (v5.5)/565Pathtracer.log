@@ -1,14 +1,14 @@
-﻿Build started 9/26/2013 10:33:19 PM.
+﻿Build started 10/1/2013 1:54:00 PM.
      1>Project "D:\Class\565\Project2\Project2-Pathtracer\PROJ1_WIN\565Pathtracer\565Pathtracer.vcxproj" on node 2 (Build target(s)).
      1>InitializeBuildStatus:
-         Touching "Debug (v5.5)\565Pathtracer.unsuccessfulbuild".
+         Creating "Debug (v5.5)\565Pathtracer.unsuccessfulbuild" because "AlwaysCreate" was specified.
        AddCudaCompileDeps:
          D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\cl.exe /E /nologo /showIncludes /TP /D__CUDACC__ /DWIN32 /D_DEBUG /D_CONSOLE /D_UNICODE /DUNICODE /I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I"D:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" /I../shared/glew/includes /I../shared/freeglut/includes /I"D:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" /I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I../shared/glew/include /I../shared/freeglut/include /I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin" /I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I. /FIcuda_runtime.h /c D:\Class\565\Project2\Project2-Pathtracer\src\raytraceKernel.cu 
        AddCudaCompilePropsDeps:
        Skipping target "AddCudaCompilePropsDeps" because all output files are up-to-date with respect to the input files.
        CudaBuild:
          Compiling CUDA source file ..\..\src\raytraceKernel.cu...
-         cmd.exe /C "C:\Users\tiansijie\AppData\Local\Temp\tmpedc0451831224d52adac5b3a1b0d429a.cmd"
+         cmd.exe /C "C:\Users\tiansijie\AppData\Local\Temp\tmp2f385e2f4e744f779c542a648f3be00b.cmd"
          "D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin\nvcc.exe" -gencode=arch=compute_20,code=\"sm_20,compute_20\" --use-local-env --cl-version 2010 -ccbin "D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin"  -I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"D:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I../shared/glew/includes -I../shared/freeglut/includes -I"D:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I../shared/glew/include -I../shared/freeglut/include -I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include"     --keep-dir "Debug (v5.5)" -maxrregcount=0  --machine 32 --compile -cudart static     -DWIN32 -D_DEBUG -D_CONSOLE -D_UNICODE -DUNICODE -Xcompiler "/EHsc /W3 /nologo /Od /Zi /RTC1 /MDd  " -o "D:\Class\565\Project2\Project2-Pathtracer\PROJ1_WIN\565Pathtracer\Win32/Debug (v5.5)/raytraceKernel.cu.obj" "D:\Class\565\Project2\Project2-Pathtracer\src\raytraceKernel.cu"
          
          D:\Class\565\Project2\Project2-Pathtracer\PROJ1_WIN\565Pathtracer>"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin\nvcc.exe" -gencode=arch=compute_20,code=\"sm_20,compute_20\" --use-local-env --cl-version 2010 -ccbin "D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin"  -I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"D:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I../shared/glew/includes -I../shared/freeglut/includes -I"D:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I../shared/glew/include -I../shared/freeglut/include -I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include"     --keep-dir "Debug (v5.5)" -maxrregcount=0  --machine 32 --compile -cudart static     -DWIN32 -D_DEBUG -D_CONSOLE -D_UNICODE -DUNICODE -Xcompiler "/EHsc /W3 /nologo /Od /Zi /RTC1 /MDd  " -o "D:\Class\565\Project2\Project2-Pathtracer\PROJ1_WIN\565Pathtracer\Win32/Debug (v5.5)/raytraceKernel.cu.obj" "D:\Class\565\Project2\Project2-Pathtracer\src\raytraceKernel.cu" 
@@ -512,19 +512,21 @@
          
      1>d:\class\565\project2\project2-pathtracer\src\glm\core\func_integer.inl(407): warning : a __host__ function("glm::bitfieldReverse") redeclared with __host__ __device__, hence treated as a __host__ __device__ function
          
-     1>d:\class\565\project2\project2-pathtracer\src\intersections.h(177): warning : initial value of reference to non-const must be an lvalue
+     1>d:\class\565\project2\project2-pathtracer\src\intersections.h(178): warning : initial value of reference to non-const must be an lvalue
          
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(177): warning : variable "y" was declared but never referenced
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(183): warning : variable "y" was declared but never referenced
          
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(217): warning : variable "y" was declared but never referenced
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(338): warning : variable "BDRF" was declared but never referenced
          
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(324): warning : variable "BDRF" was declared but never referenced
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(561): warning : variable "t" was declared but never referenced
          
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(471): warning : variable "fresnel" was set but never used
+     1>d:\class\565\project2\project2-pathtracer\src\glm\core\func_common.inl(70): warning : calling a __host__ function from a __host__ __device__ function is not allowed
+                   detected during instantiation of "genType glm::abs(const genType &) [with genType=float]" 
+         d:\class\565\project2\project2-pathtracer\src\intersections.h(250): here
          
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(521): warning : __shared__ memory variable with non-empty constructor or destructor (potential race between threads)
+     1>d:\class\565\project2\project2-pathtracer\src\intersections.h(267): warning : calling a __host__ function("utilityCore::cudaMat4ToGlmMat4") from a __host__ __device__ function("triangleIntersectionTest") is not allowed
          
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(698): warning : variable "seconds" was set but never used
+     1>d:\class\565\project2\project2-pathtracer\src\intersections.h(268): warning : calling a __host__ function("utilityCore::glmMat4ToCudaMat4") from a __host__ __device__ function("triangleIntersectionTest") is not allowed
          
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(870): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
@@ -578,17 +580,13 @@
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\sm_13_double_functions.h : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>d:\class\565\project2\project2-pathtracer\src\glm\core\_swizzle.hpp(194): warning : missing return statement at end of non-void function "glm::detail::_swizzle_base2<ValueType, VecType, N, E0, E1, E2, E3, 1>::operator=(const glm::detail::_swizzle_base2<ValueType, VecType, N, E0, E1, E2, E3, 1>::Stub &)"
          
-     1>d:\class\565\project2\project2-pathtracer\src\intersections.h(177): warning : initial value of reference to non-const must be an lvalue
+     1>d:\class\565\project2\project2-pathtracer\src\intersections.h(178): warning : initial value of reference to non-const must be an lvalue
          
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(177): warning : variable "y" was declared but never referenced
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(183): warning : variable "y" was declared but never referenced
          
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(217): warning : variable "y" was declared but never referenced
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(338): warning : variable "BDRF" was declared but never referenced
          
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(324): warning : variable "BDRF" was declared but never referenced
-         
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(471): warning : variable "fresnel" was set but never used
-         
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(698): warning : variable "seconds" was set but never used
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(561): warning : variable "t" was declared but never referenced
          
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(870): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
@@ -606,26 +604,24 @@
      1>d:\class\565\project2\project2-pathtracer\src\glm\./core/func_common.hpp : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>d:\class\565\project2\project2-pathtracer\src\glm\core\func_common.inl : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>d:\class\565\project2\project2-pathtracer\src\glm\./core/func_integer.hpp : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
-     1>D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/random/detail/xor_combine_engine.inl(99): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
+     1>D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/random/detail/xor_combine_engine.inl(92): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(870): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(1846): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
-     1>D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/random/xor_combine_engine.h(254): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
-     1>d:\class\565\project2\project2-pathtracer\src\intersections.h(249): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>d:\class\565\project2\project2-pathtracer\src\intersections.h(295): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>d:\class\565\project2\project2-pathtracer\src\intersections.h(307): warning C4305: 'initializing' : truncation from 'double' to 'float'
+     1>D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/random/xor_combine_engine.h(241): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
+     1>d:\class\565\project2\project2-pathtracer\src\intersections.h(292): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>d:\class\565\project2\project2-pathtracer\src\intersections.h(338): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>d:\class\565\project2\project2-pathtracer\src\intersections.h(350): warning C4305: 'initializing' : truncation from 'double' to 'float'
      1>d:\class\565\project2\project2-pathtracer\src\interactions.h(104): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
      1>d:\class\565\project2\project2-pathtracer\src\interactions.h(130): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(71): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(73): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(81): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(83): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(91): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(94): warning C4244: 'return' : conversion from 'float' to 'int', possible loss of data
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(551): warning C4244: 'argument' : conversion from 'int' to 'float', possible loss of data
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(552): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(553): warning C4244: 'argument' : conversion from 'int' to 'float', possible loss of data
-     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(669): warning C4018: '<' : signed/unsigned mismatch
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(77): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(79): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(87): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(89): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(97): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(100): warning C4244: 'return' : conversion from 'float' to 'int', possible loss of data
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(703): warning C4244: 'argument' : conversion from 'float' to 'size_t', possible loss of data
+     1>D:/Class/565/Project2/Project2-Pathtracer/src/raytraceKernel.cu(707): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(2747): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(3698): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(4610): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
@@ -633,16 +629,7 @@
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(6407): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>d:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(7316): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
        ClCompile:
-         D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /I"D:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" /I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I../shared/glew/include /I../shared/freeglut/include /I"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug (v5.5)\\" /Fd"Debug (v5.5)\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt ..\..\src\main.cpp
-         main.cpp
-         Note: including lib: glut32.lib
-         
-     1>d:\class\565\project2\project2-pathtracer\src\glm\core\func_common.hpp : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
-     1>d:\class\565\project2\project2-pathtracer\src\glm\core\func_common.inl : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
-     1>d:\class\565\project2\project2-pathtracer\src\glm\core\func_integer.hpp : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
-     1>d:\class\565\project2\project2-pathtracer\src\main.cpp(109): warning C4018: '<' : signed/unsigned mismatch
-     1>d:\class\565\project2\project2-pathtracer\src\main.cpp(118): warning C4018: '<' : signed/unsigned mismatch
-     1>d:\class\565\project2\project2-pathtracer\src\main.cpp(121): warning C4018: '<' : signed/unsigned mismatch
+         All outputs are up-to-date.
          All outputs are up-to-date.
        ManifestResourceCompile:
          All outputs are up-to-date.
@@ -655,6 +642,7 @@
          "Debug (v5.5)\scene.obj"
          "Debug (v5.5)\stb_image.obj"
          "Debug (v5.5)\stb_image_write.obj"
+         "Debug (v5.5)\tiny_obj_loader.obj"
          "Debug (v5.5)\utilities.obj"
        Manifest:
          C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\mt.exe /nologo /verbose /out:"Debug (v5.5)\565Pathtracer.exe.embed.manifest" /manifest "Debug (v5.5)\565Pathtracer.exe.intermediate.manifest"
@@ -669,4 +657,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:39.41
+Time Elapsed 00:00:31.48
