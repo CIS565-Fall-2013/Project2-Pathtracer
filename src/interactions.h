@@ -86,6 +86,32 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
     
 }
 
+// Given the refractive index of the material, cosine of the incident angle and a random number uniformly distributed between 0 and 1, 
+// this function returns true if the Fresnel reflectance term is greater than or equal to the random number, signifying reflectance.
+// Otherwise, it will return false, signifying refractance/transmittance.
+__host__ __device__ bool calculateFresnelReflectance (float outRefIndex, float intoRefIndex, float cosineIncidentAngle, float uniformRandomBetween01)
+{
+	float RF0 = (intoRefIndex - outRefIndex) / (intoRefIndex + outRefIndex);
+	RF0 = RF0 * RF0;
+	
+	if (cosineIncidentAngle < 0)		// External Reflection
+	{
+		float fresnelRefl = RF0 + (1-RF0)*pow ((1-cosineIncidentAngle), 5);
+
+		if (uniformRandomBetween01 <= fresnelRefl)
+			return true;	// reflectance
+		return false;	// refraction
+	}
+	else								// Internal Reflection.
+	{
+		float sinCritAngle = intoRefIndex / outRefIndex;
+		float sinIncidentAngle = sqrt (1 - (cosineIncidentAngle * cosineIncidentAngle));
+		if (sinIncidentAngle > sinCritAngle)
+			return true;	// reflection
+		return false;	// refraction
+	}
+}
+
 //TODO: Done!
 //Now that you know how cosine weighted direction generation works, try implementing non-cosine (uniform) weighted random direction generation.
 //This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.
@@ -118,7 +144,23 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 	}
 	else if (m.hasRefractive)
 	{
-		retVal = 2;
+		float cosIncidentAngle = glm::dot (r.direction, normal);
+		float intoRefIndex = m.indexOfRefraction; float outRefIndex = 1.0;
+		if (cosIncidentAngle > 0)
+		{
+			outRefIndex = m.indexOfRefraction;
+			intoRefIndex = 1.0;
+		}
+		if (calculateFresnelReflectance (outRefIndex, intoRefIndex, cosIncidentAngle, u01(rng)))
+		{	
+			r.direction = glm::normalize (reflectRay (r.direction, normal));
+			retVal = 1;
+		}
+		else
+		{
+			// TODO: Code for refraction.
+			retVal = 2;
+		}
 	}
 	else
 	{
