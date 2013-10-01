@@ -169,7 +169,41 @@ __device__ float intersectionTest(staticGeom* geoms, int numberOfGeoms, ray r, v
 		}
 		else if (geoms[i].type == GEOMTYPE::MESH)
 		{
-			// do triangle intersections
+			// iterate through each triangle and find the miniumum t
+			//triangleIntersectionTest(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, 
+			//									   const glm::vec3& n1, const glm::vec3& n2, const glm::vec3& n3,
+			//									   staticGeom geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
+
+			int numIndices = geoms[i].triMesh.indicesCount;
+
+			for (int j = 0 ; j < numIndices ; ++j)
+			{
+				// do triangle intersection
+				unsigned int index1 = geoms[i].triMesh.indices[j]; j++;
+				unsigned int index2 = geoms[i].triMesh.indices[j]; j++;
+				unsigned int index3 = geoms[i].triMesh.indices[j];
+				
+				vec3 v1 = geoms[i].triMesh.vertices[index1];
+				vec3 v2 = geoms[i].triMesh.vertices[index2];
+				vec3 v3 = geoms[i].triMesh.vertices[index3];
+
+				vec3 n1 = geoms[i].triMesh.normals[index1];
+				vec3 n2 = geoms[i].triMesh.normals[index2];
+				vec3 n3 = geoms[i].triMesh.normals[index3];
+
+				vec3 isectPointTemp = vec3(0,0,0);
+				vec3 isectNormalTemp = vec3(0,0,0);
+				
+				float dist = triangleIntersectionTest(v1, v2, v3, n1, n2, n3, geoms[i], r, isectPointTemp, isectNormalTemp);
+
+				if (dist < t && dist != -1)
+				{
+					t = dist;
+					isectPoint = isectPointTemp;
+					isectNormal = isectNormalTemp;
+					matId = geoms[i].materialid;
+				}
+			}
 		}
 	} 
 
@@ -225,7 +259,27 @@ __device__ vec3 shadowFeeler(staticGeom* geoms, int numberOfGeoms, material* mat
 __device__ void pathtraceRay(ray r, float ssratio, int index, int rayDepth, glm::vec3* colors, cameraData cam,
                             staticGeom* geoms, int numberOfGeoms, material* cudamat, int numberOfMat, int* cudalightIndex, int numberOfLights, float iter)
 {
+	
 
+
+
+
+
+	// check if stuff are being passed correctly
+	//for (int i = 0 ; i < numberOfGeoms ; ++i)
+	//{
+	//	if (geoms[i].type == MESH)
+	//	{
+	//		if (geoms[i].triMesh.indicesCount == 36)
+	//			colors[index] = vec3(1,0,0);
+
+	//		if (geoms[i].triMesh.normals[23] == vec3(0, -1, 0))
+	//			colors[index] = colors[index] + vec3(0,0,1);
+
+	//		if (geoms[i].triMesh.vertices[23] == vec3(-0.5, -0.5, 0.5))
+	//			colors[index] = colors[index] + vec3(0,1,0);
+	//	}
+	//}
 }
 
 //TODO: IMPLEMENT THIS FUNCTION
@@ -395,8 +449,27 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     newStaticGeom.scale = geoms[i].scales[frame];
     newStaticGeom.transform = geoms[i].transforms[frame];
     newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
-    geomList[i] = newStaticGeom;
+   
+	if (newStaticGeom.type == MESH)
+	{
+		// need to set vertices, normals, indices, and indicesCount for newStaticGeom.triMesh
+		int numVerts = geoms[i].triMesh.vertices.size();
+		cudaMalloc((void**)&(newStaticGeom.triMesh.vertices), numVerts*sizeof(glm::vec3));
+		cudaMemcpy(newStaticGeom.triMesh.vertices, &(geoms[i].triMesh.vertices[0]), numVerts*sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
+		int numNormals = geoms[i].triMesh.normals.size();
+		cudaMalloc((void**)&(newStaticGeom.triMesh.normals), numNormals*sizeof(glm::vec3));
+		cudaMemcpy(newStaticGeom.triMesh.normals, &(geoms[i].triMesh.normals[0]), numNormals*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+
+		int numIndices = geoms[i].triMesh.indices.size();
+		cudaMalloc((void**)&(newStaticGeom.triMesh.indices), numIndices*sizeof(unsigned int));
+		cudaMemcpy(newStaticGeom.triMesh.indices, &(geoms[i].triMesh.indices[0]), numIndices*sizeof(unsigned int), cudaMemcpyHostToDevice);
+		
+		newStaticGeom.triMesh.indicesCount = geoms[i].triMesh.indicesCount;
+	}
+	
+	geomList[i] = newStaticGeom;
+	
 	if (materials[newStaticGeom.materialid].emittance != 0)
 	{
 		numberOfLights++;
@@ -455,6 +528,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMemcpy( renderCam->image, imageAccum, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
   //free up stuff, or else we'll leak memory like a madman
+  //TODO: free triMesh in cudageoms
   cudaFree( cudaimage );
   cudaFree( cudageoms );
   cudaFree( imageAccum );

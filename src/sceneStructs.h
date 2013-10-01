@@ -21,10 +21,19 @@ struct ray {
 	glm::vec3 direction;
 };
 
+// constructed in scene
 struct mesh {
 	std::vector<glm::vec3> vertices;
 	std::vector<glm::vec3> normals;
 	std::vector<unsigned int> indices; // iterate through these indices to access vertices and normals.
+	int indicesCount;
+};
+
+// used to pass to cuda
+struct staticMesh {
+	glm::vec3* vertices;
+	glm::vec3* normals;
+	unsigned int* indices;
 	int indicesCount;
 };
 
@@ -37,7 +46,7 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
-	mesh triMesh;
+	mesh triMesh; // TODO: Make this a pointer so that it supports multiple frames as well
 };
 
 struct staticGeom {
@@ -48,7 +57,7 @@ struct staticGeom {
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
-	mesh triMesh;
+	staticMesh triMesh;
 };
 
 struct cameraData {

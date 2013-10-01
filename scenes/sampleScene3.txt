@@ -195,12 +195,8 @@ SCALE       .3 3 3
 OBJECT 6
 cube.obj
 ../../obj/cube.obj
-material 8 
+material 0 
 frame 0
-TRANS       0 10 0
-ROTAT       0 0 90
-SCALE       .3 3 3
-frame 1
-TRANS       0 10 0
-ROTAT       0 0 90
-SCALE       .3 3 3
+TRANS       0 5 0
+ROTAT       45 45 45
+SCALE       3 3 3

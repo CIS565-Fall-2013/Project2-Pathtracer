@@ -258,20 +258,18 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   return glm::length(r.origin - realIntersectionPoint);
 }
 
-__host__ __device__ float meshIntersectionTest(staticGeom geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
-{
-	
-	return -1;
-}
 
-// triangle intersection. Helper method for meshIntersectionTest
+// triangle intersection.
 __host__ __device__ float triangleIntersectionTest(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, 
-												   const glm::vec3& n1, const glm::vec3& n2, const glm::vec3& n3,
+												   const glm::vec3& n5, const glm::vec3& n2, const glm::vec3& n3,
 												   staticGeom geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
 {
 	// convert ray to object space
 	glm::vec3 ro = multiplyMV(geom.inverseTransform, glm::vec4(r.origin, 1.0f));
 	glm::vec3 rd = glm::normalize(multiplyMV(geom.inverseTransform, glm::vec4(r.direction, 0.0f)));
+
+	glm::vec3 n1 = glm::cross((v2-v1),(v3-v1)); // assume ccw order of vertices
+	n1 = glm::normalize(n1);
 
 	float nd = glm::dot (n1, rd);
 
