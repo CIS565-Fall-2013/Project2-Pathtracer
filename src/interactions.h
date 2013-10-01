@@ -40,6 +40,27 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
     
 }
 
+
+__host__ __device__ glm::vec3 UniformRandomHemisphereDirection(glm::vec3& n, float random_seed)
+{
+	// http://mathworld.wolfram.com/SpherePointPicking.html
+	thrust::default_random_engine rng(hash(random_seed));
+	thrust::uniform_real_distribution<float> rnd01(0.0f, 1.0f);
+	float theta = rnd01(rng) * 2 * PI;	// 0 to 2pi
+	float u = 2 * rnd01(rng) - 1;			// -1 to 1
+	glm::vec3 v;
+	
+	// Set v.
+	{
+		float temp = sqrt(1 - u * u);
+		v.x = temp * cos(theta);
+		v.y = temp * sin(theta);
+		v.z = u;
+	}
+
+	return ( glm::dot(v, n) > 0.0f ? v : -v );
+}
+
 //TODO: IMPLEMENT THIS FUNCTION
 //Now that you know how cosine weighted direction generation works, try implementing non-cosine (uniform) weighted random direction generation.
 //This should be much easier than if you had to implement calculateRandomDirectionInHemisphere.

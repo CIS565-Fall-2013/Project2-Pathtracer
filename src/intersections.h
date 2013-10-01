@@ -17,10 +17,13 @@ __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
+__host__ __device__ float geomIntersectionTest(staticGeom s_geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float boxIntersectionTest(glm::vec3 boxMin, glm::vec3 boxMax, staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ glm::vec3 getRandomPointOnGeom(staticGeom& s_geom, float randomSeed);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
+__host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed);
 
 //Handy dandy little hashing function that provides seeds for random number generation
 __host__ __device__ unsigned int hash(unsigned int a){
@@ -67,6 +70,21 @@ __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r){
 __host__ __device__ glm::vec3 getSignOfRay(ray r){
   glm::vec3 inv_direction = getInverseDirectionOfRay(r);
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
+}
+
+__host__ __device__ float geomIntersectionTest(staticGeom s_geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal)
+{
+	switch (s_geom.type)
+    {
+      case SPHERE:
+        return sphereIntersectionTest(s_geom, r, intersectionPoint, normal);
+      case CUBE:
+        return boxIntersectionTest(s_geom, r, intersectionPoint, normal);
+      case MESH:
+        return -1.0f;
+	  default:
+		return -1.0f;
+    }
 }
 
 //Wrapper for cube intersection test for testing against unit cubes
@@ -213,6 +231,21 @@ __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){
     float yradius = glm::distance(origin, ymax);
     float zradius = glm::distance(origin, zmax);
     return glm::vec3(xradius, yradius, zradius);
+}
+
+__device__ glm::vec3 getRandomPointOnGeom(staticGeom& s_geom, float randomSeed)
+{
+	switch ( s_geom.type )
+	{
+		case SPHERE:
+			return getRandomPointOnSphere(s_geom, randomSeed);
+		case CUBE:
+			return getRandomPointOnCube(s_geom, randomSeed);
+		case MESH:
+			return glm::vec3(0.0f);
+		default:
+			return glm::vec3(0.0f);
+	}
 }
 
 //LOOK: Example for generating a random point on an object using thrust.
