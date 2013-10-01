@@ -1,4 +1,4 @@
-![ScreenShot](https://github.com/tiansijie/Project2-Pathtracer/blob/master/PROJ1_WIN/565Pathtracer/test3000.0.bmp);
+![Alt text](/renders/test3500.0OBJ3.bmp "With OBJ Loader")
 
 CUDA Path Tracing
 -------------------------------------------------------------------------------
@@ -16,6 +16,17 @@ For the depth of filed, I changed the camera aim at position base on the focal l
 In fresnel refraction, I treated the light as unpolarised and average the result of reflection coefficient from s-polarised and p-polarized. Then the refraction coefficient is just using T = 1 - R. 
 
 The OBJ mesh loader I am using TinyObjLoader from https://github.com/syoyo/tinyobjloader, which is a simple, robust and easy to use library. Then I added the triangle intersection function for testing the ray intersect with triangle in the mesh. Due to the ability of my graphic card, it cannot load a large mesh file.
+
+
+![Alt text](/renders/test5000.0MB.bmp "With Motion Blur")
+
+![Alt text](/renders/test5000.0DOP.bmp "With DOP")
+
+![Alt text](/renders/test5000.0DOP2.bmp "With DOP")
+
+![Alt text](/renders/test3500.0OBJ.bmp "With OBJ Loader")
+
+![Alt text](/renders/test4000.0.bmp "For fun")
 
 
 -------------------------------------------------------------------------------
