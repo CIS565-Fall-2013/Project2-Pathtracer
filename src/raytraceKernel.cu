@@ -279,17 +279,17 @@ if ( index < num )
 				float angleofincidence  = acos(glm::dot(newr[index].direction ,glm::normalize(curNorm))/(glm::length(newr[index].direction) * glm::length(newr[index].direction)));
 				angleofincidence  = abs(angleofincidence * (180.0f/PI));
 				//float angleofreflection = asin(sin(angleofincidence) * (n1/n2));
-				float io = glm::dot( glm::normalize(curIps),glm::normalize(curNorm));
+				float io = glm::dot( glm::normalize(newr[index].direction),glm::normalize(curNorm));
 				float criticalAngle = asin(n2/n1);// * (180.0f/PI) ;
 
-				if(io > 0.0f  )
+				if(io < 0.0f  )
 				{
 					glm::vec3 refractedray = glm::refract(glm::normalize(newr[index].direction),glm::normalize(curNorm),(n1/n2));
 					newr[index].direction  = glm::normalize(refractedray);
 					newr[index].origin     =  curIps + newr[index].direction  * 0.001f ;	
 					//newr[index].rcolor    =  newr[index].rcolor * materials[geoms[geoIndex].materialid].color;
 				}
-				else if(io < 0.0f  ) // && (angleofincidence < criticalAngle )
+				else if(io >= 0.0f  ) // && (angleofincidence < criticalAngle )
 				{
 					glm::vec3 refractedray = glm::refract(glm::normalize(newr[index].direction),-1.0f * glm::normalize(curNorm),(n2/n1));
 					newr[index].direction  = glm::normalize(refractedray);

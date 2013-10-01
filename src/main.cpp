@@ -90,7 +90,6 @@ int main(int argc, char** argv){
   #else
 	  glutDisplayFunc(display);
 	  glutKeyboardFunc(keyboard);
-
 	  glutMainLoop();
   #endif
   return 0;
