@@ -8,3 +8,5 @@ PROJ1_WIN/565Pathtracer/tmpxft_00001eac_00000000-6_raytraceKernel.cpp3.o
 *.sdf
 *.obj
 *.pdb
+*.o
+*.ipch
