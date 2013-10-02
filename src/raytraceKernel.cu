@@ -142,6 +142,8 @@ __device__ bool isLight(int objId, int* lights, int numberOfLights)
 	return false;
 }
 
+//This was used when i did performance tests wtih constant memory
+//__device__ __constant__ int perlinData[512];
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
@@ -159,6 +161,15 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
   int y=-1;
   ray r;
 
+/* USED FOR SHARED MEMORY PERFORMANCE TESTS
+SOMEHOW THIS CRASHED ON ME AFTER A FEW ITERATIONS
+  __shared__ int sPerlinData[512];
+  if(threadIdx.x<512)
+  {
+	  sPerlinData[threadIdx.x] = perlinData[threadIdx.x];  
+  }
+  __syncthreads();
+  */
   if (bounce==1)
   {
 	y = (int) (index/(int)resolution.x);
@@ -562,6 +573,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   thrust::device_ptr<ray> thrustRaysArray = thrust::device_pointer_cast(cudarays);
  
+  /* FOR PERFORMANCE TESTING
+  cudaEvent_t start,stop;
+  float elapsedTime = 0.0f;
+  cudaEventCreate(&start);
+  cudaEventRecord(start,0);
+  */
+  //Following line was used when i did tests with constant memory
+  //cudaMemcpyToSymbol(perlinData,perlinNumbers,512*sizeof(int),0,cudaMemcpyHostToDevice);
+  
   //kernel launches
   for(int bounce = 1; bounce <= 8; ++bounce)
   {
@@ -610,6 +630,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   // make certain the kernel has completed 
   cudaThreadSynchronize();
+  
+  /* PERFORMANCE TEST 
+  cudaEventCreate(&stop);
+  cudaEventRecord(stop,0);
+  cudaEventSynchronize(stop);
+  cudaEventElapsedTime(&elapsedTime, start,stop);
+  std::cout<<elapsedTime<<std::endl;*/
 
   checkCUDAError("Kernel failed!");
 }
