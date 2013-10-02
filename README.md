@@ -35,7 +35,7 @@ to be based on Fresnel equations. This would first calculate the Fresnel cooeffi
 of the interface, normal and incident angle, then shoot both reflection ray and refraction ray and finally add the two components together,
 weighted by reflective cooefficient and refractive cooefficient. The Fresnel-enhanced ray-tracer looks like this:
 
- ![ScreenShot](renders/first working fresnel.bmp)
+ ![Alt text](renders/first working fresnel.bmp)
 
 Throw in some mirrow for awesomeness:
 
