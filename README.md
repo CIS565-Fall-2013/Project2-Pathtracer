@@ -30,6 +30,8 @@ Both effect are hardcoded while motion blur applies to object 6 and depth of fie
 -------------------------------------------------------------------------------
 IMPLEMENTATION DETAILS
 -------------------------------------------------------------------------------
+* Fresnel Transparency
+
 Starting from my ray tracer from last project, the easiest addition would be changing my transparent objects from ray tracer 
 to be based on Fresnel equations. This would first calculate the Fresnel cooefficients based on the index of refraction from each side
 of the interface, normal and incident angle, then shoot both reflection ray and refraction ray and finally add the two components together,
@@ -37,16 +39,57 @@ weighted by reflective cooefficient and refractive cooefficient. The Fresnel-enh
 
  ![Alt text](renders/first working fresnel.jpg?raw=true)
 
-Throw in some mirrow for awesomeness:
+Throw in some mirror for awesomeness:
 
  ![Alt text](renders/fresnel with mirror.jpg?raw=true)
 
-and I decided to test the concept of path tracing before heavily modifying 
-my code for ray parallelization or other stuff. So, with a naive path tracer, which looks even simpler than a raytracer,
-my first image lookes like this:
+
+* A Naive Path Tracer
+
+After Fresnel worked, my next objective is get a basic path tracer up and running. Although the rendering equation and all those
+BRDFs and PDF seem difficult, if we just do the basic diffuse surface with cosine weighted hemisphere sampling, a naive path tracer
+is in fact deceptively simple: the BRDF equals to 1 in all direction and the cosine term multiplied by BRDF gets eliminated by the 
+cosine PDF.
+
+Without messing around with ray-parallelization in case I break something in the process, I gave my path tracer a first run, which was 
+disastrous.
+
+ ![Alt text](renders/PathTracer First Run.jpg?raw=true)
 
 Apparently, the result was not at all random and it seemed that the light followed a few very limited paths, almost like 
-a reflection. So, after taking Liam's advice and changing 
+a reflection. Besides, the FPS was horrendously low, around 1~2. Taking Liam's advice and making random number generator 
+take index of pixels, iterations and bounces, the image start to look plausible, but still with glaring artifacts.
+
+ ![Alt text](renders/First image seemingly right.jpg?raw=true)
+
+But I will leave it there for now and work on ray-parallelization instead.
+
+* Ray-parallelization
+
+The ray-parallel path tracer is better than a pixel-parallel path tracer in that it does not have as many idle threads with concluded pixel
+color computation. For a path tracer, the actual bounces between rays could potentially vary a lot, which is a waste of computational resource
+if a thread is allowed to wait threads which may have more bounces to calculate. For a ray-parallel implementation, a ray pool is created to 
+contain all rays that are currently being traced. It is initialized with primary rays and upon contact with surface, the ray is either replaced by
+another ray going other directions (reflection, refraction, diffuse-sampling), or terminated if no intersection was detected. 
+
+With a loop of kernel calls and the help of stream compaction, we can work with fewer rays after each bounce and can allocate hardware resource among
+all alive rays in a much more efficient way. 
+
+In terms of numbers, ray parallelization allowed the FPS to increase from around 1 to 4, a dramatic advance!
+
+Working increamentally to transfer all functionalities from pixel-parallel to ray-parallel implementation, the following images were generated:
+
+ ![Alt text](Ray parallel working (sort of).jpg?raw=true)
+
+ ![Alt text](Reflective added.jpg?raw=true)
+
+ ![Alt text](Refractive added.jpg?raw=true)
+
+
+* Stream compaction
+
+
+
 
 -------------------------------------------------------------------------------
 SCREEN SHOTS AND VIDEOS
