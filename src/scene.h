@@ -21,6 +21,7 @@ private:
     ifstream fp_in;
     int loadMaterial(string materialid);
     int loadObject(string objectid);
+	int loadTexture (string textureID);
     int loadCamera();
 public:
     scene(string filename);
@@ -28,6 +29,7 @@ public:
 
     vector<geom> objects;
     vector<material> materials;
+	vector<mytexture> textures;
     camera renderCam;
 };
 

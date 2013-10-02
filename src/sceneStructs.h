@@ -63,6 +63,7 @@ struct camera {
 
 struct mytexture
 {
+	unsigned int textureID;
 	int texelHeight;
 	int texelWidth;
 	glm::vec3 * texels;
@@ -77,9 +78,9 @@ struct material{
 	float indexOfRefraction;
 	float hasScatter;
 	bool  hasTexture;
-	mytexture Texture;
+	unsigned int textureid;
 	bool  hasNormalMap;
-	mytexture NormalMap;
+	unsigned int nmapid;
 	glm::vec3 absorptionCoefficient;
 	float reducedScatterCoefficient;
 	float emittance;
