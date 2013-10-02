@@ -104,7 +104,7 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   1.2
+EMITTANCE   12
 
 MATERIAL 9				//light 2
 RGB         1 1 0      
@@ -116,7 +116,7 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   0.8
+EMITTANCE   12
 
 CAMERA
 RES         800 800

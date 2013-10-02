@@ -65,45 +65,45 @@ __host__ __device__ glm::vec3 generateRandomOffsetFromThread(glm::vec2 resolutio
 //Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
 {
-  ray r;
-  float width = resolution.x;
-  float height = resolution.y;
-  vec3 M = eye + view;
-  vec3 A = cross(view, up);
-  vec3 B = cross(A, view);
-  vec3 H = (A * length(view) * tanf(fov.x * ((float)PI/180.0f))) / length(A);
-  vec3 V = -(B * length(view) * tanf(fov.y * ((float)PI/180.0f))) / length(B); // LOOK: Multiplied by negative to flip the image
-  vec3 P = M + ((2.0f*x)/(width-1)-1)*H + ((2.0f*y)/(height-1)-1)*V;
-  vec3 D = P - eye;
-  vec3 DN = glm::normalize(D);
+	ray r;
+	float width = resolution.x;
+	float height = resolution.y;
+	vec3 M = eye + view;
+	vec3 A = cross(view, up);
+	vec3 B = cross(A, view);
+	vec3 H = (A * length(view) * tanf(fov.x * ((float)PI/180.0f))) / length(A);
+	vec3 V = -(B * length(view) * tanf(fov.y * ((float)PI/180.0f))) / length(B); // LOOK: Multiplied by negative to flip the image
+	vec3 P = M + ((2.0f*x)/(width-1)-1)*H + ((2.0f*y)/(height-1)-1)*V;
+	vec3 D = P - eye;
+	vec3 DN = glm::normalize(D);
 
-  r.origin = P;
-  r.direction = DN;
-  return r;
+	r.origin = P;
+	r.direction = DN;
+	return r;
 }
 
 //Function that does the initial raycast from the camera with small jittered offset
 __host__ __device__ ray jitteredRaycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
 {
-  ray r;
-  float width = resolution.x;
-  float height = resolution.y;
-  vec3 M = eye + view;
-  vec3 A = cross(view, up);
-  vec3 B = cross(A, view);
-  vec3 H = (A * length(view) * tanf(fov.x * ((float)PI/180.0f))) / length(A);
-  vec3 V = -(B * length(view) * tanf(fov.y * ((float)PI/180.0f))) / length(B); // LOOK: Multiplied by negative to flip the image
+	ray r;
+	float width = resolution.x;
+	float height = resolution.y;
+	vec3 M = eye + view;
+	vec3 A = cross(view, up);
+	vec3 B = cross(A, view);
+	vec3 H = (A * length(view) * tanf(fov.x * ((float)PI/180.0f))) / length(A);
+	vec3 V = -(B * length(view) * tanf(fov.y * ((float)PI/180.0f))) / length(B); // LOOK: Multiplied by negative to flip the image
 
-  vec3 offset = generateRandomNumberFromThread(resolution, time, x, y);
+	vec3 offset = generateRandomNumberFromThread(resolution, time, x, y);
 
-  // offset the point by a small random number ranging from [-0.5,0.5] for anti-aliasing
-  vec3 P = M + ((2.0f*(offset.x+x))/(width-1)-1)*H + ((2.0f*(offset.y+y))/(height-1)-1)*V;
-  vec3 D = P - eye;
-  vec3 DN = glm::normalize(D);
+	// offset the point by a small random number ranging from [-0.5,0.5] for anti-aliasing
+	vec3 P = M + ((2.0f*(offset.x+x))/(width-1)-1)*H + ((2.0f*(offset.y+y))/(height-1)-1)*V;
+	vec3 D = P - eye;
+	vec3 DN = glm::normalize(D);
 
-  r.origin = P;
-  r.direction = DN;
-  return r;
+	r.origin = P;
+	r.direction = DN;
+	return r;
 }
 
 
@@ -128,7 +128,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
   {
       glm::vec3 color;
 	  
-	  //glm::clamp(image[index], vec3(0,0,0), vec3(1,1,1));
+	  glm::clamp(image[index], vec3(0,0,0), vec3(1,1,1));
 
 	  imageAccumd[index] = (imageAccumd[index] * (iteration - 1) + image[index]) / iteration;
 
@@ -266,7 +266,7 @@ __device__ float intersectionTest(staticGeom* geoms, int numberOfGeoms, ray r, i
 				{
 					t = dist;
 					isectPoint = isectPointTemp;
-					isectNormal = isectNormalTemp;
+					isectNormal = -isectNormalTemp;
 					matId = geoms[i].materialid;
 					geomId = i;
 				}
@@ -348,7 +348,6 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 		return;
 	}
 
-
 	// passing in -1 for geomToSkipId because we want to check against all geometry
 	t = intersectionTest(geoms, numberOfGeoms, r, -1, isectPoint, isectNormal, matId, geomId); 
 
@@ -358,6 +357,7 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 		vec3 matColor = isectMat.color;
 		vec3 rayAttenuation = r.attenuation;
 		float emittance = isectMat.emittance;
+		float reflectance = isectMat.hasReflective;
 		
 		// hit light source
 		if (emittance != 0)
@@ -371,11 +371,24 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 	
 			// compute shading and the next ray r.
 			calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, iter, rayIndex + rayPixelIndex + bounce);
-		
-			colors[rayPixelIndex] *= shading;
+	
+			colors[rayPixelIndex] *= rayAttenuation * shading;
 
 			// attenuate ray
-			rayAttenuation = rayAttenuation * matColor;
+			if (reflectance == 0) // no reflectance
+			{
+				rayAttenuation = rayAttenuation * matColor;
+			}
+			else if (reflectance < 1) // partial reflectance
+			{
+				rayAttenuation = rayAttenuation * isectMat.specularColor;
+				colors[rayPixelIndex] = (1-reflectance) * matColor;
+			}
+			else // perfect reflectance
+			{
+				rayAttenuation = rayAttenuation * isectMat.specularColor;
+			}
+
 			r.attenuation = rayAttenuation;
 
 			if ((rayAttenuation.x < 0.01 && rayAttenuation.y < 0.01 && rayAttenuation.z < 0.01) || bounce == MAX_BOUNCE)

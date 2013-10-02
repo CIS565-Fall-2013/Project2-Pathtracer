@@ -49,7 +49,7 @@ __host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, g
 //TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
  
-  return incident - 2.0f * normal * glm::dot(incident, normal);
+  return glm::normalize(incident - 2.0f * normal * glm::dot(incident, normal));
 }
 
 //TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
@@ -119,24 +119,39 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 __host__ __device__ int calculateBSDF(ray& r, const glm::vec3& intersect, const glm::vec3& normal, 
 									  glm::vec3& color, const material& m, const float iter, const int index)
 {
-	
-	if (m.hasReflective == 1)
+	float eps = 1e-5;
+
+	if (m.hasReflective != 0)
 	{
 		// perfect reflect
-		glm::vec3 reflectedRay = calculateReflectionDirection(normal, r.direction);
+		glm::vec3 reflectedRay = calculateReflectionDirection(normal, r.direction);		
+		r.direction = reflectedRay;
+		r.origin = intersect + normal * eps;
+		
+		//if (m.hasReflective == 1)
+		//{
+		//	color = glm::vec3(1,1,1); // no color contribution
+		//}
+		//else
+		//{
+		//	// partially refletive: use reflected ray but use diffuse color
+		//	color = (1-m.hasReflective) * m.color;
+		//}
+		
+		color = glm::vec3(1,1,1);
 
 		return BSDFRET::REFLECTED;
+
 	}
 	else
 	{
 		// diffuse scatter
 		thrust::default_random_engine rng(hash(iter*index));
 		thrust::uniform_real_distribution<float> u01(0,1);
-		thrust::uniform_real_distribution<float> u02(0,1);
 
 		glm::vec3 direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng)));
 		r.direction = direction;
-		r.origin = intersect + normal * (float)1e-5;
+		r.origin = intersect + r.direction * eps;
 
 		color = m.color;
 
