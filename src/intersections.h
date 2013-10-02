@@ -276,11 +276,15 @@ __host__ __device__ float triangleIntersectionTest(const glm::vec3& v1, const gl
 		return -1;
 
 	float t = (glm::dot(n1, v1) - glm::dot(n1, ro)) / nd;
+
+	if (t <= 0)
+		return -1; 
+
 	glm::vec3 localIntersectionPoint = ro + rd * t;
 
-	if( glm::dot(glm::cross((v2-v1),(localIntersectionPoint-v1)),n1) >= 0 &&
-		glm::dot(glm::cross((v3-v2),(localIntersectionPoint-v2)),n1) >= 0 &&
-		glm::dot(glm::cross((v1-v3),(localIntersectionPoint-v3)),n1) >= 0 )
+	if( glm::dot(glm::cross((v2-v1),(localIntersectionPoint-v1)),n1) > 0 &&
+		glm::dot(glm::cross((v3-v2),(localIntersectionPoint-v2)),n1) > 0 &&
+		glm::dot(glm::cross((v1-v3),(localIntersectionPoint-v3)),n1) > 0 )
 	{
 		normal = glm::normalize(multiplyMV(geom.transform, glm::vec4(n1,0.0f)));
 		intersectionPoint = multiplyMV(geom.transform, glm::vec4(localIntersectionPoint, 1.0));

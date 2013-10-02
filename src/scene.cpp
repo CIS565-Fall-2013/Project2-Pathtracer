@@ -300,7 +300,7 @@ void scene::loadObjFile(geom &newObject, const char* filePath)
 	// looping through all shapes (if obj file contains multiple shapes)
 	for (size_t i = 0 ; i < shapes.size() ; ++i)
 	{
-				int numIndices = shapes[i].mesh.indices.size();
+		int numIndices = shapes[i].mesh.indices.size();
 		for (size_t f = 0 ; f < numIndices ; ++f)
 		{
 			newObject.triMesh.indices.push_back(shapes[i].mesh.indices[f]);

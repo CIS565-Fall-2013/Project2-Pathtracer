@@ -266,7 +266,7 @@ __device__ float intersectionTest(staticGeom* geoms, int numberOfGeoms, ray r, i
 				{
 					t = dist;
 					isectPoint = isectPointTemp;
-					isectNormal = -isectNormalTemp;
+					isectNormal = isectNormalTemp;
 					matId = geoms[i].materialid;
 					geomId = i;
 				}
@@ -363,15 +363,14 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 		if (emittance != 0)
 		{
 			r.isTerminated = true;
-			colors[rayPixelIndex] *= emittance * matColor;
+			colors[rayPixelIndex] *= 1.5f * emittance * matColor;
 		}
 		else
 		{
 			vec3 shading = vec3(0,0,0);
 	
 			// compute shading and the next ray r.
-			/*calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, iter * rayIndex + rayPixelIndex + bounce);*/
-			calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, iter * rayPixelIndex + rayIndex * bounce);
+			calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, iter * (rayPixelIndex + rayIndex * bounce));
 	
 			colors[rayPixelIndex] *= rayAttenuation * shading;
 
@@ -385,17 +384,17 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 				rayAttenuation = rayAttenuation * isectMat.specularColor;
 				colors[rayPixelIndex] = (1-reflectance) * matColor;
 			}
-			else // perfect reflectance
+			else if (reflectance == 1)// perfect reflectance
 			{
 				rayAttenuation = rayAttenuation * isectMat.specularColor;
 			}
 
 			r.attenuation = rayAttenuation;
 
-			if ((rayAttenuation.x < 0.01 && rayAttenuation.y < 0.01 && rayAttenuation.z < 0.01) || bounce == MAX_BOUNCE)
+			if ((rayAttenuation.x < 0.001 && rayAttenuation.y < 0.001 && rayAttenuation.z < 0.001) || bounce == MAX_BOUNCE)
 			{
-				colors[rayPixelIndex] = vec3(0,0,0);
 				r.isTerminated = true;
+				colors[rayPixelIndex] = vec3(0,0,0);
 			}
 		}
 	}

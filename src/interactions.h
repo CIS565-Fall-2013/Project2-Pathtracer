@@ -146,7 +146,7 @@ __host__ __device__ int calculateBSDF(ray& r, const glm::vec3& intersect, const 
 	else
 	{
 		// diffuse scatter
-		thrust::default_random_engine rng(hash(seed));
+		thrust::default_random_engine rng(hash((int)seed));
 		thrust::uniform_real_distribution<float> u01(0,1);
 
 		glm::vec3 direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng)));
