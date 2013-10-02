@@ -213,8 +213,6 @@ __global__ void traceRayFirstHit(cameraData cam, renderOptions rconfig, float ti
 			if(rconfig.mode == FIRST_HIT_DEBUG){
 				if(ind >= 0)
 					colors[pixelIndex] += materials[geoms[ind].materialid].color;
-				else
-					colors[pixelIndex] += rconfig.backgroundColor;
 			}else if(rconfig.mode == NORMAL_DEBUG){
 				colors[pixelIndex] += glm::abs(normal);
 			}
@@ -311,12 +309,34 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 						rstate.index = -1;//retire ray
 					}else if(rconfig.mode == PATHTRACE){
 						//Compute global illumination component, we've hit the sky
-						if(rstate.bounceType == DIFFUSE || rstate.bounceType == TRANSMIT){
-							float globalLightDot = clamp(-glm::dot(rstate.r.direction, rconfig.globalLightDirection),0.0f,1.0f);
-							colors[pixelIndex] += rstate.T*rconfig.globalLightColor*rconfig.globalLightIntensity*globalLightDot;
+						staticGeom globalLight = geoms[rconfig.globalLightGeomInd];
+						material globalLightMat = materials[globalLight.materialid];
+						if(rstate.bounceType == DIFFUSE){
+							//Diffuse shading is special case, we may want to include shadows in our shading.
+							if(rconfig.globalLightGeomInd > -1)//if we have a global light
+							{
+								glm::vec3 globalLightPos;
+								if(globalLight.type == SPHERE)
+								{
+									globalLightPos = getRandomPointOnSphere(globalLight, time*(bounce+1)+rIndex);
+								}else{
+									globalLightPos = getRandomPointOnCube(globalLight, time*(bounce+1)+rIndex);
+								}
+								glm::vec3 globalLightDirection = globalLightPos-rstate.r.origin;
+
+								float globalLightDot = clamp(-glm::dot(rstate.r.direction, globalLightDirection),0.0f,1.0f);
+
+								if(rconfig.globalShadows){
+									//Cast shadow ray
+
+								}else{
+									//Approximate lambertian shading
+									colors[pixelIndex] += rstate.T*globalLightMat.absorptionCoefficient*globalLightMat.emittance*globalLightDot;
+								}
+							}
 						}else{
-							//Primary or specular reflection, display color
-							colors[pixelIndex] += rstate.T*rconfig.backgroundColor;
+							//Primary or specular reflection, just display sky color
+							colors[pixelIndex] += rstate.T*globalLightMat.specularColor;
 						}
 						rstate.index = -1;//retire ray
 					}

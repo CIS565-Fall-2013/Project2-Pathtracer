@@ -13,7 +13,7 @@
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 enum RENDERMODE{PATHTRACE, RAYCOUNT_DEBUG, TRACEDEPTH_DEBUG, FIRST_HIT_DEBUG, NORMAL_DEBUG};
-enum BounceType{PRIMARY, DIFFUSE, REFLECT, TRANSMIT};
+enum BounceType{PRIMARY, DIFFUSE, REFLECT, TRANSMIT, SHADOW};
 
 struct ray {
 	glm::vec3 origin;
@@ -87,7 +87,6 @@ struct material{
 
 struct renderOptions{
 	enum RENDERMODE mode;
-	glm::vec3 backgroundColor;
 	int traceDepth;
 	float rayPoolSize;
 	bool stocasticRayAssignment;
@@ -95,15 +94,13 @@ struct renderOptions{
 	glm::vec3 airAbsorbtion;
 	float airIOR;
 
-	glm::vec3 globalLightColor;
-	glm::vec3 globalLightDirection;
-	float globalLightIntensity;
+	int globalLightGeomInd;
 
 	bool streamCompaction;
-	
+	bool globalShadows;
 	bool antialiasing;
-
 	bool frameFiltering;
+
 	float minT;//minimum ray transmission function. Lets rays die out if they won't contribute anything.
 };
 

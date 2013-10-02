@@ -81,16 +81,34 @@ int main(int argc, char** argv){
 	renderOpts->rayPoolSize =1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
 	renderOpts->stocasticRayAssignment = false;
 	
-	renderOpts->globalLightColor = glm::vec3(1,1,1);
-	renderOpts->backgroundColor = glm::vec3(137, 207, 240)/255.0f;//sky blue
-	renderOpts->globalLightDirection = glm::normalize(glm::vec3(0.2,-1,0));
-	renderOpts->globalLightIntensity = 1;
+	//Defaults
+	renderOpts->globalLightGeomInd = -1;
+	//Setup global lighting conditions
+	for(int m = 0; m < renderScene->materials.size(); m++)
+	{
+		if(renderScene->materials[m].specularExponent < 0)//Flag for global light source
+		{
+			//If we have a global light material, look for a corresponding geom
+			for(int g = 0; g <  renderScene->objects.size(); g++)
+			{
+				if(renderScene->objects[g].materialid == m)
+				{
+					renderOpts->globalLightGeomInd = g;
+					break;
+				}
+			}
+			if(renderOpts->globalLightGeomInd > -1)
+				break;
+		}
+	}
 	
 
 	//Rendering toggle options
 	renderOpts->antialiasing = true;
 	renderOpts->streamCompaction = true;
 	renderOpts->frameFiltering = true;
+	renderOpts->globalShadows = false;
+
 
 	renderOpts->airIOR = 1.0;
 	renderOpts->airAbsorbtion = glm::vec3(0.0, 0.0, 0.0);//No air absorbtion effects for now

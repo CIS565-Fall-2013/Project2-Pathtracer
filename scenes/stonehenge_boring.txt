@@ -1,13 +1,13 @@
 //Define global lighting conditions
 MATERIAL 	0 					//Daylight
-RGB         1 0.77 0.075       			//Diffuse shading light color
+RGB         1 0.77 0.075       	//Emitter Color
 SPECEX      -1					//Flag to use as global light material				
 SPECRGB     0.66 0.81 0.94      //Direct lighting background color (daylight sky blue)
 REFL        0 //Must be zero
 REFR        0 //Must be zero       
 REFRIOR     0       
 SCATTER     0        	
-ABSCOEFF    0.01 0.01 0.0 		//Air absorbtion
+ABSCOEFF    1 1 1		//Diffuse shading light color (Full white light)
 RSCTCOEFF   0
 EMITTANCE   1
 
