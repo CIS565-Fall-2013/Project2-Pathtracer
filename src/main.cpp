@@ -77,7 +77,7 @@ int main(int argc, char** argv){
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
 	renderOpts->mode = PATHTRACE;
-	renderOpts->traceDepth = 10;
+	renderOpts->traceDepth = 50;
 	renderOpts->rayPoolSize =1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
 	renderOpts->stocasticRayAssignment = false;
 	

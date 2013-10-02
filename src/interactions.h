@@ -87,10 +87,11 @@ __host__ __device__ glm::vec3 sampleSpecularReflectionDirection(glm::vec3 normal
 	float phi = 2*PI*xi2;
 
 	glm::vec3 randDirZ = sphericalToCartesian(phi, th);
+	float dot = glm::dot(normal, reflectDir);
 
 	//Create rotation matrix
 	glm::vec3 zw = reflectDir;
-	glm::vec3 xw = glm::normalize(glm::cross(normal, reflectDir));
+	glm::vec3 xw = glm::normalize(glm::cross(dot*normal, reflectDir));
 	glm::vec3 yw = glm::cross(zw, xw);
 	glm::mat3 rot = glm::mat3(xw, yw, zw);
 
@@ -105,14 +106,14 @@ __host__ __device__ glm::vec3 sampleSpecularTransmissionDirection(glm::vec3 norm
 	float phi = 2*PI*xi2;
 
 	glm::vec3 randDirZ = sphericalToCartesian(phi, th);
-
+	float dot = glm::dot(normal, transmitDir);
 	//Create rotation matrix
 	glm::vec3 zw = transmitDir;
-	glm::vec3 xw = glm::normalize(glm::cross(normal, transmitDir));
+	glm::vec3 xw = glm::normalize(glm::cross(dot*normal, transmitDir));
 	glm::vec3 yw = glm::cross(zw, xw);
 	glm::mat3 rot = glm::mat3(xw, yw, zw);
 
-
+	//return transmitDir;
 	return rot*randDirZ;
 }
 
