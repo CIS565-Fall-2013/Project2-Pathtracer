@@ -138,6 +138,7 @@ __global__ void constructRayPool(ray* rayPool, cameraData cam, float time)
 	ray r = raycastFromCameraKernel(cam.resolution, time, (float)x, (float)y, cam.position, cam.view, cam.up, cam.fov);
 	r.isTerminated = false;
 	r.pixelID = index;
+	r.attenuation = vec3(1,1,1);
 	rayPool[index] = r;
 }
 
@@ -285,7 +286,7 @@ __device__ vec3 shadowFeeler(staticGeom* geoms, int numberOfGeoms, material* mat
 
 //Core pathtracer kernel
 __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cameraData cam,
-                            staticGeom* geoms, int numberOfGeoms, material* cudamat, int numberOfMat, int* cudalightIndex, int numberOfLights, float iter)
+                            staticGeom* geoms, int numberOfGeoms, material* cudamat, int numberOfMat, int* cudalightIndex, int numberOfLights, float iter, int bounce)
 {
 	// Note: For ray parallelization, these ids will not necessarily correspond to the index of the pixel that can be used for the color array.
 	// So instead of using these IDs directly, store pixel index that the ray is responsible for during rayPool construction
@@ -294,7 +295,7 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 	int rayIndex = rayIdx + (rayIdy * cam.resolution.x);
 	int rayPixelIndex = rayPool[rayIndex].pixelID;
 
-	ray r = rayPool[rayIndex];
+	ray &r = rayPool[rayIndex];
 
 	vec3 isectPoint = vec3(0,0,0);
 	vec3 isectNormal = vec3(0,0,0);
@@ -302,29 +303,69 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 	int geomId = -1;
 	float t = FLT_MAX;
 
+	if (bounce == 0)
+	{
+		colors[rayPixelIndex] = vec3(1,1,1);
+		return;
+	}
+
+
 	// passing in -1 for geomToSkipId because we want to check against all geometry
 	t = intersectionTest(geoms, numberOfGeoms, r, -1, isectPoint, isectNormal, matId, geomId); 
 
 	if (t != FLT_MAX)
 	{
 		material isectMat = cudamat[matId];
+		vec3 matColor = isectMat.color;
+		vec3 rayAttenuation = r.attenuation;
+		float emittance = isectMat.emittance;
 		
-		colors[rayPixelIndex] = isectMat.color;
+		// hit light source
+		if (emittance != 0)
+		{
+			r.isTerminated = true;
+			colors[rayPixelIndex] *= emittance * matColor; // should this be sum or product?
+		}
+		else
+		{
+			vec3 shading = vec3(0,0,0);
+	
+			// compute shading and the next ray r.
+			calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, iter, rayIdx * rayIdy);
+		
+			colors[rayPixelIndex] *= shading;
+
+			// attenuate ray
+			rayAttenuation = rayAttenuation * matColor;
+			r.attenuation = rayAttenuation;
+
+			if (rayAttenuation.x < 0.01 && rayAttenuation.y < 0.01 && rayAttenuation.z < 0.01)
+				r.isTerminated = true;
+		}
+	}
+	else
+	{
+		r.isTerminated = true;
+		colors[rayPixelIndex] = vec3(0,0,0);
 	}
 	
+	
+	////////////////
+	// Debug Code //
+	////////////////
 
-
-
+	// checking intersection
+	//if (t != FLT_MAX)
+	//{
+	//	material isectMat = cudamat[matId];		
+	//	colors[rayPixelIndex] = isectMat.color;
+	//}
+	
 	// check if rayIdx and rayPixelIndex are correct
 	//if (rayIdy > 400)
 	//{
 	//	colors[rayPixelIndex] = vec3(1,0,0);
 	//}
-
-
-
-
-
 
 	// check if stuff are being passed correctly
 	//for (int i = 0 ; i < numberOfGeoms ; ++i)
@@ -594,22 +635,28 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		constructRayPool<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaRayPool, cam, (float)iterations);
 
 		// Trace all bounces of the ray in a BFS manner
-		for(int bounce = 1; bounce <= MAX_BOUNCE; ++bounce)
+		for(int bounce = 0; bounce <= MAX_BOUNCE; ++bounce)
 		{
 			// Update blockSize based on the number of rays.
 			float sqrtNumRays = sqrtf((float)numRays);
 			int blockSize = (int)ceil(sqrtNumRays/(float)tileSize);
 			dim3 rayBlockPerGrid(blockSize, blockSize);
 
-			// LOOK: ssratio is just 1 for now in path tracing mode.
-			pathtraceRay<<<rayBlockPerGrid,threadsPerBlock>>>(cudaRayPool, 1, cudaimage, cam, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, (float)iterations);
+			// TODO: ssratio is just 1 for now in path tracing mode.
+			pathtraceRay<<<rayBlockPerGrid,threadsPerBlock>>>(cudaRayPool, 1, cudaimage, cam, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, (float)iterations, bounce);
 
-
-			// TODO: Stream compaction and update numRays using thrust
+			// Stream compaction using thrust
 			thrust::device_ptr<ray> cudaRayPoolDevicePtr(cudaRayPool);
 			thrust::device_ptr<ray> compactCudaRayPoolDevicePtr = thrust::remove_if(cudaRayPoolDevicePtr, cudaRayPoolDevicePtr + numRays, is_terminated());
+			
+			// pointer arithmetic to figure out the number of rays.
 			numRays = compactCudaRayPoolDevicePtr.get() - cudaRayPoolDevicePtr.get();
-			bool bleh = 0;
+
+			if (numRays < 0)
+			{
+				printf("Number of rays = 0. Terminating...\n");
+				break;
+			}
 		}
 	}
 	else

@@ -18,6 +18,9 @@ struct AbsorptionAndScatteringProperties{
     float reducedScatteringCoefficient;
 };
 
+enum BSDFRET{DIFFUSE_SCATTER, REFLECTED, TRANSMITTED};
+
+
 //forward declaration
 __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2);
@@ -106,9 +109,40 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2)
 //returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
 __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
                                        AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
-                                       glm::vec3& color, glm::vec3& unabsorbedColor, material m){
+                                       glm::vec3& color, glm::vec3& unabsorbedColor, material m)
+{
+	return 0;
+};
 
-  return 1;
+//TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
+//returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
+__host__ __device__ int calculateBSDF(ray& r, const glm::vec3& intersect, const glm::vec3& normal, 
+									  glm::vec3& color, const material& m, const float iter, const int index)
+{
+	
+	if (m.hasReflective == 1)
+	{
+		// perfect reflect
+		glm::vec3 reflectedRay = calculateReflectionDirection(normal, r.direction);
+
+		return BSDFRET::REFLECTED;
+	}
+	else
+	{
+		// diffuse scatter
+		thrust::default_random_engine rng(hash(iter*index));
+		thrust::uniform_real_distribution<float> u01(0,1);
+		thrust::uniform_real_distribution<float> u02(0,1);
+
+		glm::vec3 direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u02(rng)));
+		r.direction = direction;
+		r.origin = intersect + r.direction * (float)1e-5;
+
+		color = m.color;
+
+		return BSDFRET::DIFFUSE_SCATTER;
+	}
+
 };
 
 #endif

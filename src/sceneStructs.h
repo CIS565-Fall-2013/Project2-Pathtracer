@@ -19,6 +19,7 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	glm::vec3 attenuation;		// starting at vec3(1,1,1), this factor is updated with attenuation *= intersected geometry's material color
 	bool isTerminated;			// whether the ray should be removed during the stream compaction step
 	int pixelID;				// store the pixel that this ray is responsible for computing the color of
 };
