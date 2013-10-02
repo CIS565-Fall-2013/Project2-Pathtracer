@@ -382,15 +382,13 @@ __global__ void inclusiveScan (int *secondaryArray, int *tmpArray, int primArray
 // Can convert an inclusive scan result to an exclusive scan.
 // Do NOT copy the results back in the same kernel as threads in other blocks might be still accessing the same location in 
 // global memory, causing a read/write conflict and erroneous values. Use copyArray or cudaMemcpy.
-__global__ void	shiftRight (int *Array, int *secondArray, int arrayLength)
+__global__ void	shiftRight (int *Array, bool *primaryArray, int arrayLength)
 {
 	unsigned long	curIndex = blockDim.x*blockIdx.x + threadIdx.x;
 	if (curIndex < arrayLength)
 	{
-		if (curIndex > 0)
-			secondArray [curIndex] = Array [curIndex - 1];
-		else
-			secondArray [curIndex] = 0;
+		if (primaryArray [curIndex])
+			Array [curIndex] = Array [curIndex] - 1;
 	}
 
 	//__syncthreads ();
@@ -711,9 +709,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 //		checkCUDAError("inclusiveScan Kernel failed!");
 	
 		// Next, we convert the result of the parallel scan (inclusive) into exclusive scan.
-		shiftRight<<<fullBlocksPerGrid, threadsPerBlock1D>>>(secondaryArray, secondaryArray2, rayPoolLength);
-		cudaDeviceSynchronize ();
-		cudaMemcpy (secondaryArray, secondaryArray2, rayPoolLength*sizeof (int), cudaMemcpyDeviceToDevice);
+		shiftRight<<<fullBlocksPerGrid, threadsPerBlock1D>>>(secondaryArray, primaryArrayOnDevice, rayPoolLength);
+//		cudaDeviceSynchronize ();
+//		cudaMemcpy (secondaryArray, secondaryArray2, rayPoolLength*sizeof (int), cudaMemcpyDeviceToDevice);
 
 //		checkCUDAError("shiftRight Kernel failed!");
 //		copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (secondaryArray2, secondaryArray, rayPoolLength);
