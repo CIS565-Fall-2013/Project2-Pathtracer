@@ -10,38 +10,42 @@
 
 __host__ __device__ glm::vec3 bumpColor( glm::vec3 pointObjSpace, map& m, glm::vec3& shadeNormal,int* perlinPerm)
 {
-	float nx = m.color2.x*noise(pointObjSpace.x,pointObjSpace.y,pointObjSpace.z,perlinPerm);
-	float ny = m.color2.y*noise(pointObjSpace.y,pointObjSpace.z,pointObjSpace.x,perlinPerm);
-	float nz = m.color2.z*noise(pointObjSpace.z,pointObjSpace.x,pointObjSpace.y,perlinPerm);
-	
-	glm::vec3 perturbation(nx,ny,nz);
-	shadeNormal = (1-m.width1)*shadeNormal + m.width1*perturbation;
+	float sineValue = 
+		m.width1 * sinf( (pointObjSpace.x + pointObjSpace.y) * 0.05f + turbulence(10,pointObjSpace.x, pointObjSpace.y,pointObjSpace.z,m.width2, perlinPerm)) + 0.5f;
+	glm::vec3 perturbation(sineValue,sineValue,sineValue);
+	shadeNormal = (1-m.width2)*shadeNormal + m.width2*perturbation;
 	shadeNormal = glm::normalize(shadeNormal);
 	return m.color1;
 }
 
 
-__host__ __device__ glm::vec3 marble(glm::vec3 pointObjSpace, map& m, int* perlinPerm)
+__host__ __device__ glm::vec3 perlin(glm::vec3 pointObjSpace, map& m, int* perlinPerm)
 {
-	float xPeriod = 2; //rotates defines repetition of marble lines in x direction
-    float yPeriod = 0.05; //defines repetition of marble lines in y direction
-	float zPeriod = 0.5;
-    float turbPower = 1.25; //makes twists
-    float turbSize = 1.05; //initial size of the turbulence
-    
-    //float xyzValue = pointObjSpace.x * xPeriod / 128 + pointObjSpace.y * yPeriod / 128 + pointObjSpace.z*zPeriod/128 + turbPower * turbulence(10,pointObjSpace.x, pointObjSpace.y,pointObjSpace.z, perlinPerm) / 256.0;
-	//float xyzValue = pointObjSpace.x * xPeriod + pointObjSpace.y * yPeriod + pointObjSpace.z*zPeriod + turbPower*turbulence(10,pointObjSpace.x, pointObjSpace.y,pointObjSpace.z,turbSize, perlinPerm);
-    //float sineValue = fabs(sin(xyzValue * PI));
-	//float sineValue = 
-	//	0.5f * sinf( (pointObjSpace.x + pointObjSpace.y) * 0.05f + turbulence(10,pointObjSpace.x, pointObjSpace.y,pointObjSpace.z,0.95f, perlinPerm)) + 0.5f;
+	//Copied from my project,volumetric renderer in CIS 560
 
+	float xPeriod = 0.3; //rotates defines repetition of marble lines in x direction
+    float yPeriod = 0.1; //defines repetition of marble lines in y direction
+	float zPeriod = 0;
+    float turbPower = m.width2; //makes twists
+    float turbSize = m.width1; //initial size of the turbulence
+    
+	float xyzValue = pointObjSpace.x * xPeriod + pointObjSpace.y * yPeriod + pointObjSpace.z*zPeriod + turbPower*turbulence(10,pointObjSpace.x, pointObjSpace.y,pointObjSpace.z,turbSize, perlinPerm);
+    float sineValue = fabs(sin(xyzValue * PI));
+
+	return sineValue*m.color1 + (1-sineValue)*m.color2;
+}
+
+
+
+__host__ __device__ glm::vec3 marble(glm::vec3 pointObjSpace, map& m, int* perlinPerm)
+{ 
+	//From http://www.codermind.com/articles/Raytracer-in-C++-Part-III-Textures.html
 	float sineValue = 
 		m.width1 * sinf( (pointObjSpace.x + pointObjSpace.y) * 0.05f + turbulence(10,pointObjSpace.x, pointObjSpace.y,pointObjSpace.z,m.width2, perlinPerm)) + 0.5f;
 
 
 	return sineValue*m.color1 + (1-sineValue)*m.color2;
-	//float noise = turbulence(10,pointObjSpace.x, pointObjSpace.y,pointObjSpace.z, perlinPerm);
-	//return glm::vec3(noise,noise,noise);
+
 }
 
 
@@ -153,6 +157,8 @@ __host__ __device__ glm::vec3 getSurfaceColor(glm::vec3 shadePoint, glm::vec3& s
 		return marble(shadePoint,m,perlinData);
 	else if (m.type == BUMP)
 		return bumpColor(shadePoint,m,shadeNormal,perlinData);
+	else if (m.type == PERLIN)
+		return perlin(shadePoint,m,perlinData);
 	return mtl.color;
 }
 

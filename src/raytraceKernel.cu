@@ -225,11 +225,6 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	r.rayColor = glm::vec3(1,1,1);
 	rays[index].rayColor = r.rayColor;
 	rays[index].pixelIndex = r.pixelIndex;
-	//rays[index].rayColor = glm::vec3(1,1,1); //White initially
-	//rays[index].origin = r.origin;
-	//rays[index].direction = r.direction;
-	//rays[index].active = r.active;
-	//rays[index].pixelIndex = r.pixelIndex;
   }
   else
   {
@@ -281,7 +276,6 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 		r.rayColor.x *= surfaceColor.x;
 		r.rayColor.y *= surfaceColor.y;
 		r.rayColor.z *= surfaceColor.z;
-
 	}
 	else if(bsdf == 1)
 	{
@@ -302,8 +296,6 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	rays[index].active = r.active;
 	rays[index].pixelIndex = r.pixelIndex;
 	rays[index].rayColor = r.rayColor;
-	//colors[index] = glm::abs(r.direction);
-    //colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
    }
 	
 }

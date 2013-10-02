@@ -25,6 +25,8 @@
     <ClInclude Include="..\..\src\interactions.h" />
     <ClInclude Include="..\..\src\intersections.h" />
     <ClInclude Include="..\..\src\main.h" />
+    <ClInclude Include="..\..\src\materials.h" />
+    <ClInclude Include="..\..\src\perlin.h" />
     <ClInclude Include="..\..\src\raytraceKernel.h" />
     <ClInclude Include="..\..\src\scene.h" />
     <ClInclude Include="..\..\src\sceneStructs.h" />
@@ -196,6 +198,7 @@
     <CudaCompile>
       <CompileOut>$(ProjectDir)$(Platform)/$(Configuration)/%(Filename)%(Extension).obj</CompileOut>
       <Include>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include;C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc;../shared/glew/includes;../shared/freeglut/includes</Include>
+      <CodeGeneration>compute_30,sm_30</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

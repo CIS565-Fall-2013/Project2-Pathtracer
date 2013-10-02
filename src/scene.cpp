@@ -306,6 +306,9 @@ int scene::loadMap(string mapid){
 			}else if(strcmp(line.c_str(), "marble")==0){
                 cout << "Creating new marble map..." << endl;
 				newMap.type = MARBLE;
+			}else if(strcmp(line.c_str(), "perlin")==0){
+                cout << "Creating new perlin map..." << endl;
+				newMap.type = PERLIN;
 			}else if(strcmp(line.c_str(), "bump")==0){
                 cout << "Creating new bump map..." << endl;
 				newMap.type = BUMP;
