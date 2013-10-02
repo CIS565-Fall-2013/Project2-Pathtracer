@@ -21,6 +21,7 @@ private:
     ifstream fp_in;
     int loadMaterial(string materialid);
     int loadObject(string objectid);
+	int loadmesh(string filename ) ;
     int loadCamera();
 public:
     scene(string filename);
@@ -28,6 +29,8 @@ public:
 
     vector<geom> objects;
     vector<material> materials;
+	vector<glm::vec3> mymainpoints;
+	float maxmin[6];
     camera renderCam;
 };
 

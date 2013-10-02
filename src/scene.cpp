@@ -60,7 +60,8 @@ int scene::loadObject(string objectid){
                 istringstream liness(objline);
                 getline(liness, name, '.');
                 getline(liness, extension, '.');
-                if(strcmp(extension.c_str(), "obj")==0){
+                if(strcmp(extension.c_str(), "obj")==0){ //
+					loadmesh(objline );
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
 		    		newObject.type = MESH;
@@ -262,4 +263,162 @@ int scene::loadMaterial(string materialid){
 		materials.push_back(newMaterial);
 		return 1;
 	}
+}
+
+
+
+// Object loader
+struct coordinate{
+	float x,y,z;
+	coordinate(float a, float b, float c) : x(a),y(b),z(c)
+		 {
+		/*	 x = a ;
+			 y = b ;
+			 z = c ;*/
+	     } ;
+};
+
+struct face
+{
+int facenum ;
+bool three;
+int faces[3] ;
+face(int f1,int f2,int f3)
+{
+	faces[0] = f1;
+	faces[1] = f2;
+	faces[2] = f3;
+	three = true;
+}
+};
+
+std::vector<std::string*> coord;
+
+std::vector<coordinate*> vertex;
+
+std::vector<face*> faces;
+
+std::vector<coordinate*> normals;
+
+//std::vector<glm::vec3> mymainpoints ;
+
+
+int scene::loadmesh(string filename ) 
+{
+	//for(int f=1 ; f < 48 ; f++)
+//	{
+    //string result,actualfile;
+	//ostringstream convert ;
+	//convert << f ;
+	//result = convert.str();
+	// assigning a number to the output filename 
+	//actualfile = filename  ; // result+".obj";
+	std::ifstream in("bunny.obj" );//
+	char c[256];
+	cout << filename <<endl ;
+	char buf[256];
+	while(!in.eof())
+	{
+		in.getline(c,256);
+//		cout << "reading" << std::string(c) << endl ;
+		if ( std::string(c) == "")
+			continue;
+		coord.push_back(new std::string(c));
+	}
+
+	for(int i=0 ; i < coord.size() ; i++)
+	{
+		if ( (*coord[i])[0] == '#')
+			continue;
+		else if( (*coord[i])[0] == 'v') 
+		{
+			char tmp;
+			float tmpx,tmpy,tmpz;
+			sscanf(coord[i]->c_str(),"%c %f %f %f",&tmp ,&tmpx ,&tmpy , &tmpz);
+			vertex.push_back(new coordinate(tmpx , tmpy,tmpz));
+			cout << "vertext is " << i <<endl ;// vertex[i]->x << " "<< vertex[i]->y << " " << vertex[i]->z  << endl;
+		}
+		else if((*coord[i])[0] == 'f')
+		{
+			char tmp;
+			int a,b,c;
+			if (count(coord[i]->begin(), coord[i]->end(),' ')==3)
+			{
+			 sscanf(coord[i]->c_str(),"%c %d %d %d",&tmp ,&a ,&b , &c);
+			 faces.push_back(new face(a,b,c));
+			}
+		}
+		else
+		{
+		
+		}
+    }
+
+
+
+	
+
+	glm::vec3 v1(0,0,0),v2(0,0,0),v3(0,0,0);
+	//glm::mat3 a(150,0,0,0,150,0,0,0,150);// scale
+	//glm::vec3 p(1.0,6.0,0); // position  
+
+	float inf = 10000000000.0f;
+	//maxmin[6] = {-inf,inf,-inf,inf,-inf,inf};
+	maxmin[0] = -inf ; 
+	maxmin[1] =  inf ; 
+	maxmin[2] = -inf ; 
+	maxmin[3] =  inf ; 
+	maxmin[4] = -inf ; 
+	maxmin[5] =  inf ; 
+
+	for(int i=0;i<faces.size();i++)
+	{
+
+		v1 = glm::vec3(vertex[faces[i]->faces[0]-1]->x,vertex[faces[i]->faces[0]-1]->y,vertex[faces[i]->faces[0]-1]->z);
+		v2 = glm::vec3(vertex[faces[i]->faces[1]-1]->x,vertex[faces[i]->faces[1]-1]->y,vertex[faces[i]->faces[1]-1]->z);
+		v3 = glm::vec3(vertex[faces[i]->faces[2]-1]->x,vertex[faces[i]->faces[2]-1]->y,vertex[faces[i]->faces[2]-1]->z) ;
+	
+		mymainpoints.push_back(glm::vec3(v1[0],v1[2],v1[1]));
+		mymainpoints.push_back(glm::vec3(v2[0],v2[2],v2[1]));
+		mymainpoints.push_back(glm::vec3(v3[0],v3[2],v3[1]));
+
+		if(v1[0] > maxmin[0] )  maxmin[0] = v1[0]; // maximum x of v1 is stored 
+		if(v2[0] > maxmin[0] )  maxmin[0] = v2[0]; // maximum x of v2 is stored 
+		if(v3[0] > maxmin[0] )  maxmin[0] = v3[0]; // maximum x of v3 is stored 
+
+		if(v1[0] < maxmin[1] )  maxmin[1] = v1[0]; // minimum x of v1 is stored 
+		if(v2[0] < maxmin[1] )  maxmin[1] = v2[0]; // minimum x of v2 is stored 
+		if(v3[0] < maxmin[1] )  maxmin[1] = v3[0]; // minimum x of v3 is stored 
+
+
+		if(v1[1] > maxmin[2] )  maxmin[0] = v1[1]; // maximum x of v1 is stored 
+		if(v2[1] > maxmin[2] )  maxmin[0] = v2[1]; // maximum x of v2 is stored 
+		if(v3[1] > maxmin[2] )  maxmin[0] = v3[1]; // maximum x of v3 is stored 
+
+		if(v1[1] < maxmin[3] )  maxmin[3] = v1[1]; // minimum x of v1 is stored 
+		if(v2[1] < maxmin[3] )  maxmin[3] = v2[1]; // minimum x of v2 is stored 
+		if(v3[1] < maxmin[3] )  maxmin[3] = v3[1]; // minimum x of v3 is stored 
+
+
+		if(v1[2] > maxmin[4] )  maxmin[4] = v1[2]; // maximum x of v1 is stored 
+		if(v2[2] > maxmin[4] )  maxmin[4] = v2[2]; // maximum x of v2 is stored 
+		if(v3[2] > maxmin[4] )  maxmin[4] = v3[2]; // maximum x of v3 is stored 
+
+		if(v1[2] < maxmin[5] )  maxmin[5] = v1[2]; // minimum x of v1 is stored 
+		if(v2[2] < maxmin[5] )  maxmin[5] = v2[2]; // minimum x of v2 is stored 
+		if(v3[2] < maxmin[5] )  maxmin[5] = v3[2]; // minimum x of v3 is stored 
+	}
+
+
+	//meanVertices->push_back(mymainpoints);
+	//mymainpoints.clear();
+
+	coord.clear();
+	vertex.clear();
+	faces.clear();
+
+	cout << "bunny is loaded " << endl;
+	
+return 0 ;	
+
 }

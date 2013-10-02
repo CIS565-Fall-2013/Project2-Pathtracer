@@ -188,7 +188,7 @@ __global__ void initializeray(glm::vec2 resolution, float time,cameraData cam, r
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec3* colors, 
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials,ray* newr, glm::vec3* colBounce, int bou,int num,int blockdim){
+                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials,ray* newr, glm::vec3* colBounce, int bou,int num,int blockdim,glm::vec3* myvertex, int numVertices){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -220,7 +220,8 @@ if ( index < num )
         }else if(geoms[i].type==CUBE){
             depth = boxIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
         }else if(geoms[i].type==MESH){
-            //triangle tests go here
+			//float bbox = boxIntersectionTest(glm::vec3(0,0,0), glm::vec3 ,geoms[i],r,myvertex,numVertices,intersectionPoint, intersectionNormal);
+            depth = meshIntersectionTest(geoms[i],r,myvertex,numVertices,intersectionPoint, intersectionNormal);
         }else{
             //lol?
         }
@@ -353,12 +354,13 @@ if ( index < num )
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms,std::vector<glm::vec3> mypoints){
   
   int traceDepth = 1; //determines how many bounces the raytracer traces
 
   // set up crucial magic
   int tileSize = 8;
+  int numVertices = mypoints.size();
   dim3 threadsPerBlock(tileSize, tileSize);
   dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)) , (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
   
@@ -367,6 +369,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
   cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
   
+  //Send vertices of the mesh to GPU
+  glm::vec3* mvertex = NULL;
+  cudaMalloc((void**)&mvertex,mypoints.size() * sizeof(glm::vec3));
+  for(int i=0; i < mypoints.size(); i++){
+	   
+	   cudaMemcpy( &mvertex[i] , &mypoints[i], sizeof(glm::vec3), cudaMemcpyHostToDevice);
+  }
+
+
   //package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
   for(int i=0; i<numberOfGeoms; i++){
@@ -428,7 +439,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   for(int bounce = 1; bounce <=5; ++bounce)
   {   
  
-  raytraceRay<<<StreamBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials,raypool,colorBounce,bounce,N,blockdim);
+  raytraceRay<<<StreamBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials,raypool,colorBounce,bounce,N,blockdim,mvertex,numVertices);
   raytoColorbouncecopy<<<StreamBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,colorBounce,raypool,N,blockdim);
 
   thrust::device_ptr<ray> rptr = thrust::device_pointer_cast(raypool);  
@@ -469,4 +480,31 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaThreadSynchronize();
 
   checkCUDAError("Kernel failed!");
+}
+
+
+float __device__ meshIntersectionTest(staticGeom curGeom,ray s,glm::vec3* myvertex, int numVertices, glm::vec3& mintersect, glm::vec3& mnormal)
+{
+		glm::vec3 ipss,normss;
+		float t , at = 12345.0;
+		glm::vec3 curnorm , curipss;
+
+		for(int k=0 ;k < numVertices - 2 ; k= k+3)          
+		{
+			t = triangleIntersectionTest(curGeom,s,myvertex[k],myvertex[k+1],myvertex[k+2], ipss, normss);
+			if(t != -1  && t<at)
+			{
+				curnorm  = normss;
+				curipss  = ipss;
+				at = t;
+			}
+		}  
+
+		mnormal    = curnorm;
+		mintersect = curipss;
+		if (at == 12345.0)
+			return -1;
+		else
+			return  at ;
+
 }
