@@ -30,6 +30,10 @@ scene::scene(string filename){
 				    loadCamera();
 				    cout << " " << endl;
 				}
+				else if(strcmp(tokens[0].c_str(), "TEXTURE")==0){
+				    loadTexture(tokens[1]);;
+				    cout << " " << endl;
+				}
 			}
 		}
 	}
@@ -252,15 +256,68 @@ int scene::loadMaterial(string materialid){
 		material newMaterial;
 
 		newMaterial.hasTexture = false;
-		newMaterial.Texture.texelHeight = 0;
-		newMaterial.Texture.texelWidth = 0;
-	
+		newMaterial.textureid = 0;
+
 		newMaterial.hasNormalMap = false;
-		newMaterial.NormalMap.texelHeight = 0;
-		newMaterial.NormalMap.texelWidth = 0;
+		newMaterial.nmapid = 0;
 
 		//load static properties
 		for(int i=0; i<10; i++){
+			string line;
+            utilityCore::safeGetline(fp_in,line);
+			vector<string> tokens = utilityCore::tokenizeString(line);
+			if(strcmp(tokens[0].c_str(), "RGB")==0){
+				glm::vec3 color( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
+				newMaterial.color = color;
+			}else if(strcmp(tokens[0].c_str(), "SPECEX")==0){
+				newMaterial.specularExponent = atof(tokens[1].c_str());				  
+			}else if(strcmp(tokens[0].c_str(), "SPECRGB")==0){
+				glm::vec3 specColor( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
+				newMaterial.specularColor = specColor;
+			}else if(strcmp(tokens[0].c_str(), "REFL")==0){
+				newMaterial.hasReflective = atof(tokens[1].c_str());
+			}else if(strcmp(tokens[0].c_str(), "REFR")==0){
+				newMaterial.hasRefractive = atof(tokens[1].c_str());
+			}else if(strcmp(tokens[0].c_str(), "REFRIOR")==0){
+				newMaterial.indexOfRefraction = atof(tokens[1].c_str());					  
+			}else if(strcmp(tokens[0].c_str(), "SCATTER")==0){
+				newMaterial.hasScatter = atof(tokens[1].c_str());
+			}else if(strcmp(tokens[0].c_str(), "ABSCOEFF")==0){
+				glm::vec3 abscoeff( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
+				newMaterial.absorptionCoefficient = abscoeff;
+			}else if(strcmp(tokens[0].c_str(), "RSCTCOEFF")==0){
+				newMaterial.reducedScatterCoefficient = atof(tokens[1].c_str());					  
+			}else if(strcmp(tokens[0].c_str(), "EMITTANCE")==0){
+				newMaterial.emittance = atof(tokens[1].c_str());					  	
+			}
+			else if (strcmp(tokens[0].c_str(), "TEXTURE")==0)
+			{
+				newMaterial.hasTexture = true;
+				newMaterial.textureid = atof(tokens[1].c_str());
+			}
+			else if (strcmp(tokens[0].c_str(), "NMAP")==0)
+			{
+				newMaterial.hasNormalMap = true;
+				newMaterial.nmapid = atof(tokens[1].c_str());
+			}
+			}
+		}
+		materials.push_back(newMaterial);
+		return 1;
+	}
+}
+
+int scene::loadTexture(string textureid){
+	int id = atoi(textureid.c_str());
+	if(id!=textures.size()){
+		cout << "ERROR: TEXTURE ID does not match expected number of textures" << endl;
+		return -1;
+	}else{
+		cout << "Loading Texture " << id << "..." << endl;
+		mytexture newTexture;
+
+		//load static properties
+		for(int i=0; i<3; i++){
 			string line;
             utilityCore::safeGetline(fp_in,line);
 			vector<string> tokens = utilityCore::tokenizeString(line);
@@ -321,7 +378,7 @@ int scene::loadMaterial(string materialid){
 				}
 			}
 		}
-		materials.push_back(newMaterial);
+		textures.push_back(newTexture);
 		return 1;
 	}
 }
