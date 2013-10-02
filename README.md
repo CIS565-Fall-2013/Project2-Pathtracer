@@ -42,6 +42,7 @@ Features that you get for free with path tracing
 * Full global illumination
 
 Features that I implemented additionally
+* Stream compaction on the GPU
 * A generic BRDF model that supports diffuse, specular and transmittive surfaces (or a combination of those)
 * Fresnel reflections and refractions
 * Translational motion blur
@@ -52,6 +53,7 @@ Features that I implemented additionally
 -------------------------------------------------------------------------------
 FEATURES (in a bit more detail)
 -------------------------------------------------------------------------------
+* **Stream compaction on the GPU**: This is basically a technique that prunes out inactive rays after every bounce. This helps in reducing the number of threads for the next bounce, and hence can achieve speedups especially when we have a large number of rays that don't hit anything in the scene. Currently I am using "thrust" library for this task.
 
 * **BRDF model:** : Here is an example of results from a scene having surfaces that are both diffuse and specular at the same time.
 The way the BRDF deals with it is a russian roulette based on probabilities. Simply put, if a material is 70% diffuse, at every iteration, draw a random number from 0 to 1, and if its less than 0.7, then calculate diffuse reflection, else specular reflection.
@@ -99,28 +101,20 @@ There are three types of user interactions supported.
 Finally, I ended up implementing this feature as an integral part of path tracer. We can think of it like this. If you don't like the way, your procedural textures are rendering in your path tracer, you can hit 't' and set your textures as per your liking, and then hit 't' again to path trace with these textures.
 A "Texture session"  basically shows a flat color render without any lighting.  The user can tweak values (see the keyboard controls given below) and interactively see if he likes any of the textures. Right now, the interface doesn't cover "all" the parameters, so you will be basically see derivations or variations from an existing configuration. For example, you can't change the colors, but can change the pattern.
 
-Last but not the least, since these are interactive features, images will not be able to describe completely. Please see the **video of these features**at this link,
+Last but not the least, since these are interactive features, images will not be able to describe them completely. Please see the **video of these features**at this link,
 
 https://vimeo.com/76013561
 
 **SECRET SAUCE** behind these user interactive features,
-In the first iteration and first bounce, I am capturing the depth and the object IDs at every pixel. 
+In the first iteration and the first bounce, I am capturing the depth and the object IDs at every pixel. 
 	+ "Depth map" : This helps in interactive DOF. We just set the focal plane to the value of the clicked pixel in the depth buffer
 	+ "OBJID map" : This is how I identify which pixels correspond to which objects. Basis of both interactive textures and interactive translations features.
 Here is an example depth map,
+![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/depthMap_pool.bmp)
 
 -------------------------------------------------------------------------------
-README
+BUILDING AND RUNNING THE CODE
 -------------------------------------------------------------------------------
-All students must replace or augment the contents of this Readme.md in a clear 
-manner with the following:
-
-* A brief description of the project and the specific features you implemented.
-* At least one screenshot of your project running.
-* A 30 second or longer video of your project running.  To create the video you
-  can use http://www.microsoft.com/expression/products/Encoder4_Overview.aspx 
-* A performance evaluation (described in detail below).
-
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
@@ -146,11 +140,9 @@ optimizations along with tables and or graphs to visually explain any
 performance differences.
 
 -------------------------------------------------------------------------------
-THIRD PARTY CODE POLICY
+THIRD PARTY CODE CREDITS
 -------------------------------------------------------------------------------
-* Use of any third-party code must be approved by asking on the Google group.  If it is approved, all students are welcome to use it.  Generally, we approve use of third-party code that is not a core part of the project.  For example, for the ray tracer, we would approve using a third-party library for loading models, but would not approve copying and pasting a CUDA function for doing refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another student's code, is an academic integrity violation, and will result in you receiving an F for the semester.
+* Perlin noise function: http://www.codermind.com/articles/Raytracer-in-C++-Part-III-Textures.html
 
 -------------------------------------------------------------------------------
 SELF-GRADING
