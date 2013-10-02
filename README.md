@@ -79,11 +79,11 @@ In terms of numbers, ray parallelization allowed the FPS to increase from around
 
 Working increamentally to transfer all functionalities from pixel-parallel to ray-parallel implementation, the following images were generated:
 
- ![Alt text](Ray parallel working (sort of).jpg?raw=true)
+ ![Alt text](renders/Ray parallel working (sort of).jpg?raw=true)
 
- ![Alt text](Reflective added.jpg?raw=true)
+ ![Alt text](renders/Reflective added.jpg?raw=true)
 
- ![Alt text](Refractive added.jpg?raw=true)
+ ![Alt text](renders/Refractive added.jpg?raw=true)
 
 
 * Stream compaction
