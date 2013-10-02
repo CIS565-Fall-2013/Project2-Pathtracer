@@ -90,7 +90,8 @@ __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 nor
 // a random number uniformly distributed between 0 and 1, this function returns true if the Fresnel
 // reflectance term is greater than or equal to the random number, signifying reflection. Otherwise, 
 // it will return false, signifying refraction/transmittance.
-__host__ __device__ bool calculateFresnelReflectance (float outsideRefIndex, float insideRefIndex, float cosineIncidentAngle, float uniformRandomBetween01)
+__host__ __device__ bool calculateFresnelReflectance (float outsideRefIndex, float insideRefIndex, float cosineIncidentAngle, 
+														float uniformRandomBetween01)
 {
 	float RF0 = (insideRefIndex - outsideRefIndex) / (insideRefIndex + outsideRefIndex);
 	RF0 = RF0 * RF0;
@@ -125,6 +126,28 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 	return glm::vec3(sinTheta*cos(phi), sinTheta*sin(phi), cosTheta);
 }
 
+__host__ __device__ glm::vec3 calculateDirectionInLobeAroundNormal (glm::vec3 normal, thrust::default_random_engine rng)
+{
+	float piBy16 = PI / 16.0;
+	thrust::uniform_real_distribution<float> angleTheta(0, TWO_PI);
+    thrust::uniform_real_distribution<float> anglePhi(-piBy16, piBy16);
+
+	glm::vec3 someDirNotNormal;
+    if ((normal.x < normal.y) && (normal.x < normal.z)) 
+      someDirNotNormal = glm::vec3(1, 0, 0);
+    else if (normal.y < normal.z)
+      someDirNotNormal = glm::vec3(0, 1, 0);
+    else
+      someDirNotNormal = glm::vec3(0, 0, 1);
+    
+    //Use not-normal direction to generate two perpendicular directions
+    glm::vec3 perpendicularDirection1 = glm::normalize(glm::cross(normal, someDirNotNormal));
+    glm::vec3 perpendicularDirection2 = glm::normalize(glm::cross(normal, perpendicularDirection1));
+    
+    return ( cos(anglePhi(rng)) * normal ) + ( sin(anglePhi(rng))*cos(angleTheta(rng)) * perpendicularDirection1 ) + 
+				( sin(anglePhi(rng))*sin(angleTheta(rng)) * perpendicularDirection2 );
+}
+
 //TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
 //returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
 __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
@@ -138,12 +161,12 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
     thrust::uniform_real_distribution<float> u01(0, 1);
     thrust::uniform_real_distribution<float> u02(0, 1);
 
-	if (m.hasReflective)
+	if (m.hasReflective >= 1.0) // specular reflectance
 	{
 		r.direction = glm::normalize (reflectRay (r.direction, normal));
 		retVal = 1;
 	}
-	else if (m.hasRefractive)
+	else if (m.hasRefractive)  // Fresnel refractance.
 	{
 		float cosIncidentAngle = glm::dot (r.direction, normal);
 		float insideRefIndex = m.indexOfRefraction; float outsideRefIndex = 1.0;
@@ -171,6 +194,11 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 			r.origin = intersect+0.01f*r.direction;
 			retVal = 2;
 		}
+	}
+	else if (m.hasReflective >= u01(rng))	// m.hasReflective between 0 and 1 signifies diffuse reflectance.
+	{
+		r.direction = glm::normalize (calculateDirectionInLobeAroundNormal (normal, rng));
+		retVal = 1;
 	}
 	else
 	{

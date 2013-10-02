@@ -229,7 +229,8 @@ __device__ glm::vec3 calcShade (interceptInfo theRightIntercept, material* textu
 	glm::vec3 shadedColour = glm::vec3 (0,0,0);
 	if ((theRightIntercept.interceptVal > 0))
 	{
-		if ((theRightIntercept.intrMaterial.hasReflective) || (theRightIntercept.intrMaterial.hasRefractive))
+		if ((theRightIntercept.intrMaterial.hasReflective >= 1.0) || 
+			(theRightIntercept.intrMaterial.hasRefractive >= 1.0))
 			shadedColour = theRightIntercept.intrMaterial.specularColor;
 		else
 			shadedColour = theRightIntercept.intrMaterial.color;
@@ -717,7 +718,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
 
-  int nIterations = renderCam->iterations;
+  unsigned int nIterations = renderCam->iterations;
 
   time_t startTime = time (NULL);
   std::default_random_engine randomNumGen (hash (startTime));
