@@ -202,7 +202,7 @@ __global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec4* imag
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec4* colors, 
                             int* objidbuffer, staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, 
-							map* maps, int numberOfMaps,int* lights, int numberOfLights,ray* rays,int dof){
+							map* maps, int numberOfMaps,int* lights, int numberOfLights,ray* rays,int dof, int* perlinData){
 
   //int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   //int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -277,7 +277,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	
 	if (bsdf == 0)
 	{
-		glm::vec3 surfaceColor = getSurfaceColor(intersectionPoint,intersectionNormal,mtl,objId,geoms,maps);
+		glm::vec3 surfaceColor = getSurfaceColor(intersectionPoint,intersectionNormal,mtl,objId,geoms,maps,perlinData);
 		r.rayColor.x *= surfaceColor.x;
 		r.rayColor.y *= surfaceColor.y;
 		r.rayColor.z *= surfaceColor.z;
@@ -290,7 +290,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	}
 	else if (bsdf == 2)
 	{
-		glm::vec3 surfaceColor = getSurfaceColor(intersectionPoint,intersectionNormal,mtl,objId,geoms,maps);
+		glm::vec3 surfaceColor = getSurfaceColor(intersectionPoint,intersectionNormal,mtl,objId,geoms,maps,perlinData);
 		r.rayColor.x *= surfaceColor.x;
 		r.rayColor.y *= surfaceColor.y;
 		r.rayColor.z *= surfaceColor.z;
@@ -435,6 +435,34 @@ __global__ void moveWorld( staticGeom* geoms, staticGeom* prevGeoms, float t,int
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials,map* maps,int numberOfMaps, geom* geoms, int numberOfGeoms,int mblur,int dof){
   
   int traceDepth = 1; //determines how many bounces the raytracer traces
+  int perlinNumbers[512] = { 151,160,137,91,90,15,
+  131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
+  190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
+  88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,
+  77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,
+  102,143,54, 65,25,63,161, 1,216,80,73,209,76,132,187,208,89,18,169,200,196,
+  135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,
+  5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,
+  23,183,170,213,119,248,152, 2,44,154,163, 70,221,153,101,155,167,43,172,9,
+  129,22,39,253,19,98,108,110,79,113,224,232,178,185, 112,104,218,246,97,228,
+  251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,
+  49,192,214, 31,181,199,106,157,184, 84,204,176,115,121,50,45,127,4,150,254,
+  138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180,
+  151,160,137,91,90,15,
+  131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
+  190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
+  88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,
+  77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,
+  102,143,54, 65,25,63,161, 1,216,80,73,209,76,132,187,208,89,18,169,200,196,
+  135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,
+  5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,
+  23,183,170,213,119,248,152, 2,44,154,163, 70,221,153,101,155,167,43,172,9,
+  129,22,39,253,19,98,108,110,79,113,224,232,178,185, 112,104,218,246,97,228,
+  251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,
+  49,192,214, 31,181,199,106,157,184, 84,204,176,115,121,50,45,127,4,150,254,
+  138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180
+  };
+
 
   // set up crucial magic
   int numberOfThreads = (int)(renderCam->resolution.x)*(int)(renderCam->resolution.y);
@@ -460,6 +488,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   ray* cudatemprays = NULL;
   cudaMalloc((void**)&cudatemprays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
+
+  int* cudaperlindata = NULL;
+  cudaMalloc((void**)&cudaperlindata, 512*sizeof(int));
+  cudaMemcpy( cudaperlindata, perlinNumbers, 512*sizeof(int), cudaMemcpyHostToDevice);
 
   ////TEST SCAN
   //const int testNum = 2048;
@@ -556,7 +588,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.aperture = renderCam->aperture;
   cam.focalDist = renderCam->focalDist;
 
-
  /* int t = numberOfThreads;
   for(int k=1; k<=t; k++)
   {
@@ -598,7 +629,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   for(int bounce = 1; bounce <= 8; ++bounce)
   {
 	dim3 compactedBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
-	raytraceRay<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage,cudaobjidbuffer, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials,cudamaps,numberOfMaps, cudalights,numberOfLights,cudarays,dof);
+	raytraceRay<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage,cudaobjidbuffer, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials,cudamaps,numberOfMaps, cudalights,numberOfLights,cudarays,dof,cudaperlindata);
 	numberOfThreads = thrust::partition(thrustRaysArray,thrustRaysArray+numberOfThreads,is_active()) - thrustRaysArray;
 	//numberOfThreads = thrust::remove_if(thrustRaysArray,thrustRaysArray+numberOfThreads,is_not_active()) - thrustRaysArray;
 
@@ -615,7 +646,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   }
   //clearActiveRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays, cudaimage);
   
+
+
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage,cudarays,iterations);
+  
+
 
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec4), cudaMemcpyDeviceToHost);
@@ -635,6 +670,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree(dParallelScanTempArray);
   cudaFree(dNumActiveRays);
   cudaFree(cudaobjidbuffer);
+  cudaFree(cudaperlindata);
   delete [] geomList;
   delete [] geomListPrevFrame;
   //delete [] rays;

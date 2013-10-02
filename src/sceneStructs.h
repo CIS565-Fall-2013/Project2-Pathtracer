@@ -12,7 +12,7 @@
 #include <string>
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
-enum MAPTYPE{ BASE,CHECKERBOARD,VSTRIPE,HSTRIPE};
+enum MAPTYPE{ BASE,CHECKERBOARD,VSTRIPE,HSTRIPE,MARBLE};
 
 struct ray {
 	glm::vec3 origin;
