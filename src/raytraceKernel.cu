@@ -199,32 +199,27 @@ __device__ unsigned long getIndex (int x, int y, int MaxWidth)
 __host__ __device__ bool isApproximate (float valToBeCompared, float valToBeCheckedAgainst) 
 { if ((valToBeCompared >= valToBeCheckedAgainst-0.001) && (valToBeCompared <= valToBeCheckedAgainst+0.001)) return true;	return false; }
 
-__device__ glm::vec3 getColour (material Material, glm::vec2 UVcoords)
-{
-	if (Material.hasTexture)
-	{	
+__device__ glm::vec3 getColour (mytexture &Texture, glm::vec2 UVcoords)
+{	
 		unsigned long texelXY, texelXPlusOneY, texelXYPlusOne, texelXPlusOneYPlusOne;
-		float xInterp = (Material.Texture.texelWidth * UVcoords.x) - floor (Material.Texture.texelWidth * UVcoords.x);
-		float yInterp = (Material.Texture.texelHeight * UVcoords.y) - floor (Material.Texture.texelHeight * UVcoords.y);
+		float xInterp = (Texture.texelWidth * UVcoords.x) - floor (Texture.texelWidth * UVcoords.x);
+		float yInterp = (Texture.texelHeight * UVcoords.y) - floor (Texture.texelHeight * UVcoords.y);
 
-		texelXY = getIndex ((int)floor (Material.Texture.texelWidth * UVcoords.x), (int)floor (Material.Texture.texelHeight * UVcoords.y), Material.Texture.texelWidth);
-		texelXPlusOneY = getIndex ((int)ceil (Material.Texture.texelWidth * UVcoords.x), (int)floor (Material.Texture.texelHeight * UVcoords.y), Material.Texture.texelWidth);
-		texelXYPlusOne = getIndex ((int)floor (Material.Texture.texelWidth * UVcoords.x), (int)ceil (Material.Texture.texelHeight * UVcoords.y), Material.Texture.texelWidth);
-		texelXPlusOneYPlusOne = getIndex ((int)ceil (Material.Texture.texelWidth * UVcoords.x), (int)ceil (Material.Texture.texelHeight * UVcoords.y), Material.Texture.texelWidth);
+		texelXY = getIndex ((int)floor (Texture.texelWidth * UVcoords.x), (int)floor (Texture.texelHeight * UVcoords.y), Texture.texelWidth);
+		texelXPlusOneY = getIndex ((int)ceil (Texture.texelWidth * UVcoords.x), (int)floor (Texture.texelHeight * UVcoords.y), Texture.texelWidth);
+		texelXYPlusOne = getIndex ((int)floor (Texture.texelWidth * UVcoords.x), (int)ceil (Texture.texelHeight * UVcoords.y), Texture.texelWidth);
+		texelXPlusOneYPlusOne = getIndex ((int)ceil (Texture.texelWidth * UVcoords.x), (int)ceil (Texture.texelHeight * UVcoords.y), Texture.texelWidth);
 
 		glm::vec3 xInterpedColour1, xInterpedColour2, finalColour;
-		xInterpedColour1 = xInterp * Material.Texture.texels [texelXPlusOneY] + (1-xInterp)* Material.Texture.texels [texelXY];
-		xInterpedColour2 = xInterp * Material.Texture.texels [texelXPlusOneYPlusOne] + (1-xInterp)* Material.Texture.texels [texelXYPlusOne];
+		xInterpedColour1 = xInterp * Texture.texels [texelXPlusOneY] + (1-xInterp)* Texture.texels [texelXY];
+		xInterpedColour2 = xInterp * Texture.texels [texelXPlusOneYPlusOne] + (1-xInterp)* Texture.texels [texelXYPlusOne];
 		finalColour = yInterp * xInterpedColour2 + (1-yInterp) * xInterpedColour1;
 
 		return finalColour;
-	}
-	else
-		return Material.color;
 }
 
 // Calclates the direct lighting at a given point, which is calculated from castRay and interceptVal of theRightIntercept. 
-__device__ glm::vec3 calcShade (interceptInfo theRightIntercept, material* textureArray)
+__device__ glm::vec3 calcShade (interceptInfo theRightIntercept, mytexture* textureArray)
 {
 	glm::vec3 shadedColour = glm::vec3 (0,0,0);
 	if ((theRightIntercept.interceptVal > 0))
@@ -232,6 +227,8 @@ __device__ glm::vec3 calcShade (interceptInfo theRightIntercept, material* textu
 		if ((theRightIntercept.intrMaterial.hasReflective >= 1.0) || 
 			(theRightIntercept.intrMaterial.hasRefractive >= 1.0))
 			shadedColour = theRightIntercept.intrMaterial.specularColor;
+		else if (theRightIntercept.intrMaterial.hasTexture)
+			shadedColour = getColour (textureArray [theRightIntercept.intrMaterial.textureid], theRightIntercept.UV);
 		else
 			shadedColour = theRightIntercept.intrMaterial.color;
 	}
@@ -242,7 +239,7 @@ __device__ glm::vec3 calcShade (interceptInfo theRightIntercept, material* textu
 //TODO: Done!
 //Core raytracer kernel
 __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3* colors, staticGeom* geoms, 
-							 material* textureArray, renderInfo * RenderParams, sceneInfo objectCountInfo, 
+							 material* textureArray, mytexture * Textures, sceneInfo objectCountInfo, 
 							 bool *primaryArrayOnDevice, ray *rayPoolOnDevice, int rayPoolLength, glm::vec3 lightPos)
 {
   extern __shared__ glm::vec3 arrayPool [];
@@ -543,7 +540,9 @@ void onDeviceErrorExit (cudaError_t errorCode, glm::vec3 *cudaimage, staticGeom 
 
 //TODO: Done!
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, 
+						material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, 
+						mytexture* textures, int numberOfTextures){
   
   int traceDepth = 1; //determines how many bounces the raytracer traces
   projectionInfo	ProjectionParams;
@@ -649,11 +648,31 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   material		*materialColours = NULL;
   glm::vec3		*colourArray = NULL;
 
-  // Guard against shallow copying here.. Materials has a pointer pointing to Texture data.
   int sizeOfMaterialsArr = numberOfMaterials * (sizeof (material));
-  cudaError_t returnCode1 = cudaMalloc((void**)&materialColours, numberOfMaterials*sizeof(material));
-  onDeviceErrorExit (returnCode1, cudaFinalImage, cudageoms, materialColours, numberOfMaterials);
+  cudaMalloc((void**)&materialColours, numberOfMaterials*sizeof(material));
+  checkCUDAError ("Could not create Materials Array!: ");
   cudaMemcpy (materialColours, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
+
+  // Package all the texture data into an array of structures.
+  mytexture *textureList = new mytexture [numberOfTextures];
+  for (int i=0; i < numberOfTextures; i++)
+  {
+	  textureList [i].texelWidth = textures [i].texelWidth;
+	  textureList [i].texelHeight = textures [i].texelHeight;
+
+	  // Malloc for texture data (RGB values) and store the pointer to device memory in texels.
+	  // So that when this structure is accessed from the device, the pointer reference is valid.
+	  int nTexelElements = textureList [i].texelWidth*textureList [i].texelHeight;
+	  cudaMalloc((void**)&textureList [i].texels, nTexelElements*sizeof(glm::vec3)); 
+	  checkCUDAError ("Error allocing memory for texture data! ");
+	  cudaMemcpy (textureList [i].texels, textures [i].texels, nTexelElements*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+  }
+  // Send the array of textures to the GPU.
+  mytexture * textureArray = NULL;
+  cudaMalloc((void**)&textureArray, numberOfTextures*sizeof(mytexture)); 
+  checkCUDAError ("Error allocing memory for texture array! ");
+  cudaMemcpy (textureArray, textureList, numberOfTextures*sizeof(mytexture), cudaMemcpyHostToDevice);
+  delete [] textureList;
 
   // TODO: Texture mapping: Use index to a texture array.
   // Deep copying textures and normal maps:
@@ -699,16 +718,16 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   // Copy the render parameters like ks, kd values, the no. of times the area light is sampled, 
   // the position of the light samples w/r to the light's geometry and so on.
-  renderInfo	RenderParams, *RenderParamsOnDevice = NULL;
-  RenderParams.ks = 0.4;
-  RenderParams.kd = 1 - RenderParams.ks;
-  RenderParams.nLights = renderCam->iterations;
-  RenderParams.sqrtLights = sqrt ((float)RenderParams.nLights);
-  RenderParams.lightStepSize = 1.0/(RenderParams.sqrtLights-1);
-  RenderParams.lightPos = glm::vec3 (0, -0.6, 0);
-  RenderParams.lightCol = materials [geoms [lightIndex].materialid].color * materials [geoms [lightIndex].materialid].emittance;
-  cudaMalloc ((void **)&RenderParamsOnDevice, sizeof (renderInfo));
-  cudaMemcpy (RenderParamsOnDevice, &RenderParams, sizeof (renderInfo), cudaMemcpyHostToDevice);
+  //renderInfo	RenderParams, *RenderParamsOnDevice = NULL;
+  //RenderParams.ks = 0.4;
+  //RenderParams.kd = 1 - RenderParams.ks;
+  //RenderParams.nLights = renderCam->iterations;
+  //RenderParams.sqrtLights = sqrt ((float)RenderParams.nLights);
+  //RenderParams.lightStepSize = 1.0/(RenderParams.sqrtLights-1);
+  glm::vec3 lightPosInBodySpace = glm::vec3 (0, -0.6, 0);
+  //RenderParams.lightCol = materials [geoms [lightIndex].materialid].color * materials [geoms [lightIndex].materialid].emittance;
+  //cudaMalloc ((void **)&RenderParamsOnDevice, sizeof (renderInfo));
+  //cudaMemcpy (RenderParamsOnDevice, &RenderParams, sizeof (renderInfo), cudaMemcpyHostToDevice);
 
   //package camera
   cameraData cam;
@@ -724,9 +743,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   std::default_random_engine randomNumGen (hash (startTime));
   std::uniform_real_distribution<float> jitter ((float)0, (float)0.142);
 
-  float movement = 3.0/nIterations;
+  float movement = 3.0/nIterations;			// For motion blur.
   int nBounces = 6;
-  int oneEighthDivisor = nIterations / 8;
+  int oneEighthDivisor = nIterations / 8;	// For antialiasing.
 
   // For each point sampled in the area light, launch the raytraceRay Kernel which will compute the diffuse, specular, ambient
   // and shadow colours. It will also compute reflected colours for reflective surfaces.
@@ -739,13 +758,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	  float zAdd = jitter (randomNumGen);
 	  float xAdd = jitter (randomNumGen); 
-	  glm::vec3 curLightSamplePos = glm::vec3 (RenderParams.lightPos.x /*+ ((i%RenderParams.sqrtLights)*RenderParams.lightStepSize)*/, 
-												RenderParams.lightPos.y, 
-												RenderParams.lightPos.z/* + ((i/RenderParams.sqrtLights)*RenderParams.lightStepSize)*/);
-	  
-	  // Area light sampled in a jittered grid to reduce banding.
-//	  curLightSamplePos.z += zAdd;
-//	  curLightSamplePos.x += xAdd;
+	  glm::vec3 curLightSamplePos = lightPosInBodySpace;
 	  
 	  if (!(i%oneEighthDivisor))	// Supersampling at 8x!
 	  {
@@ -803,8 +816,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		// The core raytraceRay kernel launch
 		fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
 		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock, threadsPerBlock.x*threadsPerBlock.y*(sizeof(glm::vec3) + sizeof (bool) + sizeof(ray))>>>
-			((float)j+(i*nBounces), cam, j, cudaimage, cudageoms, materialColours, RenderParamsOnDevice, 
-			 primCounts, primaryArrayOnDevice, rayPoolOnDevice, rayPoolLength, lightPos);
+			((float)j+(i*nBounces), cam, j, cudaimage, cudageoms, materialColours, textureArray, primCounts, primaryArrayOnDevice, 
+			rayPoolOnDevice, rayPoolLength, lightPos);
 //		checkCUDAError("raytraceRay Kernel failed!");
 
 /////		---- CPU Stream Compaction ----		///
@@ -931,7 +944,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	   }*/
 	   cudaFree (materialColours);
    }
-   cudaFree (RenderParamsOnDevice);
+   if (textureArray)
+   {
+	   for (int i = 0; i < numberOfTextures; i ++)
+		   if (textureArray [i].texels)
+			   cudaFree (textureArray [i].texels);
+	   cudaFree (textureArray);
+   }
 
    cudaFinalImage = NULL;
    cudageoms = NULL;

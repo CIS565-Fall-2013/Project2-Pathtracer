@@ -66,7 +66,7 @@ struct mytexture
 	unsigned int textureID;
 	int texelHeight;
 	int texelWidth;
-//	glm::vec3 * texels;
+	glm::vec3 * texels;
 };
 
 struct material{

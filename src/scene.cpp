@@ -41,23 +41,10 @@ scene::scene(string filename){
 
 scene::~scene ()
 {
-	for (int i = 0; i < materials.size (); i++)
+	for (int i = 0; i < textures.size (); i++)
 	{
-		if (materials [i].hasTexture)
-		{
-			materials[i].Texture.texelHeight = 0;
-			materials[i].Texture.texelWidth = 0;
-			delete [] materials[i].Texture.texels;
-			materials[i].Texture.texels = NULL;
-		}
-
-		if (materials [i].hasNormalMap)
-		{
-			materials[i].NormalMap.texelHeight = 0;
-			materials[i].NormalMap.texelWidth = 0;
-			delete [] materials[i].NormalMap.texels;
-			materials[i].NormalMap.texels = NULL;
-		}
+		if (textures [i].texels)
+			delete [] textures [i].texels;
 	}
 }
 
@@ -317,66 +304,25 @@ int scene::loadTexture(string textureid){
 		mytexture newTexture;
 
 		//load static properties
-		for(int i=0; i<3; i++){
-			string line;
-            utilityCore::safeGetline(fp_in,line);
-			vector<string> tokens = utilityCore::tokenizeString(line);
-			if(strcmp(tokens[0].c_str(), "RGB")==0){
-				glm::vec3 color( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
-				newMaterial.color = color;
-			}else if(strcmp(tokens[0].c_str(), "SPECEX")==0){
-				newMaterial.specularExponent = atof(tokens[1].c_str());				  
-			}else if(strcmp(tokens[0].c_str(), "SPECRGB")==0){
-				glm::vec3 specColor( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
-				newMaterial.specularColor = specColor;
-			}else if(strcmp(tokens[0].c_str(), "REFL")==0){
-				newMaterial.hasReflective = atof(tokens[1].c_str());
-			}else if(strcmp(tokens[0].c_str(), "REFR")==0){
-				newMaterial.hasRefractive = atof(tokens[1].c_str());
-			}else if(strcmp(tokens[0].c_str(), "REFRIOR")==0){
-				newMaterial.indexOfRefraction = atof(tokens[1].c_str());					  
-			}else if(strcmp(tokens[0].c_str(), "SCATTER")==0){
-				newMaterial.hasScatter = atof(tokens[1].c_str());
-			}else if(strcmp(tokens[0].c_str(), "ABSCOEFF")==0){
-				glm::vec3 abscoeff( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
-				newMaterial.absorptionCoefficient = abscoeff;
-			}else if(strcmp(tokens[0].c_str(), "RSCTCOEFF")==0){
-				newMaterial.reducedScatterCoefficient = atof(tokens[1].c_str());					  
-			}else if(strcmp(tokens[0].c_str(), "EMITTANCE")==0){
-				newMaterial.emittance = atof(tokens[1].c_str());					  	
-			}
-			else if (strcmp(tokens[0].c_str(), "TEXTURE")==0)
+		string line;
+        utilityCore::safeGetline(fp_in,line);
+		vector<string> tokens = utilityCore::tokenizeString(line);
+		if (strcmp(tokens[0].c_str(), "FILE")==0)
+		{
+			int nComps;
+			unsigned char *bytes = stbi_load(tokens [1].c_str (), &newTexture.texelWidth, &newTexture.texelHeight, &nComps, 3);
+			if (bytes)
 			{
-				int nComps;
-				unsigned char *bytes = stbi_load(tokens [1].c_str (), &newMaterial.Texture.texelWidth, &newMaterial.Texture.texelHeight, &nComps, 3);
-				if (bytes)
+				newTexture.texels = new glm::vec3 [newTexture.texelWidth * newTexture.texelHeight];
+				for (int i = 0; i < (newTexture.texelWidth * newTexture.texelHeight); i ++)
 				{
-					newMaterial.hasTexture = true;
-					newMaterial.Texture.texels = new glm::vec3 [newMaterial.Texture.texelWidth * newMaterial.Texture.texelHeight];
-					for (int i = 0; i < (newMaterial.Texture.texelWidth * newMaterial.Texture.texelHeight); i ++)
-					{
-						newMaterial.Texture.texels [i].r = bytes [3*i] / 255.0;
-						newMaterial.Texture.texels [i].g = bytes [3*i + 1] / 255.0;
-						newMaterial.Texture.texels [i].b = bytes [3*i + 2] / 255.0;
-					}
+					newTexture.texels [i].r = bytes [3*i] / 255.0;
+					newTexture.texels [i].g = bytes [3*i + 1] / 255.0;
+					newTexture.texels [i].b = bytes [3*i + 2] / 255.0;
 				}
 			}
-			else if (strcmp(tokens[0].c_str(), "NMAP")==0)
-			{
-				int nComps;
-				unsigned char *bytes = stbi_load(tokens [1].c_str (), &newMaterial.NormalMap.texelWidth, &newMaterial.NormalMap.texelHeight, &nComps, 3);
-				if (bytes)
-				{
-					newMaterial.hasNormalMap = true;
-					newMaterial.NormalMap.texels = new glm::vec3 [newMaterial.NormalMap.texelWidth * newMaterial.NormalMap.texelHeight];
-					for (int i = 0; i < (newMaterial.Texture.texelWidth * newMaterial.NormalMap.texelHeight); i ++)
-					{
-						newMaterial.NormalMap.texels [i].r = bytes [3*i] / 255.0;
-						newMaterial.NormalMap.texels [i].g = bytes [3*i + 1] / 255.0;
-						newMaterial.NormalMap.texels [i].b = bytes [3*i + 2] / 255.0;
-					}
-				}
-			}
+			stbi_image_free (bytes);
+		}
 		}
 		textures.push_back(newTexture);
 		return 1;
