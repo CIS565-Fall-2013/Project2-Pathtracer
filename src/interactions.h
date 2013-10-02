@@ -76,7 +76,7 @@ __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2) {
 __host__ __device__ glm::vec3 sphericalToCartesian(float phi, float th)
 {
 	glm::vec3 dir;
-	dir.x = glm::cos(phi)*glm::cos(th);
+	dir.x = glm::cos(phi)*glm::sin(th);
 	dir.y = glm::sin(phi)*glm::sin(th);
 	dir.z = glm::cos(th);
 	return dir;
@@ -105,11 +105,15 @@ __host__ __device__ glm::vec3 sampleSpecularTransmissionDirection(glm::vec3 norm
 	float phi = 2*PI*xi2;
 
 	glm::vec3 randDirZ = sphericalToCartesian(phi, th);
-	//TODO: Compute exponential specular
-	//Rotate rand direction to specular space
-	//glm::vec3 zUnit = glm::vec3(0,0,1);
-	//glm::vec3 rotAxis = glm::cross(zUnit, 
-	return transmitDir;
+
+	//Create rotation matrix
+	glm::vec3 zw = transmitDir;
+	glm::vec3 xw = glm::normalize(glm::cross(normal, transmitDir));
+	glm::vec3 yw = glm::cross(zw, xw);
+	glm::mat3 rot = glm::mat3(xw, yw, zw);
+
+
+	return rot*randDirZ;
 }
 
 __host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, glm::vec3 transmitDir, glm::vec3 reflectDir, float n1/*incidentIOR*/, float n2/*transmittedIOR*/) {
