@@ -71,7 +71,7 @@ The idea is to do temporal sampling in addition to spatial sampling. Given a fra
 * **Depth of field:**
 Based on the aperture and focal plane specified as camera attributes in the config file.
 The idea is to jitter the rays in such a manner that the jittering is least at the focal plane region.
-![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/refr_refl_diff_DOF.bmp)
+![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/dof_image.bmp)
 
 * **Procedural textures:**
 I cannot be more fascinated by the beauty of procedural textures (two things that amazed me the most during this assignment are Monte Carlo sampling and Perlin Noise. 
@@ -133,15 +133,21 @@ Here are a few things that I added to the existing TAKUAscene format.
 Different types of maps are supported, and they have the following common attributes (though for some maps, the meanings of the attributes are not self-explanatory).
 
 MAP (int)  	 // Map header
+
 type        	 //Type of map
+
 COL1 (vec3)      // Primary color 
+
 COL2 (vec3)      // Secondary color
+
 WIDTH1 (float)   // Width of the primary color
+
 WIDTH2  (float)  // Width of the secondary color
+
 SMOOTH  (int)    // Smooth interpolation between the two colors
 
 Types of maps:
-1. base 
+1.base 
 For base maps, the options are more or less non-functional. Base maps are a special kind of map which the materials use to specify that all the properties come from the material, and none from the map.
 This is in effect a dummy map
 
@@ -151,14 +157,28 @@ For horizontal stripes. The attributes perform expected actions. Width2 is ignor
 3.vstripe:
 For vertical stripes. The attributes perform expected actions. Width2 is ignored.
 
-4. checkerboard:
+4.checkerboard:
 For 2D grid textures. All the attributes are useful.
 
-5. marble
+5.marble
 For marble looking patterns. The colors are expected, but the width1 and width2 settings have an effect on the turbulence and the amplitude of noise functions
 
 6.perlin
 A generic perlin function.
+
+-------------------------------------------------------------------------------
+KEYBOARD CONTROLS
+-------------------------------------------------------------------------------
+   + x : move in positive x-direction
+   + X : move in negative x-direction
+   + y : move in positive y-direction
+   + Y : move in negative y-direction
+   + z : move in positive z-direction
+   + Z : move in negative z-direction
+   + h : increase width1 of selected object's map
+   + j : decrease width1 of selected object's map
+   + k : increase width2 of selected object's map
+   + l : decrease width2 of selected object's map
 
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
@@ -188,21 +208,3 @@ performance differences.
 THIRD PARTY CODE CREDITS
 -------------------------------------------------------------------------------
 * Perlin noise function: http://www.codermind.com/articles/Raytracer-in-C++-Part-III-Textures.html
-
--------------------------------------------------------------------------------
-SELF-GRADING
--------------------------------------------------------------------------------
-* On the submission date, email your grade, on a scale of 0 to 100, to Liam, liamboone+cis565@gmail.com, with a one paragraph explanation.  Be concise and realistic.  Recall that we reserve 30 points as a sanity check to adjust your grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We hope to only use this in extreme cases when your grade does not realistically reflect your work - it is either too high or too low.  In most cases, we plan to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as the path tracer.  We will determine the weighting at the end of the semester based on the size of each project.
-
--------------------------------------------------------------------------------
-SUBMISSION
--------------------------------------------------------------------------------
-As with the previous project, you should fork this project and work inside of your fork. Upon completion, commit your finished project back to your fork, and make a pull request to the master repository.
-You should include a README.md file in the root directory detailing the following
-
-* A brief description of the project and specific features you implemented
-* At least one screenshot of your project running, and at least one screenshot of the final rendered output of your pathtracer
-* Instructions for building and running your project if they differ from the base code
-* A link to your blog post detailing the project
-* A list of all third-party code used
