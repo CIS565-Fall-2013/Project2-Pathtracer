@@ -13,6 +13,7 @@
 #else
 	#include <GL/glew.h>
 	#include <GL/glut.h>
+	
 #endif
 
 #include <stdlib.h>
@@ -86,6 +87,8 @@ void runCuda();
 #else
 	void display();
 	void keyboard(unsigned char key, int x, int y);
+	void MouseButton(int button, int state, int x, int y);
+	void MouseMotion(int x, int y);
 #endif
 
 //-------------------------------

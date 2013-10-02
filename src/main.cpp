@@ -11,6 +11,19 @@
 //-------------MAIN--------------
 //-------------------------------
 
+typedef int BOOL;
+  #define TRUE 1
+  #define FALSE 0
+  // Set up mouse call back
+  static BOOL g_bButton1Down = FALSE;
+  static BOOL g_bButton2Down = FALSE;
+  static BOOL g_bButton3Down = FALSE;
+  int bottonMask = 0;
+  int mouse_old_x ;
+  int mouse_old_y ;
+  float spherex =0.0f,spherey = 0.0f,sphereRadius=12.0f ;
+  glm::vec3 sphereCenter = glm::vec3(0,4.0f,0) ;
+
 int main(int argc, char** argv){
 
   #ifdef __APPLE__
@@ -20,6 +33,8 @@ int main(int argc, char** argv){
 	  glfwOpenWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	  glfwOpenWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   #endif
+
+  
 
   // Set up pathtracer stuff
   bool loadedScene = false;
@@ -90,6 +105,8 @@ int main(int argc, char** argv){
   #else
 	  glutDisplayFunc(display);
 	  glutKeyboardFunc(keyboard);
+	  glutMouseFunc(MouseButton);
+      glutMotionFunc(MouseMotion);
 	  glutMainLoop();
   #endif
   return 0;
@@ -227,6 +244,122 @@ void runCuda(){
 			   break;
 		}
 	}
+
+	void MouseButton(int button, int state, int x, int y)
+	{
+		mouse_old_x = x;
+		mouse_old_y = y;
+	  // Respond to mouse button presses.
+	  // If button1 pressed, mark this state so we know in motion function.
+	  if (button == GLUT_LEFT_BUTTON)
+		{
+		  g_bButton1Down = (state == GLUT_DOWN) ? TRUE : FALSE;
+		  bottonMask= 1;
+		  //g_yClick = y - 3 * g_fViewDistance;
+		}
+	   else if (button == GLUT_RIGHT_BUTTON)
+		{
+		  g_bButton2Down = (state == GLUT_DOWN) ? TRUE : FALSE;
+		  bottonMask= 2;
+		  //g_yClick = y - 3 * g_fViewDistance;
+		}
+	    else if (button == GLUT_MIDDLE_BUTTON)
+		{
+		  g_bButton3Down = (state == GLUT_DOWN) ? TRUE : FALSE;
+		  bottonMask= 3;
+		  //g_yClick = y - 3 * g_fViewDistance;
+		}
+		else
+		{
+		   bottonMask= 0;
+		}
+		std::cout << button << ", " << state << std::endl;
+	}
+
+	void MouseMotion(int x, int y)
+	{
+		
+		float dx, dy;
+		dx = (float)(x - mouse_old_x);
+		dy = (float)(y - mouse_old_y);
+		float r_head = 0.0f , r_pitch = 0.0f ;
+		if( g_bButton1Down || g_bButton2Down || g_bButton3Down)
+		{
+		
+		// If button1 pressed, zoom in/out if mouse is moved up/down.
+		if (g_bButton1Down)  //Left mouse click drag 
+		{
+			spherex += dy * 0.2f;
+			spherey += dx * 0.2f;
+			iterations = 0;
+
+			r_head = glm::radians(spherex);
+			r_pitch = glm::radians(spherey);
+			//renderCam->positions[targetFrame].x = (sphereCenter.x + sphereRadius * glm::sin(r_head) * glm::cos(r_pitch));
+			//renderCam->views[targetFrame] = glm::normalize(glm::vec3(sphereCenter - renderCam->positions[targetFrame]));
+			
+		}
+		if (g_bButton2Down)  //Right mouse click drag 
+		{
+			sphereRadius-= dy * 0.01f;
+			iterations = 0;
+			//int sign = 0 ;
+		   // (dx>0)? sign=1 :sign = -1 ; 
+			//renderCam->positions[targetFrame].z += sign * 0.2f; //(sphereCenter.z + sphereRadius * glm::cos(r_head) );
+			//renderCam->views[targetFrame] = glm::normalize(glm::vec3(sphereCenter - renderCam->positions[targetFrame]));
+		}
+		if (g_bButton3Down) // Middle mouse click drag 
+		{
+			
+			glm::vec3 vdir(sphereCenter - renderCam->positions[targetFrame]);
+			glm::vec3 u(glm::normalize(glm::cross(glm::normalize(vdir), renderCam->ups[targetFrame])));
+			glm::vec3 v(glm::normalize(glm::cross(u, glm::normalize(vdir))));
+
+			sphereCenter += 0.01f * (dy * v - dx * u);
+			iterations = 0;
+			//renderCam->positions[targetFrame].x += dx ;//(sphereCenter.x + sphereRadius * glm::sin(r_head) * glm::cos(r_pitch));
+			//renderCam->positions[targetFrame].y =(sphereCenter.y + sphereRadius * glm::sin(r_head) * glm::sin(r_pitch));
+			//renderCam->positions[targetFrame].z =sphereCenter.z + sphereRadius * glm::cos(r_head) );
+			//renderCam->views[targetFrame] = 	glm::normalize(glm::vec3(sphereCenter - renderCam->positions[targetFrame]));
+			//renderCam->positions[0] = renderCam->positions[0] + 2.0f;
+		}
+		//glutPostRedisplay();
+
+		renderCam->positions[targetFrame].x = (sphereCenter.x + sphereRadius* glm::sin(r_head) * glm::cos(r_pitch));
+		renderCam->positions[targetFrame].y = (sphereCenter.y + sphereRadius  * glm::sin(r_head) * glm::sin(r_pitch));
+		renderCam->positions[targetFrame].z = (sphereCenter.z + sphereRadius * glm::cos(r_head) );
+
+		renderCam->views[targetFrame] = 	glm::normalize(glm::vec3(sphereCenter - renderCam->positions[targetFrame]));
+			
+
+			//cam_pos.x = lookat.x + eye_distance * glm::cos(r_head) * glm::cos(r_pitch);
+   // cam_pos.y = lookat.y + eye_distance * glm::sin(r_head);
+   // cam_pos.z = lookat.z + eye_distance * glm::cos(r_head) * glm::sin(r_pitch);
+
+
+	/*	renderCam->positions[targetFrame].x = (sphereCenter.x + sphereRadius * glm::sin(r_head) * glm::cos(r_pitch));
+		renderCam->positions[targetFrame].y = (sphereCenter.y + sphereRadius * glm::sin(r_head) * glm::sin(r_pitch));
+		renderCam->positions[targetFrame].z = (sphereCenter.z + sphereRadius * glm::cos(r_head) );	*/
+
+
+		mouse_old_x = x;
+		mouse_old_y = y;
+		}
+	}
+
+	void mouseWheel(int button, int dir, int x, int y)
+{
+    if (dir > 0)
+    {
+        // Zoom in
+    }
+    else
+    {
+        // Zoom out
+    }
+
+    return;
+}
 
 #endif
 
