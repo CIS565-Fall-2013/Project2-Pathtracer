@@ -35,11 +35,11 @@ to be based on Fresnel equations. This would first calculate the Fresnel cooeffi
 of the interface, normal and incident angle, then shoot both reflection ray and refraction ray and finally add the two components together,
 weighted by reflective cooefficient and refractive cooefficient. The Fresnel-enhanced ray-tracer looks like this:
 
- ![ScreenShot](https://raw.github.com/wuhao1117/Project2-Pathtracer/master/renders/first working fresnel.bmp)
+ ![ScreenShot](renders/first working fresnel.bmp)
 
 Throw in some mirrow for awesomeness:
 
- ![ScreenShot](https://raw.github.com/wuhao1117/Project2-Pathtracer/master/renders/fresnel with mirror.bmp)
+ ![ScreenShot](renders/fresnel with mirror.bmp)
 and I decided to test the concept of path tracing before heavily modifying 
 my code for ray parallelization or other stuff. So, with a naive path tracer, which looks even simpler than a raytracer,
 my first image lookes like this:
