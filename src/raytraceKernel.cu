@@ -18,7 +18,9 @@
 #include <time.h>
 #include <thrust/device_ptr.h> 
 #include <thrust/remove.h>
-
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
@@ -164,8 +166,11 @@ __host__ __device__ glm::vec3 getRefractRay(float rand,glm::vec3 normal, ray Ri,
 	printf("error");
 	return glm::vec3(0,0,0);
 }
-/////shadow check
+
+/////shadow check only for raytracer
 __host__ __device__ bool ShadowRayUnblocked(glm::vec3 point,glm::vec3 lightPos,staticGeom* geoms, int numberOfGeoms,material* mats)
+	//,	glm::vec3* pbo,unsigned short* ibo, glm::vec3* nbo)
+	//thrust::device_vector<glm::vec3> pbo,thrust::device_vector<unsigned short> ibo, thrust::device_vector<glm::vec3> nbo)
 {
 	//return true;
 	float tmpDist = -1;
@@ -177,7 +182,7 @@ __host__ __device__ bool ShadowRayUnblocked(glm::vec3 point,glm::vec3 lightPos,s
 	float lightToObjDist = glm::length(lightPos - r.origin)-0.25;
 	for(int i = 0;i<numberOfGeoms;++i)
 	{
-		tmpDist = IntersectionTest(geoms[i],r,intersectionPoint,tmpnormal);
+		tmpDist = IntersectionTest(geoms[i],r,intersectionPoint,tmpnormal);//,pbo,ibo,nbo);
 		if(tmpDist > -1 && tmpDist < lightToObjDist&&mats[i].emittance == 0)
 		{
 			return false;
@@ -189,6 +194,8 @@ __host__ __device__ bool ShadowRayUnblocked(glm::vec3 point,glm::vec3 lightPos,s
 //recursive raytrace
 __device__ void raytrace(ray Ri,glm::vec2 resolution, float time, cameraData cam, int rayDepth,int rayIndex, glm::vec3& color,
                             staticGeom* geoms, int numberOfGeoms,material* mats,int* lightIndex,int lightNum)
+							//,glm::vec3* pbo,unsigned short* ibo, glm::vec3* nbo)
+							//thrust::device_vector<glm::vec3> pbo,thrust::device_vector<unsigned short> ibo, thrust::device_vector<glm::vec3> nbo)
 {
 	if(rayIndex > rayDepth)
 	{
@@ -218,7 +225,7 @@ __device__ void raytrace(ray Ri,glm::vec2 resolution, float time, cameraData cam
 	
 	for(int i = 0;i<numberOfGeoms;++i)
 	{
-		tmpDist = IntersectionTest(geoms[i],Ri,intersectionPoint,tmpnormal);
+		tmpDist = IntersectionTest(geoms[i],Ri,intersectionPoint,tmpnormal);//,pbo,ibo,nbo);
 		if(tmpDist!=-1 &&(interPointDist==-1 ||(interPointDist!=-1 && tmpDist<interPointDist)))
 		{
 			interPointDist = tmpDist;
@@ -309,7 +316,9 @@ __device__ void raytrace(ray Ri,glm::vec2 resolution, float time, cameraData cam
 //iterative raytrace
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms,material* mats,int* lightIndex,int lightNum,ray* rays,int sampleIndex)
+                            staticGeom* geoms, int numberOfGeoms,material* mats,int* lightIndex,int lightNum,ray* rays,int sampleIndex,
+							glm::vec3* pbo,unsigned short* ibo, glm::vec3* nbo)
+							//thrust::device_vector<glm::vec3> pbo,thrust::device_vector<unsigned short> ibo, thrust::device_vector<glm::vec3> nbo)
 {
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -368,7 +377,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 #pragma region intersect scene
 			for(int i = 0;i<numberOfGeoms;++i)
 			{
-				tmpDist = IntersectionTest(geoms[i],Ri,intersectionPoint,tmpnormal);
+				tmpDist = IntersectionTest(geoms[i],Ri,intersectionPoint,tmpnormal);//,pbo,ibo,nbo);
 				if(tmpDist!=-1 &&(interPointDist==-1 ||(interPointDist!=-1 && tmpDist<interPointDist)))
 				{
 					interPointDist = tmpDist;
@@ -557,6 +566,8 @@ __global__ void generateInitialRays(ray* initialRay,glm::vec3* rayColor, glm::ve
 
 __global__ void pathTracer(float time,cameraData cam,int rayDepth,glm::vec3* colors, 
 	staticGeom* geoms,int numberOfGeoms,material* mats,int* lightIndex,int lightNum,ray* rays,int rayNum,glm::vec3* rayColor)
+	//,	glm::vec3* pbo,unsigned short* ibo, glm::vec3* nbo)
+	//thrust::device_vector<glm::vec3> pbo,thrust::device_vector<unsigned short> ibo, thrust::device_vector<glm::vec3> nbo)
 {
 	/*int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -574,6 +585,7 @@ __global__ void pathTracer(float time,cameraData cam,int rayDepth,glm::vec3* col
 			colors[pixelId] = (colors[pixelId]*(time-1) + rayColor[pixelId])/time;
 			return;
 		}
+		
 		//test intersectoin
 		glm::vec3 intersectionPoint(0,0,0);
 		glm::vec3 normal(0,0,0);		
@@ -583,14 +595,16 @@ __global__ void pathTracer(float time,cameraData cam,int rayDepth,glm::vec3* col
 		glm::vec3 tmpnormal(0,0,0);
 		for(int i = 0;i<numberOfGeoms;++i)
 		{
-			float tmpDist = IntersectionTest(geoms[i],Ri,intersectionPoint,tmpnormal);
+			float tmpDist = IntersectionTest(geoms[i],Ri,intersectionPoint,tmpnormal);//,pbo,ibo,nbo);
 			if(tmpDist!=-1 &&(interPointDist==-1 ||(interPointDist!=-1 && tmpDist<interPointDist)))
 			{
+				//printf("debug");
 				interPointDist = tmpDist;
 				normal = tmpnormal;
 				nearestObjIndex = i;
 			}
 		}
+		
 #pragma region didn't hit object or hit light
 		if(interPointDist == -1 || (interPointDist != -1 && mats[nearestObjIndex].emittance>0))
 		{				
@@ -613,8 +627,6 @@ __global__ void pathTracer(float time,cameraData cam,int rayDepth,glm::vec3* col
 #pragma endregion
 		else // did hit objects in the scene
 		{
-			/*colors[pixelId] = glm::vec3(abs(normal.x),abs(normal.y),abs(normal.z));
-			return;*/
 			ray secondRay; //secondary Ray
 			secondRay.origin = intersectionPoint;	
 			thrust::default_random_engine rng(hash(time*(rayDepth+1))*hash(pixelId));
@@ -622,8 +634,6 @@ __global__ void pathTracer(float time,cameraData cam,int rayDepth,glm::vec3* col
 			if(mats[nearestObjIndex].hasReflective>0)
 			{
 				//reflect ray, set current ray as this ray
-				//thrust::default_random_engine rng(time*pixelId*(rayDepth+1));//rng(time*(rayDepth+1)*pixelId);//rng(hash(time)*hash(index)*hash(rayDepth+1));
-				//thrust::uniform_real_distribution<float> u01(0,1);
 				float rand =(float) u01(rng);
 				secondRay.origin = intersectionPoint;
 				if(rand<mats[nearestObjIndex].hasReflective)
@@ -647,8 +657,6 @@ __global__ void pathTracer(float time,cameraData cam,int rayDepth,glm::vec3* col
 				//refract ray
 				//Fresnel law, either reflect or refract
 				//thrust to generate cofficient
-				//thrust::default_random_engine rng(time*index);//rng(time*(rayDepth+1)*pixelId);//rng(hash(time)*hash(index)*hash(rayDepth+1));
-				//thrust::uniform_real_distribution<float> u01(0,1);
 				float rand =(float)u01(rng);
 				//TODO:how to tell whether ray goes in or out ? // add index for ray, 1.0 by default
 				if(Ri.m_index == 1.0)
@@ -665,17 +673,7 @@ __global__ void pathTracer(float time,cameraData cam,int rayDepth,glm::vec3* col
 			}
 			else
 			{
-				//difuse
-				//generate a ray in random direction in hemisphere
-				//add color to buffer
-				//thrust::default_random_engine rng(time*index);//rng(time*(rayDepth+1)*pixelId);
-				//thrust::uniform_real_distribution<float> u01(0,1);				
-				/*float rand =(float)u01(rng);
-				thrust::default_random_engine rng2(hash(time*index*100*rand));
-				thrust::uniform_real_distribution<float> u02(0,1);	
-				float rand2 = (float)u02(rng2);*/
-			/*	if(abs(rand-rand2)<EPSILON)
-					printf("%f,%f ",rand,rand2);*/
+
 				secondRay.direction = calculateRandomDirectionInHemisphere(normal, u01(rng), u01(rng)); 
 				secondRay.direction = glm::normalize(secondRay.direction);
 				//index changes everytime !!!
@@ -691,9 +689,11 @@ __global__ void pathTracer(float time,cameraData cam,int rayDepth,glm::vec3* col
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
+	//,std::vector<glm::vec3> pbo,std::vector<unsigned short> ibo, std::vector<glm::vec3>nbo)
+{
   
-  int traceDepth = 3; //determines how many bounces the raytracer traces
+ // int traceDepth = 3; //determines how many bounces the raytracer traces
 
   
   // set up crucial magic
@@ -701,13 +701,49 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   dim3 threadsPerBlock(tileSize, tileSize);
   dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
   
-
-
   //send image to GPU
   glm::vec3* cudaimage = NULL;
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
   cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
   
+  //send mesh info to GPU
+ /* glm::vec3* d_pbo = NULL;
+  cudaMalloc((void**)&d_pbo,pbo.size()*sizeof(glm::vec3));
+  for(int i = 0;i<pbo.size();++i)
+  {
+	  cudaMemcpy(&d_pbo[i],&pbo[i],sizeof(glm::vec3),cudaMemcpyHostToDevice);
+  }
+
+  glm::vec3* d_nbo = NULL;
+  cudaMalloc((void**)&d_nbo,nbo.size()*sizeof(glm::vec3));
+  for(int i = 0;i<nbo.size();++i)
+  {
+	  cudaMemcpy(&d_nbo[i],&nbo[i],sizeof(glm::vec3),cudaMemcpyHostToDevice);
+  }
+
+  unsigned short* d_ibo = NULL;
+  cudaMalloc((void**)&d_nbo,nbo.size()*sizeof(unsigned short));
+  for(int i = 0;i<ibo.size();++i)
+  {
+	  cudaMemcpy(&d_ibo[i],&ibo[i],sizeof(unsigned short),cudaMemcpyHostToDevice);
+  }*/
+
+ /* thrust::device_vector<glm::vec3> d_pbo(pbo.size());
+  thrust::device_vector<unsigned short> d_ibo(ibo.size());
+  thrust::device_vector<glm::vec3> d_nbo(nbo.size());
+  for(int i = 0;i<pbo.size();++i)
+  {
+	  d_pbo[i] = pbo[i];	  
+  }
+  for(int i = 0;i<ibo.size();++i)
+  {
+	  d_ibo[i] = ibo[i];
+  }
+  for(int i = 0; i<nbo.size();++i)
+  {
+	  d_nbo[i] = nbo[i];
+  }*/
+
    if(iterations <= 3)
   {
 	  clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudaimage);
@@ -772,13 +808,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
  
   thrust::device_ptr<ray> rayPoolEnd; 
   // change to 1D, blocksize has nothing with resolution now.
-  int threadPerBlock = 64;//TODO tweak
+  int threadPerBlock = 128;//TODO tweak
   int blockPerGrid = (int)ceil((float)numberOfValidRays/threadPerBlock);
   for(int i = 0;i<BOUNCE_DEPTH;++i)
   {
 	  if(numberOfValidRays == 0) break;
 	  blockPerGrid = (int)ceil((float)numberOfValidRays/threadPerBlock);
-	  pathTracer<<<blockPerGrid, threadPerBlock>>>((float)iterations, cam, i, cudaimage, cudageoms, numberOfGeoms,cudamat,cudaLight,lightNum,rayPool,numberOfValidRays,rayColor);
+	  pathTracer<<<blockPerGrid, threadPerBlock>>>((float)iterations, cam, i, cudaimage, cudageoms, numberOfGeoms,cudamat,cudaLight,
+		  lightNum,rayPool,numberOfValidRays,rayColor);//,d_pbo,d_ibo,d_nbo);
 
 	  //each step, number of valid rays changes
 	  thrust::device_ptr<ray> rayPoolStart = thrust::device_pointer_cast(rayPool);
@@ -800,6 +837,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree (cudamat);
   cudaFree (rayPool);
   cudaFree (rayColor);
+ /* cudaFree (d_pbo);
+  cudaFree (d_ibo);
+  cudaFree (d_nbo);*/
   delete[] matList;
   delete[] lightIndex;
   delete[] geomList;

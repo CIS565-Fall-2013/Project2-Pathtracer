@@ -31,6 +31,7 @@ struct isDead{
 	}
 };
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms,int numberOfGeoms);
+	//,int numberOfGeoms, std::vector<glm::vec3> pbo,std::vector<unsigned short> ibo, std::vector<glm::vec3>nbo);
 
 #endif

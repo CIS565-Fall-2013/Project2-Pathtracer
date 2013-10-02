@@ -118,11 +118,23 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 
+MATERIAL 10				//mirror
+RGB         0 1 1       
+SPECEX      0      
+SPECRGB     0 0 0       
+REFL        1.0       
+REFR        0        
+REFRIOR     0       
+SCATTER     0        
+ABSCOEFF    0 0 0      
+RSCTCOEFF   0
+EMITTANCE   0
+
 CAMERA
 RES         800 800
 FOVY        25
-ITERATIONS  6000
-FILE        pathTracer.bmp
+ITERATIONS  8000
+FILE        pathTracer1.bmp
 frame 0
 EYE         0 4.5 12
 VIEW        0 0 -1
@@ -172,17 +184,17 @@ SCALE       .01 10 10
 
 OBJECT 5
 sphere
-material 5
+material 4
 frame 0
-TRANS       1 2 -1
+TRANS       1 2 -.5
 ROTAT       0 180 0
 SCALE       3 3 3
 
 OBJECT 6
 sphere
-material 3
+material 5
 frame 0
-TRANS       2 5 2
+TRANS       2 6 2
 ROTAT       0 180 0
 SCALE       2.5 2.5 2.5
 
@@ -195,6 +207,23 @@ ROTAT       0 180 0
 SCALE       3 3 3
 
 OBJECT 8
+cube
+material 10
+frame 0
+TRANS       -3 0 2
+ROTAT       0 55 0
+SCALE       1 2 1
+
+
+OBJECT 9
+sphere
+material 10
+frame 0
+TRANS       -1 0.5 2
+ROTAT       0 0 0
+SCALE       1 1 1
+
+OBJECT 10
 cube
 material 7
 frame 0

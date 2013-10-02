@@ -22,6 +22,7 @@ private:
     int loadMaterial(string materialid);
     int loadObject(string objectid);
     int loadCamera();
+	int loadMesh(string fileName,geom& newobj);
 public:
     scene(string filename);
     ~scene();
@@ -29,6 +30,11 @@ public:
     vector<geom> objects;
     vector<material> materials;
     camera renderCam;
+	
+	vector<glm::vec3> pbo;
+	vector<unsigned short> ibo;
+	vector<glm::vec3> nbo; //face normal
+	
 };
 
 #endif
