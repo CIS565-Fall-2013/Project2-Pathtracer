@@ -48,7 +48,7 @@
     <ProjectGuid>{FF21CA49-522E-4E86-B508-EE515B248FC4}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>565Raytracer</RootNamespace>
-    <ProjectName>565Raytracer</ProjectName>
+    <ProjectName>565Pathtracer</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
