@@ -29,7 +29,7 @@ public:
 
     vector<geom> objects;
     vector<material> materials;
-	vector<texture> textures;
+	vector<mytexture> textures;
     camera renderCam;
 };
 

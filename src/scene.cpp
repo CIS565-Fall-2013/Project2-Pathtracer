@@ -288,11 +288,12 @@ int scene::loadMaterial(string materialid){
 				newMaterial.nmapid = atof(tokens[1].c_str());
 			}
 			}
-		}
 		materials.push_back(newMaterial);
 		return 1;
+		}
+		
+		
 	}
-}
 
 int scene::loadTexture(string textureid){
 	int id = atoi(textureid.c_str());
@@ -323,8 +324,8 @@ int scene::loadTexture(string textureid){
 			}
 			stbi_image_free (bytes);
 		}
-		}
 		textures.push_back(newTexture);
 		return 1;
+		}
+		
 	}
-}

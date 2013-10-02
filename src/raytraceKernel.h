@@ -20,7 +20,7 @@
     #include <cutil_math.h>
 #endif
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, mytexture* textures, int numberOfTextures);
 void setupProjection (projectionInfo &ProjectionParams, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov);
 void onDeviceErrorExit (cudaError_t errorCode, glm::vec3 *cudaimage, staticGeom *cudageom, material * materialColours, int numberOfMaterials);
 

@@ -121,7 +121,7 @@ EMITTANCE   0
 CAMERA
 RES         600 600
 FOVY        25
-ITERATIONS  2500
+ITERATIONS  100
 FILE        test.png
 frame 0
 EYE         0 4.5 25

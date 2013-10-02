@@ -282,7 +282,7 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
     // colourBlock [threadID] therefore represents colour computed by ray through the pixel (x,y)
 
 	interceptInfo theRightIntercept = getIntercept (geoms, objectCountInfo, rayPoolBlock [threadID], textureArray);		
-	shadedColour += calcShade (theRightIntercept, textureArray);
+	shadedColour += calcShade (theRightIntercept, Textures);
 	glm::vec3 lightDir = glm::normalize (lightPos - 
 										 (rayPoolBlock [threadID].origin + rayPoolBlock [threadID].direction * theRightIntercept.interceptVal));
 
@@ -916,7 +916,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  delete [] secondaryArrayOnHost;
 //	  delete [] rayPool;
 
-	  std::cout << "\rRendering.. " <<  ceil ((float)i/(RenderParams.nLights-1) * 100) << " percent complete.";
+	  std::cout << "\rRendering.. " <<  ceil ((float)i/(nIterations-1) * 100) << " percent complete.";
   }
 
   // Accumulate all the colours in the cudaFinalImage memory block on the GPU, and divide 
