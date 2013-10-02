@@ -117,7 +117,7 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 //TODO (PARTIALLY OPTIONAL): IMPLEMENT THIS FUNCTION
 //returns 0 if diffuse scatter, 1 if reflected, 2 if transmitted.
 __host__ __device__ int calculateBSDF(ray& r, const glm::vec3& intersect, const glm::vec3& normal, 
-									  glm::vec3& color, const material& m, const float iter, const int index)
+									  glm::vec3& color, const material& m, const float seed)
 {
 	float eps = 1e-5;
 
@@ -146,7 +146,7 @@ __host__ __device__ int calculateBSDF(ray& r, const glm::vec3& intersect, const 
 	else
 	{
 		// diffuse scatter
-		thrust::default_random_engine rng(hash(iter*index));
+		thrust::default_random_engine rng(hash(seed));
 		thrust::uniform_real_distribution<float> u01(0,1);
 
 		glm::vec3 direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng)));

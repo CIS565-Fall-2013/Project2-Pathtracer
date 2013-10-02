@@ -370,7 +370,8 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 			vec3 shading = vec3(0,0,0);
 	
 			// compute shading and the next ray r.
-			calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, iter, rayIndex + rayPixelIndex + bounce);
+			/*calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, iter * rayIndex + rayPixelIndex + bounce);*/
+			calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, iter * rayPixelIndex + rayIndex * bounce);
 	
 			colors[rayPixelIndex] *= rayAttenuation * shading;
 
