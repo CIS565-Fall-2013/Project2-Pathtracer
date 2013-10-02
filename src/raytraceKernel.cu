@@ -36,8 +36,8 @@ struct ray_data {
   ray Intersection;
   int Age;
   int image_index;
-  glm::vec3 brdf_weight;
-  float Illumination;
+  glm::vec3 Incident;
+  glm::vec3 Emission;
   int collision_index;
 }; 
 
@@ -213,8 +213,8 @@ __global__ void raycastFromCameraKernel( glm::vec2 resolution, cameraData cam, r
   ray_pool[index].Ray = r;
   ray_pool[index].Age = 0;
   ray_pool[index].image_index = index;
-  ray_pool[index].brdf_weight = glm::vec3(1.0, 1.0, 1.0);
-  ray_pool[index].Illumination = 0.0;
+  ray_pool[index].Incident = glm::vec3(1.0, 1.0, 1.0);
+  ray_pool[index].Emission = glm::vec3(0.0, 0.0, 0.0);
 }
 
 /* 
@@ -260,11 +260,6 @@ __global__ void rayCollisions( int resolution, float time, ray_data* ray_pool, i
 
 __global__ void sampleBRDF( int resolution, float time, ray_data* ray_pool, int numberOfRays, material* materials, int numberOfMaterials, staticGeom* geoms, int numberOfGeoms, glm::vec3* colors, int debugMode ) {
 
-  /*
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution);
-  */
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
   int obj_index;
@@ -286,6 +281,7 @@ __global__ void sampleBRDF( int resolution, float time, ray_data* ray_pool, int 
 
   // Compute diffuse BRDF
   float diffuse = glm::dot( new_direction, ray_pool[index].Intersection.direction );
+
   glm::vec3 brdf = 2*diffuse*mat.color;
 
   // Debug Modes
@@ -305,8 +301,12 @@ __global__ void sampleBRDF( int resolution, float time, ray_data* ray_pool, int 
   }*/
 
   // DEBUG Accumulate brdf
-  ray_pool[index].brdf_weight *= brdf;
-  ray_pool[index].Illumination += mat.emittance;
+  //ray_pool[index].brdf_weight *= brdf;
+  //ray_pool[index].Illumination += mat.emittance;
+
+  // Accumulate Lighting 
+  ray_pool[index].Emission += ray_pool[index].Incident*mat.emittance*glm::normalize(mat.color);
+  ray_pool[index].Incident *= brdf;
 
   ray_pool[index].Ray.origin = ray_pool[index].Intersection.origin;
   ray_pool[index].Ray.direction = new_direction;
@@ -321,9 +321,9 @@ __global__ void updateImage( glm::vec2 image_resolution, glm::vec3* image, int r
     return;
 
   int image_index = ray_pool[index].image_index;
-  if ( ray_pool[index].Illumination > 0.0 )
-    image[image_index] += ray_pool[index].brdf_weight*ray_pool[index].Illumination;
-  //image[image_index] += glm::vec3(1.0,1.0,1.0)*ray_pool[index].Illumination;
+  
+  // The final Emmission value contains the path 
+  image[image_index] += ray_pool[index].Emission;
 }
 
 /* 
