@@ -93,6 +93,20 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
   if(x<=resolution.x && y<=resolution.y)
   {
       glm::vec3 color;
+	  
+	  float frac = 1 / 255.0;
+
+	  //color.x = image[index].x*255.0;
+	  //color.y = image[index].y*255.0;
+	  //color.z = image[index].z*255.0;
+
+	  //color.x = min(max(color.x, 0.0), 255.0);
+	  //color.y = min(max(color.y, 0.0), 255.0);
+	  //color.z = min(max(color.z, 0.0), 255.0);
+
+	  //image[index].x = color.x * frac;
+	  //image[index].y = color.y * frac;
+	  //image[index].z = color.z * frac;
 
 	  imageAccumd[index] = (imageAccumd[index] * (iteration - 1) + image[index]) / iteration;
 
@@ -100,26 +114,31 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
       color.y = imageAccumd[index].y*255.0;
       color.z = imageAccumd[index].z*255.0;
 
-      if(color.x>255){
-        color.x = 255;
-      }
+	  color.x = min(max(color.x, 0.0), 255.0);
+	  color.y = min(max(color.y, 0.0), 255.0);
+	  color.z = min(max(color.z, 0.0), 255.0);
 
-      if(color.y>255){
-        color.y = 255;
-      }
 
-      if(color.z>255){
-        color.z = 255;
-      }
+   //   if(color.x>255){
+   //     color.x = 255;
+   //   }
 
-	  if(color.x < 0)
-		  color.x = 0;
+   //   if(color.y>255){
+   //     color.y = 255;
+   //   }
 
-	  if(color.y < 0)
-		  color.y = 0;
+   //   if(color.z>255){
+   //     color.z = 255;
+   //   }
 
-	  if(color.z < 0)
-		  color.z = 0;
+	  //if(color.x < 0)
+		 // color.x = 0;
+
+	  //if(color.y < 0)
+		 // color.y = 0;
+
+	  //if(color.z < 0)
+		 // color.z = 0;
       
       // Each thread writes one pixel location in the texture (textel)
       PBOpos[index].w = 0;
@@ -286,13 +305,13 @@ __device__ vec3 shadowFeeler(staticGeom* geoms, int numberOfGeoms, material* mat
 
 //Core pathtracer kernel
 __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cameraData cam,
-                            staticGeom* geoms, int numberOfGeoms, material* cudamat, int numberOfMat, int* cudalightIndex, int numberOfLights, float iter, int bounce)
+                            staticGeom* geoms, int numberOfGeoms, material* cudamat, int numberOfMat, int* cudalightIndex, int numberOfLights, float iter, int bounce, float sqrtNumRays)
 {
 	// Note: For ray parallelization, these ids will not necessarily correspond to the index of the pixel that can be used for the color array.
 	// So instead of using these IDs directly, store pixel index that the ray is responsible for during rayPool construction
 	int rayIdx = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int rayIdy = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int rayIndex = rayIdx + (rayIdy * cam.resolution.x);
+	int rayIndex = rayIdx + (rayIdy * sqrtNumRays);
 	int rayPixelIndex = rayPool[rayIndex].pixelID;
 
 	ray &r = rayPool[rayIndex];
@@ -302,6 +321,11 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 	int matId = -1;
 	int geomId = -1;
 	float t = FLT_MAX;
+
+	if (rayIdx > cam.resolution.x) return;
+	if (rayIdy > cam.resolution.y) return;
+	if (rayIndex > cam.resolution.x * cam.resolution.y) return;
+
 
 	if (bounce == 0)
 	{
@@ -324,29 +348,31 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 		if (emittance != 0)
 		{
 			r.isTerminated = true;
-			colors[rayPixelIndex] *= emittance * matColor; // should this be sum or product?
+			colors[rayPixelIndex] *= (emittance * matColor);
 		}
 		else
 		{
 			vec3 shading = vec3(0,0,0);
 	
 			// compute shading and the next ray r.
-			calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, iter, rayIdx * rayIdy);
-		
-			colors[rayPixelIndex] *= shading;
+			calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, iter, rayIdx * rayIdy * bounce);
+			colors[rayPixelIndex] *= rayAttenuation * shading;
 
 			// attenuate ray
 			rayAttenuation = rayAttenuation * matColor;
 			r.attenuation = rayAttenuation;
 
-			if (rayAttenuation.x < 0.01 && rayAttenuation.y < 0.01 && rayAttenuation.z < 0.01)
+			if (rayAttenuation.x < 0.005 && rayAttenuation.y < 0.005 && rayAttenuation.z < 0.005 || bounce == MAX_BOUNCE)
+			{
+				colors[rayPixelIndex] = vec3(0,0,0);
 				r.isTerminated = true;
+			}
 		}
 	}
 	else
 	{
-		r.isTerminated = true;
 		colors[rayPixelIndex] = vec3(0,0,0);
+		r.isTerminated = true;
 	}
 	
 	
@@ -635,7 +661,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		constructRayPool<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaRayPool, cam, (float)iterations);
 
 		// Trace all bounces of the ray in a BFS manner
-		for(int bounce = 0; bounce <= MAX_BOUNCE; ++bounce)
+		for(int bounce = 0; bounce <= (int)MAX_BOUNCE; ++bounce)
 		{
 			// Update blockSize based on the number of rays.
 			float sqrtNumRays = sqrtf((float)numRays);
@@ -643,7 +669,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 			dim3 rayBlockPerGrid(blockSize, blockSize);
 
 			// TODO: ssratio is just 1 for now in path tracing mode.
-			pathtraceRay<<<rayBlockPerGrid,threadsPerBlock>>>(cudaRayPool, 1, cudaimage, cam, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, (float)iterations, bounce);
+			pathtraceRay<<<rayBlockPerGrid,threadsPerBlock>>>(cudaRayPool, 1, cudaimage, cam, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, (float)iterations, bounce, sqrtNumRays);
 
 			// Stream compaction using thrust
 			thrust::device_ptr<ray> cudaRayPoolDevicePtr(cudaRayPool);
@@ -652,7 +678,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 			// pointer arithmetic to figure out the number of rays.
 			numRays = compactCudaRayPoolDevicePtr.get() - cudaRayPoolDevicePtr.get();
 
-			if (numRays < 0)
+			if (numRays < 1)
 			{
 				printf("Number of rays = 0. Terminating...\n");
 				break;
