@@ -306,6 +306,9 @@ int scene::loadMap(string mapid){
 			}else if(strcmp(line.c_str(), "marble")==0){
                 cout << "Creating new marble map..." << endl;
 				newMap.type = MARBLE;
+			}else if(strcmp(line.c_str(), "bump")==0){
+                cout << "Creating new bump map..." << endl;
+				newMap.type = BUMP;
 			}else if(strcmp(tokens[0].c_str(), "COL1")==0){
 				glm::vec3 color( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
 				newMap.color1 = color;

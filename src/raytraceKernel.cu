@@ -281,6 +281,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 		r.rayColor.x *= surfaceColor.x;
 		r.rayColor.y *= surfaceColor.y;
 		r.rayColor.z *= surfaceColor.z;
+
 	}
 	else if(bsdf == 1)
 	{

@@ -60,15 +60,15 @@ __device__ __host__ float noise(float x, float y, float z, int* perlinPerm) {
 }
 
 
-__host__ __device__ float turbulence(int l,float x, float y, float z, int* perlinPerm)
+__host__ __device__ float turbulence(int l,float x, float y, float z, float turbPower, int* perlinPerm)
 {
   float turb = 0.0f;
   for (int level = 1; level < l; level ++)
   {
     turb += (1.0f / level ) 
-              * fabsf(float(noise(level * 0.05 *x, 
-                                  level * 0.05 *y,
-                                  level * 0.05 *z,perlinPerm)));
+              * fabsf(float(noise(level * turbPower *x, 
+                                  level * turbPower *y,
+                                  level * turbPower *z,perlinPerm)));
   }
   return turb;
 }
