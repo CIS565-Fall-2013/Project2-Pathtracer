@@ -311,7 +311,7 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 						rstate.index = -1;//retire ray
 					}else if(rconfig.mode == PATHTRACE){
 						//Compute global illumination component, we've hit the sky
-						if(rstate.bounceType == DIFFUSE){
+						if(rstate.bounceType == DIFFUSE || rstate.bounceType == TRANSMIT){
 							float globalLightDot = clamp(-glm::dot(rstate.r.direction, rconfig.globalLightDirection),0.0f,1.0f);
 							colors[pixelIndex] += rstate.T*rconfig.globalLightColor*rconfig.globalLightIntensity*globalLightDot;
 						}else{

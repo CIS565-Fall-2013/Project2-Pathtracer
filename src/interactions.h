@@ -81,21 +81,24 @@ __host__ __device__ glm::vec3 sphericalToCartesian(float phi, float th)
 	dir.z = glm::cos(th);
 	return dir;
 }
-__host__ __device__ glm::vec3 sampleSpecularReflectionDirection(glm::vec3 reflectDir,  float specularExp, float xi1, float xi2)
+__host__ __device__ glm::vec3 sampleSpecularReflectionDirection(glm::vec3 normal, glm::vec3 reflectDir,  float specularExp, float xi1, float xi2)
 {
 	float th = glm::acos(glm::pow(xi1, 1/(specularExp+1)));
 	float phi = 2*PI*xi2;
 
 	glm::vec3 randDirZ = sphericalToCartesian(phi, th);
 
-	//TODO: Compute exponential specular
-	//Rotate rand direction to specular space
-	//glm::vec3 zUnit = glm::vec3(0,0,1);
-	//glm::vec3 rotAxis = glm::cross(zUnit, 
-	return reflectDir;
+	//Create rotation matrix
+	glm::vec3 zw = reflectDir;
+	glm::vec3 xw = glm::normalize(glm::cross(normal, reflectDir));
+	glm::vec3 yw = glm::cross(zw, xw);
+	glm::mat3 rot = glm::mat3(xw, yw, zw);
+
+
+	return rot*randDirZ;
 }
 
-__host__ __device__ glm::vec3 sampleSpecularTransmissionDirection(glm::vec3 transmitDir, float specularExp, float xi1, float xi2)
+__host__ __device__ glm::vec3 sampleSpecularTransmissionDirection(glm::vec3 normal, glm::vec3 transmitDir, float specularExp, float xi1, float xi2)
 {
 
 	float th = glm::acos(glm::pow(xi1, 1/(specularExp+1)));
@@ -204,13 +207,13 @@ __host__ __device__ void bounceRay(rayState& r, renderOptions rconfig, glm::vec3
 		//0 <= xi1 <= ks, therefore 0 <= xi1/ks <= 1
 		if(xi1/ks <= f.reflectionCoefficient){
 			//reflect
-			r.r.direction = sampleSpecularReflectionDirection(reflectDir, m.specularExponent, xi1, xi2);
+			r.r.direction = sampleSpecularReflectionDirection(normal, reflectDir, m.specularExponent, xi1, xi2);
 			r.r.origin = intersect;
 			r.T *= m.specularColor;
 			r.bounceType = REFLECT;
 		}else{
 			//transmit
-			r.r.direction = sampleSpecularTransmissionDirection(transmitDir, m.specularExponent, xi1, xi2);
+			r.r.direction = sampleSpecularTransmissionDirection(normal, transmitDir, m.specularExponent, xi1, xi2);
 			r.r.origin = intersect;
 			if(glm::dot(normal, r.r.direction) < 0.0)
 			{
