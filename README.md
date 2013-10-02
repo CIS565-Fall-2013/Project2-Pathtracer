@@ -90,18 +90,6 @@ Working increamentally to transfer all functionalities from pixel-parallel to ra
 
 
 
-
--------------------------------------------------------------------------------
-SCREEN SHOTS AND VIDEOS
--------------------------------------------------------------------------------
-* Project running
-  ![ScreenShot](https://raw.github.com/wuhao1117/Project1-RayTracer/master/renders/project running.jpg)
-	
-* Final renders
-  ![ScreenShot](https://raw.github.com/wuhao1117/Project1-RayTracer/master/renders/MyRender.jpg)
-
-* Video
-  https://raw.github.com/wuhao1117/Project1-RayTracer/master/renders/GPU_raytracer.mp4
 -------------------------------------------------------------------------------
 HOW TO BUILD
 -------------------------------------------------------------------------------
