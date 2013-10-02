@@ -39,7 +39,8 @@ weighted by reflective cooefficient and refractive cooefficient. The Fresnel-enh
 
 Throw in some mirrow for awesomeness:
 
- ![Alt text](/renders/fresnel with mirror.jpg?raw=true)
+ ![Alt text](renders/fresnel with mirror.jpg?raw=true)
+
 and I decided to test the concept of path tracing before heavily modifying 
 my code for ray parallelization or other stuff. So, with a naive path tracer, which looks even simpler than a raytracer,
 my first image lookes like this:
