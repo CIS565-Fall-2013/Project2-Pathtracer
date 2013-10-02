@@ -319,8 +319,6 @@ void scene::loadObjFile(geom &newObject, const char* filePath)
 
 		newObject.triMesh.indicesCount = shapes[i].mesh.indices.size();
 
-
-
 		//int numIndices = shapes[i].mesh.indices.size();
 		//for (size_t f = 0 ; f < numIndices ; ++f)
 		//{

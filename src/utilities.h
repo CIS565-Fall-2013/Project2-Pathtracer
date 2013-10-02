@@ -28,6 +28,7 @@
 #define SHADOWRAY_NUM				2												// controls how many shadow rays to send. Set to 1 for hard shadows
 #define ANTIALIASING_SWITCH		    0												// 0 for no anti-aliasing
 #define PATHTRACING_SWITCH			1												// 0 for ray tracing 1 for path tracing
+#define MOTION_BLUR_SWITCH			1												// 0 for no motion blur.
 #define SAMPLES_PER_PIXEL			1												// Number of samples to use per pixel. Min 1.
 #define MAX_BOUNCE					10												// maximum number of times a path tracing ray can bounce
 

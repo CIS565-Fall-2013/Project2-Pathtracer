@@ -439,6 +439,9 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 	//}
 }
 
+
+
+
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
 __device__ void raytraceRay(ray r, float ssratio, int index, int rayDepth, glm::vec3* colors, cameraData cam,
@@ -585,6 +588,18 @@ void cleanupTriMesh(thrust::device_ptr<staticGeom> geoms, int numberOfGeoms)
 	}
 }
 
+// move the object a little before the rendering process.
+void translateObject(geom* geoms, int geomId, int frame, int iterations, int idleFrameNum, vec3 translation)
+{
+	if (iterations % idleFrameNum == 0)
+	{
+		geoms[geomId].translations[frame] += translation;
+		glm::mat4 transform = utilityCore::buildTransformationMatrix(geoms[geomId].translations[frame], geoms[geomId].rotations[frame], geoms[geomId].scales[frame]);
+		geoms[geomId].transforms[frame] = utilityCore::glmMat4ToCudaMat4(transform);
+		geoms[geomId].inverseTransforms[frame] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+	}
+}
+
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms)
 {
@@ -592,6 +607,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaDeviceSetLimit(cudaLimitStackSize, 50000*sizeof(float)); 
 
 	int traceDepth = 1; //determines how many bounces the raytracer traces
+
+	// set up geometry for motion blur
+	if (MOTION_BLUR_SWITCH)
+	{
+		translateObject(geoms, 6, frame, iterations, 20, vec3(0, -0.01, 0));
+	}
+
+
+
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -602,7 +626,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	glm::vec3* cudaimage = NULL;
 	cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
 	cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
-  
+
 	//package geometry and materials and sent to GPU
 	int numberOfLights = 0;
 	std::vector<int> lightIndices;
@@ -732,8 +756,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaMemcpy( renderCam->image, imageAccum, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
 	//free up stuff, or else we'll leak memory like a madman
-	
-	//freeing triMesh
 	thrust::device_ptr<staticGeom> cudageomsPtr(cudageoms);
 	cleanupTriMesh(cudageomsPtr, numberOfGeoms);
 	cudaFree( cudaimage );
@@ -746,7 +768,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	{
 		cudaFree( cudaRayPool );
 	}
-
 
 	delete[] geomList;
 

@@ -83,6 +83,7 @@ int main(int argc, char** argv);
 //-------------------------------
 
 void runCuda();
+void resetCameraImage(camera* cam);
 
 #ifdef __APPLE__
 	void display();

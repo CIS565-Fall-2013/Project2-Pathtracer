@@ -99,6 +99,13 @@ int main(int argc, char** argv){
 //-------------------------------
 //---------RUNTIME STUFF---------
 //-------------------------------
+void resetCameraImage(camera* cam)
+{
+	for (int i = 0 ; i < cam->resolution.x * cam->resolution.y ; ++i)
+	{
+		cam->image[i] = glm::vec3(0,0,0);
+	}
+}
 
 void runCuda(){
 
@@ -222,12 +229,51 @@ void runCuda(){
 
 	void keyboard(unsigned char key, int x, int y)
 	{
-		std::cout << key << std::endl;
+		float camSpeed = 0.1f;
+
+		//std::cout << key << std::endl;
 		switch (key) 
 		{
-		   case(27):
-			   exit(1);
-			   break;
+			case(27):
+				exit(1);
+				break;
+			case 'a':
+			case 'A':
+				//TODO: reset iteration
+				renderCam->positions[targetFrame] += vec3(camSpeed, 0, 0);
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
+			case 'd':
+			case 'D':
+				renderCam->positions[targetFrame] += vec3(-camSpeed, 0, 0);
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
+			case 'w':
+			case 'W':
+				renderCam->positions[targetFrame] += vec3(0, -camSpeed, 0);
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
+			case 's':
+			case 'S':
+				renderCam->positions[targetFrame] += vec3(0, camSpeed,0);
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
+			case 'q':
+			case 'Q':
+				renderCam->positions[targetFrame] += vec3(0, 0, -camSpeed);
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
+			case 'e':
+			case 'E':
+				renderCam->positions[targetFrame] += vec3(0, 0, camSpeed);
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
 		}
 	}
 
