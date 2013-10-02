@@ -1,4 +1,4 @@
-![Alt text](/renders/test3500.0OBJ3.bmp "With OBJ Loader")
+![Alt text](/renders/test4000.0WithOBJ.bmp "With OBJ Loader")
 
 CUDA Path Tracing
 -------------------------------------------------------------------------------
