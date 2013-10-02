@@ -31,8 +31,8 @@
 #define TITLESIZESC 64//this title size is for stream compaction
 #define TITLESIZE 8
 #define MOTIONBLUR 1
-#define DOF 1
-#define MAXDEPTH 15
+#define DOF 16
+#define MAXDEPTH 5
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
@@ -452,7 +452,7 @@ __global__ void pathtraceRay(glm::vec2 resolution, float time, cameraData cam, i
 		ray r = raycastFromCameraKernel(resolution, time, (float)(x + (float)(1 + ran.x)/1.0f), (float)(y + (float)(1.0f + ran.y)/ 1.0f), cam.position, cam.view, cam.up, cam.fov);
 		
 #ifdef DOF
-		float focalLength = 15.f;
+		float focalLength = DOF;
 		glm::vec3 aimedPosition = r.origin + focalLength * r.direction;	
 		glm::vec3 rand = generateRandomNumberFromThread(cam.resolution, time * (2), x, y);
 		glm::vec3 camPosition = glm::vec3(cam.position.x + (float)rand.x, cam.position.y + (float)rand.y, cam.position.z +  (float)rand.z);
@@ -580,6 +580,7 @@ __global__ void initializeRayPool(rayPixel* rayPool, glm::vec2 resolution, glm::
 	{
 		rayPool[index].index = index;
 		rayPool[index].isDone = false;
+		rayPool[index].isFirst = true;
 		rayPool[index].x = x;
 		rayPool[index].y = y;
 		colors[index] = glm::vec3(1,1,1);
@@ -589,7 +590,7 @@ __global__ void initializeRayPool(rayPixel* rayPool, glm::vec2 resolution, glm::
 				(float)(rayPool[index].y + (float)(1.0f + ran.y)/ 1.0f), cam.position, cam.view, cam.up, cam.fov);	
 #ifdef DOF
 		//for DOP
-		float focalLength = 12.f;
+		float focalLength = DOF;
 		glm::vec3 rand = generateRandomNumberFromThread(cam.resolution, time * 2, x, y);
 		glm::vec3 aimedPosition = rayPool[index].r.origin + focalLength * rayPool[index].r.direction;
 		glm::vec3 camPosition = glm::vec3(cam.position.x + (float)rand.x, cam.position.y + (float)rand.y, cam.position.z + (float)rand.z);

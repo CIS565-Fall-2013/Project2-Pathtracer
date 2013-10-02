@@ -24,6 +24,10 @@ The OBJ mesh loader I am using TinyObjLoader from [https://github.com/syoyo/tiny
 
 I did performance evaluation in stream compaction and without stream compaction related to the max depth for iteration. There is a very interesting result here. When the max depth is smaller than 10, the path tracer without stream compaction is actually faster than the one with stream compaction. However, when I keep increasing the max depth, the time for path tracer without stream compaction goes up very quickly. The iteration time for path tracer with stream compaction goes up very slow with the increasing max depth.
 
+I think the reason why the number of max depth is small and the normal path tracer is faster is because there is a lot of transaction between host and device in stream compaction, which the program spend a lot of time on it. Also, in one iteration, the program has to launch kernel for several times, which also takes some time for the program to execute. These two main reasons lead to the stream compaction in small number of max depth is slower than normal path tracer. 
+
+As the max depth goes up, the time for normal path tracer goes up really quickly, but the stream compaction becomes steady. The reason why stream compaction becomes steady is that although the max depth goes up, the number of ray in pool actually is become empty before it hits the limit of iteration times. Therefore, in spite of the max depth number is increasing, there is no big effect on stream compaction. 
+
  ![Alt text](/ScperformaceTest.png "Stream Compaction and Max Depth")
 
 
