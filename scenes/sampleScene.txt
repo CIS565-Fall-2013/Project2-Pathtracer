@@ -1,3 +1,36 @@
+MAP 0
+base
+COL1        1 1 1
+COL2        1 1 1  
+WIDTH1	    1
+WIDTH2 	    1
+SMOOTH	    0
+
+MAP 1
+hstripe
+COL1        0 1 1
+COL2        1 1 0  
+WIDTH1	    0.4
+WIDTH2 	    0.5
+SMOOTH	    0
+
+MAP 2
+vstripe
+COL1        0.9 0.9 0.9
+COL2        0.9 0.9 0.9  
+WIDTH1	    0.5
+WIDTH2 	    0.2
+SMOOTH	    0
+
+MAP 3   //Sphere checker
+checkerboard
+COL1        1.0 0.0 0.0
+COL2        1.0 1.0 0.0  
+WIDTH1	    0.1
+WIDTH2 	    0.1
+SMOOTH	    0
+
+
 MATERIAL 0				//white diffuse
 RGB         0.9 0.9 0.9       
 SPECEX      0      
@@ -10,6 +43,7 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 DIFFCOEFF   1
+MAPID 0
 
 MATERIAL 1 				//red diffuse
 RGB         .63 .06 .04       
@@ -23,6 +57,7 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 DIFFCOEFF   1
+MAPID 0
 
 MATERIAL 2 				//green diffuse
 RGB         .15 .48 .09      
@@ -36,6 +71,7 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 DIFFCOEFF   1
+MAPID 0
 
 MATERIAL 3 				//red glossy
 RGB         .63 .26 .24      
@@ -49,6 +85,7 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 DIFFCOEFF   1
+MAPID 0
 
 MATERIAL 4 				//white glossy
 RGB         1 1 1     
@@ -62,6 +99,7 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 DIFFCOEFF   1
+MAPID 0
 
 MATERIAL 5 				//glass
 RGB         1 1 1    
@@ -75,6 +113,7 @@ ABSCOEFF    .02 5.1 5.7
 RSCTCOEFF   13
 EMITTANCE   0
 DIFFCOEFF   1
+MAPID 0
 
 MATERIAL 6 				//green glossy
 RGB         .35 .48 .29      
@@ -88,6 +127,7 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 DIFFCOEFF   0.7
+MAPID 0
 
 MATERIAL 7				//light
 RGB         1 1 1       
@@ -101,6 +141,7 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   1
 DIFFCOEFF   1
+MAPID 0
 
 MATERIAL 8				//light
 RGB         1 1 1       
@@ -114,6 +155,7 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   15
 DIFFCOEFF   1
+MAPID 0
 
 CAMERA
 RES         200 200
