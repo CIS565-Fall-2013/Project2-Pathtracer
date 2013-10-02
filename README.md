@@ -21,10 +21,26 @@ This is a GPU path tracing program. Features implemented including:
 	- Motion blur
 	- Depth of Field
 
+
+To activate motion blur effects, define MOTION_BLUR in raytraceKernel.cu file.
+To activate depth of field effects, define DEPTH_OF_FIELD in raytraceKernel.cu file.
+
+Both effect are hardcoded while motion blur applies to object 6 and depth of field applies to both green spheres, which are in focus.
+
 -------------------------------------------------------------------------------
 IMPLEMENTATION DETAILS
 -------------------------------------------------------------------------------
-Starting from my ray tracer from last project, I decided to test the concept of path tracing before heavily modifying 
+Starting from my ray tracer from last project, the easiest addition would be changing my transparent objects from ray tracer 
+to be based on Fresnel equations. This would first calculate the Fresnel cooefficients based on the index of refraction from each side
+of the interface, normal and incident angle, then shoot both reflection ray and refraction ray and finally add the two components together,
+weighted by reflective cooefficient and refractive cooefficient. The Fresnel-enhanced ray-tracer looks like this:
+
+ ![ScreenShot](https://raw.github.com/wuhao1117/Project2-Pathtracer/master/renders/first working fresnel.bmp)
+
+Throw in some mirrow for awesomeness:
+
+ ![ScreenShot](https://raw.github.com/wuhao1117/Project2-Pathtracer/master/renders/fresnel with mirror.bmp)
+and I decided to test the concept of path tracing before heavily modifying 
 my code for ray parallelization or other stuff. So, with a naive path tracer, which looks even simpler than a raytracer,
 my first image lookes like this:
 
