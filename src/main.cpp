@@ -47,6 +47,9 @@ int main(int argc, char** argv){
 	else if(strcmp(header.c_str(), "dof")==0){
       dof = atoi(data.c_str());
     }
+	else if(strcmp(header.c_str(), "textureMode")==0){
+      textureMode = atoi(data.c_str());
+    }
   }
 
   if(!loadedScene){
@@ -133,8 +136,12 @@ void runCuda(){
       maps[i] = renderScene->maps[i];
     }
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(),maps,renderScene->maps.size(), geoms, renderScene->objects.size(), mblur,dof);
-    // unmap buffer object
+	if(!textureMode)
+		cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(),maps,renderScene->maps.size(), geoms, renderScene->objects.size(), mblur,dof);
+	else
+		cudaRaytraceCoreT(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(),maps,renderScene->maps.size(), geoms, renderScene->objects.size(), mblur,dof);
+
+	// unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   }else{
 
@@ -361,6 +368,57 @@ void runCuda(){
 			   g.inverseTransforms[targetFrame] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
 			   }
 			   break;
+
+		   case 't':
+			   textureMode = !textureMode;
+			   iterations = 0;
+			   resetImage(renderCam);
+			   break;
+
+		   case 'h':
+			   if(currentSelectedObjId != -1 && textureMode)
+			   {
+			   iterations = 0;
+			   resetImage(renderCam);
+			   geom g = renderScene->objects[currentSelectedObjId];
+			   material mtl = renderScene->materials[g.materialid];
+			   if ( (renderScene->maps[mtl.mapID].width1+0.1f) > 0);
+				renderScene->maps[mtl.mapID].width1+=0.1f;			   }
+			   break;
+		   case 'j':
+			   if(currentSelectedObjId != -1 && textureMode)
+			   {
+			   iterations = 0;
+			   resetImage(renderCam);
+			   geom g = renderScene->objects[currentSelectedObjId];
+			   material mtl = renderScene->materials[g.materialid];
+			   if ( (renderScene->maps[mtl.mapID].width1-0.1f) > 0);
+				renderScene->maps[mtl.mapID].width1-=0.1f;
+			   }
+			   break;
+		   case 'k':
+			   if(currentSelectedObjId != -1 && textureMode)
+			   {
+			   iterations = 0;
+			   resetImage(renderCam);
+			   geom g = renderScene->objects[currentSelectedObjId];
+			   material mtl = renderScene->materials[g.materialid];
+			   if ( (renderScene->maps[mtl.mapID].width2+0.1f) > 0);
+				renderScene->maps[mtl.mapID].width2+=0.1f;
+			   }
+			   break;
+		   case 'l':
+			   if(currentSelectedObjId != -1 && textureMode)
+			   {
+			   iterations = 0;
+			   resetImage(renderCam);
+			   geom g = renderScene->objects[currentSelectedObjId];
+			   material mtl = renderScene->materials[g.materialid];
+			   if ( (renderScene->maps[mtl.mapID].width2-0.1f) > 0);
+				renderScene->maps[mtl.mapID].width2-=0.1f;
+			   }
+			   break;
+
 		}
 	}
 

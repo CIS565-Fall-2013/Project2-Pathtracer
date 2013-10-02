@@ -50,18 +50,41 @@ __host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 incident, g
 //TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
 __host__ __device__ float calculateFresnel(glm::vec3 incident,glm::vec3 normal, float incidentIOR, float transmittedIOR)
 {
-	double n = incidentIOR/transmittedIOR;
-	double cosI = -glm::dot(incident, normal);
-	double sinT2 = n*n*(1.0 -cosI*cosI);
-	if(sinT2 > 1.0)
-		return 1.0;
+	//referred http://graphics.stanford.edu/courses/cs148-10-summer/docs/2006--degreve--reflection_refraction.pdf
 
-	double cosT = sqrt(1.0 -sinT2);
-	double rorth = (incidentIOR*cosI - transmittedIOR*cosT)/(incidentIOR*cosI + transmittedIOR*cosT);
-	double rpar = (transmittedIOR*cosI - incidentIOR*cosT)/(transmittedIOR*cosI + incidentIOR*cosT);
+	float n = incidentIOR/transmittedIOR;
+	float cosI = -glm::dot(incident, normal);
+	float sinT2 = n*n*(1.0 -cosI*cosI);
+	if(n > 1.0f)
+		return 1.0f;
+
+	float cosT = sqrt(1.0 -sinT2);
+	float rorth = (incidentIOR*cosI - transmittedIOR*cosT)/(incidentIOR*cosI + transmittedIOR*cosT);
+	float rpar = (transmittedIOR*cosI - incidentIOR*cosT)/(transmittedIOR*cosI + incidentIOR*cosT);
 
 	return (rorth*rorth + rpar*rpar)/2.0f;
 }
+
+//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
+__host__ __device__ float calculateFresnelSchlick(glm::vec3 incident,glm::vec3 normal, float incidentIOR, float transmittedIOR)
+{
+	//referred http://graphics.stanford.edu/courses/cs148-10-summer/docs/2006--degreve--reflection_refraction.pdf
+
+	float r0 = (incidentIOR - transmittedIOR)/(incidentIOR+transmittedIOR);
+	float cosX = -glm::dot(normal,incident);
+	r0 *= r0;
+	if( incidentIOR>transmittedIOR)
+	{
+		float n = incidentIOR/transmittedIOR;
+		float sinT2 = n*n*(1.0f - cosX * cosX);
+		if ( sinT2 > 1.0f) 
+			return 1.0f;
+		cosX = sqrtf(1.0f - sinT2);
+	}
+	float x = 1.0f - cosX;
+	return r0+(1.0f - r0) *x*x*x*x*x;
+}
+
 
 __host__ __device__ glm::vec3 calculateRefractionDirection(glm::vec3 incident,glm::vec3 normal,material m,REFRSTAGE stage)
 {
@@ -122,24 +145,24 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 	if (glm::dot(r.direction,normal)<0)
 	{
 		stage = REFR_ENTER;
-		fresnelReflectance = calculateFresnel(r.direction,normal,1.0f,m.indexOfRefraction);
+		fresnelReflectance = calculateFresnelSchlick(r.direction,normal,1.0f,m.indexOfRefraction);
 	}
 	else
 	{
 		stage = REFR_EXIT;
-		fresnelReflectance = calculateFresnel(r.direction,normal,m.indexOfRefraction,1.0f);
+		fresnelReflectance = calculateFresnelSchlick(r.direction,normal,m.indexOfRefraction,1.0f);
 	}
 
-	//if (u01(rng) > fresnelReflectance)
-	//{
-	//	if(stage == REFR_EXIT)
-	//	{
-	//		normal = -1.0f*normal;
-	//	}
-	//	r.direction = calculateReflectionDirection(r.direction,normal);
-	//	return 1;
-	//}
-	//else
+	if (u01(rng) < fresnelReflectance)
+	{
+		if(stage == REFR_EXIT)
+		{
+			normal = -1.0f*normal;
+		}
+		r.direction = calculateReflectionDirection(r.direction,normal);
+		return 1;
+	}
+	else
 	{
 		r.direction = calculateRefractionDirection(r.direction,normal,m,stage);
 		return 2;

@@ -42,43 +42,6 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
   return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
 }
 
-////Kernel that does the initial raycast from the camera.
-//__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
-//   
-//  int index = x + (y * resolution.x);
-//   
-//  thrust::default_random_engine rng(hash(index*time));
-//  thrust::uniform_real_distribution<float> u01(0,1);
-//  
-//  //standard camera raycast stuff
-//  glm::vec3 E = eye;
-//  glm::vec3 C = view;
-//  glm::vec3 U = up;
-//  float fovx = fov.x;
-//  float fovy = fov.y;
-//  
-//  float CD = glm::length(C);
-//  
-//  glm::vec3 A = glm::cross(C, U);
-//  glm::vec3 B = glm::cross(A, C);
-//  glm::vec3 M = E+C;
-//  glm::vec3 H = (A*float(CD*tan(fovx*(PI/180))))/float(glm::length(A));
-//  glm::vec3 V = (B*float(CD*tan(-fovy*(PI/180))))/float(glm::length(B));
-//  
-//  float sx = (x)/(resolution.x-1);
-//  float sy = (y)/(resolution.y-1);
-//  
-//  glm::vec3 P = M + (((2*sx)-1)*H) + (((2*sy)-1)*V);
-//  glm::vec3 PmE = P-E;
-//  glm::vec3 R = E + (float(200)*(PmE))/float(glm::length(PmE));
-//  
-//  glm::vec3 direction = glm::normalize(R);
-//  //major performance cliff at this point, TODO: find out why!
-//  ray r;
-//  r.origin = eye;
-//  r.direction = direction;
-//  return r;
-//}
 
 //Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov,float focalDist,float aperture, int dof){
@@ -179,24 +142,6 @@ __device__ bool isLight(int objId, int* lights, int numberOfLights)
 	return false;
 }
 
-//Kernel that blacks out a given image buffer
-__global__ void clearActiveRays(glm::vec2 resolution, ray* rays, glm::vec4* image){
-	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int x = rays[index].pixelIndex.x;
-	int y = rays[index].pixelIndex.y;
-	int pixelIndex = x + (y * resolution.x);
-    //int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-    //int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-    //int index = x + (y * resolution.x);
-    if(x<=resolution.x && y<=resolution.y ){
-		if (!rays[index].active)
-		{
-			image[pixelIndex].x+= rays[index].rayColor.x;
-			image[pixelIndex].y+= rays[index].rayColor.y;
-			image[pixelIndex].z+= rays[index].rayColor.z;
-		}
-    }
-}
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
@@ -247,7 +192,6 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	}
 	if (objId == -1)
 	{
-		//r.active = false;
 		rays[index].active = false;
 		rays[index].rayColor = glm::vec3(0,0,0);
 		return;
@@ -255,7 +199,6 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 	material mtl = materials[geoms[objId].materialid];
 	if (isLight(objId,lights,numberOfLights))
 	{
-		//r.active = false;
 		rays[index].active = false;
 		rays[index].rayColor.x *= mtl.color.x*mtl.emittance;
 		rays[index].rayColor.y *= mtl.color.y*mtl.emittance;
@@ -462,9 +405,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   int tileSize = 8;
   dim3 threadsPerBlock(tileSize*tileSize);
   dim3 fullBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
- /* dim3 threadsPerBlock(tileSize, tileSize);
-  dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
-*/
+
   //send image to GPU
   glm::vec4* cudaimage = NULL;
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec4));
@@ -479,12 +420,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   ray* cudarays = NULL;
   cudaMalloc((void**)&cudarays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
 
-  ray* cudatemprays = NULL;
-  cudaMalloc((void**)&cudatemprays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
-
   int* cudaperlindata = NULL;
   cudaMalloc((void**)&cudaperlindata, 512*sizeof(int));
   cudaMemcpy( cudaperlindata, perlinNumbers, 512*sizeof(int), cudaMemcpyHostToDevice);
+
+  /*ALL STUFF FOR MANUAL STREAM COMPACTION
+  ray* cudatemprays = NULL;
+  cudaMalloc((void**)&cudatemprays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
 
   ////TEST SCAN
   //const int testNum = 2048;
@@ -513,6 +455,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   int* dNumActiveRays = NULL;
   cudaMalloc((void**)&dNumActiveRays,sizeof(int));
   cudaMemcpy( dNumActiveRays,&numberOfThreads, sizeof(int), cudaMemcpyHostToDevice);
+  */
 
   //package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
@@ -581,7 +524,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.aperture = renderCam->aperture;
   cam.focalDist = renderCam->focalDist;
 
- /* int t = numberOfThreads;
+ /*TESTING STREAM COMPACTION
+  int t = numberOfThreads;
   for(int k=1; k<=t; k++)
   {
   cudaMemcpy( dNumActiveRays, &k, sizeof(int),cudaMemcpyHostToDevice);
@@ -626,7 +570,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	numberOfThreads = thrust::partition(thrustRaysArray,thrustRaysArray+numberOfThreads,is_active()) - thrustRaysArray;
 	//numberOfThreads = thrust::remove_if(thrustRaysArray,thrustRaysArray+numberOfThreads,is_not_active()) - thrustRaysArray;
 
-
+	//MANUAL STREAM COMPACTION ATTEMPT
 	//duplicateRaysArray<<<compactedBlocksPerGrid, threadsPerBlock>>>(cudatemprays,cudarays,dNumActiveRays);
 	//createBinaryActiveArray<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays,cudaActiveArray,dNumActiveRays);
 	//thrust::inclusive_scan(thrustActiveArray,thrustActiveArray+numberOfThreads,thrustTempScanArray);
@@ -637,9 +581,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	//cudaMemcpy(&numberOfThreads,dNumActiveRays,sizeof(int),cudaMemcpyDeviceToHost);
 	//streamCompact<<<compactedBlocksPerGrid, threadsPerBlock>>>(cudarays,cudatemprays,cudaActiveArray,dParallelScanTempArray,dNumActiveRays);
   }
-  //clearActiveRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudarays, cudaimage);
-  
-
 
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage,cudarays,iterations);
   
@@ -650,7 +591,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   if(iterations == 1)
 	cudaMemcpy( renderCam->objIdBuffer, cudaobjidbuffer, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(int), cudaMemcpyDeviceToHost);
 
-  //clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaimage);
   //free up stuff, or else we'll leak memory like a madman
   cudaFree( cudaimage );
   cudaFree( cudageoms );
@@ -658,15 +598,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree(cudamaps);
   cudaFree(cudalights);
   cudaFree(cudarays);
+  /*CLEANUP FOR MANUAL STREAM COMPACTION DATA
   cudaFree(cudatemprays);
   cudaFree(cudaActiveArray);
   cudaFree(dParallelScanTempArray);
-  cudaFree(dNumActiveRays);
+  cudaFree(dNumActiveRays);*/
   cudaFree(cudaobjidbuffer);
   cudaFree(cudaperlindata);
   delete [] geomList;
   delete [] geomListPrevFrame;
-  //delete [] rays;
 
   // make certain the kernel has completed 
   cudaThreadSynchronize();
@@ -674,3 +614,192 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   checkCUDAError("Kernel failed!");
 }
 
+/* THE CODE BELOW THIS IS FOR FUNCTIONS THAT RUN IN "TEXTURE" MODE. 
+THIS CODE IS DUPLICATED TO AVOID UNNECESSARY BRANCHING IN THE GPU*/
+
+//TODO: IMPLEMENT THIS FUNCTION
+//Core raytracer kernel
+__global__ void raytraceRayT(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec4* colors, 
+                            int* objidbuffer, staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials, 
+							map* maps, int numberOfMaps,int* lights, int numberOfLights,ray* rays,int dof, int* perlinData){
+
+  //int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  //int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  //int index = x + (y * resolution.x);
+	
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+	int y = (int) (index/(int)resolution.x);
+	int x = (int) (index%(int)resolution.x);
+	int pixelIndex = index;
+	ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov,cam.focalDist,cam.aperture,dof);  
+	rays[index].pixelIndex = glm::vec2(x,y);
+
+  if(x<=resolution.x && y<=resolution.y){
+	glm::vec3 intersectionPoint;
+	glm::vec3 intersectionNormal;
+
+	int objId = findNearestGeometricIntersection(r,intersectionPoint,intersectionNormal,geoms,numberOfGeoms);
+
+	if (time< 1.5f)
+	{
+		colors[pixelIndex].w = intersectionPoint.z;
+		objidbuffer[pixelIndex] = objId;
+	}
+	if (objId == -1)
+	{
+		return;
+	}
+	material mtl = materials[geoms[objId].materialid];
+	if (isLight(objId,lights,numberOfLights))
+	{
+		colors[pixelIndex].x += mtl.color.x*mtl.emittance;
+		colors[pixelIndex].y += mtl.color.y*mtl.emittance;
+		colors[pixelIndex].z += mtl.color.z*mtl.emittance;
+		return;
+	}
+	
+	glm::vec3 surfaceColor = getSurfaceColor(intersectionPoint,intersectionNormal,mtl,objId,geoms,maps,perlinData);
+	colors[pixelIndex].x += surfaceColor.x;
+	colors[pixelIndex].y += surfaceColor.y;
+	colors[pixelIndex].z += surfaceColor.z;
+}
+  }
+
+//TODO: FINISH THIS FUNCTION
+// Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
+void cudaRaytraceCoreT(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials,map* maps,int numberOfMaps, geom* geoms, int numberOfGeoms,int mblur,int dof){
+  
+  int traceDepth = 1;
+  int perlinNumbers[512] = { 151,160,137,91,90,15,
+  131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
+  190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
+  88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,
+  77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,
+  102,143,54, 65,25,63,161, 1,216,80,73,209,76,132,187,208,89,18,169,200,196,
+  135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,
+  5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,
+  23,183,170,213,119,248,152, 2,44,154,163, 70,221,153,101,155,167,43,172,9,
+  129,22,39,253,19,98,108,110,79,113,224,232,178,185, 112,104,218,246,97,228,
+  251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,
+  49,192,214, 31,181,199,106,157,184, 84,204,176,115,121,50,45,127,4,150,254,
+  138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180,
+  151,160,137,91,90,15,
+  131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
+  190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
+  88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,
+  77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,
+  102,143,54, 65,25,63,161, 1,216,80,73,209,76,132,187,208,89,18,169,200,196,
+  135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,
+  5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,
+  23,183,170,213,119,248,152, 2,44,154,163, 70,221,153,101,155,167,43,172,9,
+  129,22,39,253,19,98,108,110,79,113,224,232,178,185, 112,104,218,246,97,228,
+  251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,
+  49,192,214, 31,181,199,106,157,184, 84,204,176,115,121,50,45,127,4,150,254,
+  138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180
+  };
+
+
+  // set up crucial magic
+  int numberOfThreads = (int)(renderCam->resolution.x)*(int)(renderCam->resolution.y);
+  int tileSize = 8;
+  dim3 threadsPerBlock(tileSize*tileSize);
+  dim3 fullBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
+
+  //send image to GPU
+  glm::vec4* cudaimage = NULL;
+  cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec4));
+  cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec4), cudaMemcpyHostToDevice);
+
+  int* cudaobjidbuffer = NULL;
+  cudaMalloc((void**)&cudaobjidbuffer, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(int));
+  
+   //package lights
+  std::vector<int> lightsVector;
+
+  ray* cudarays = NULL;
+  cudaMalloc((void**)&cudarays, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(ray));
+
+  int* cudaperlindata = NULL;
+  cudaMalloc((void**)&cudaperlindata, 512*sizeof(int));
+  cudaMemcpy( cudaperlindata, perlinNumbers, 512*sizeof(int), cudaMemcpyHostToDevice);
+
+
+  //package geometry and materials and sent to GPU
+  staticGeom* geomList = new staticGeom[numberOfGeoms];
+
+  for(int i=0; i<numberOfGeoms; i++){
+    staticGeom newStaticGeom;
+    newStaticGeom.type = geoms[i].type;
+    newStaticGeom.materialid = geoms[i].materialid;
+    newStaticGeom.translation = geoms[i].translations[frame];
+    newStaticGeom.rotation = geoms[i].rotations[frame];
+    newStaticGeom.scale = geoms[i].scales[frame];
+    newStaticGeom.transform = geoms[i].transforms[frame];
+    newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+    geomList[i] = newStaticGeom;
+
+
+	if (materials[geoms[i].materialid].emittance > 0.0f)
+		lightsVector.push_back(i);
+  }
+  
+
+  staticGeom* cudageoms = NULL;
+  cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
+  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+ 
+
+  material* cudamaterials = NULL;
+  cudaMalloc((void**)&cudamaterials, numberOfMaterials*sizeof(material));
+  cudaMemcpy( cudamaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
+
+  map* cudamaps = NULL;
+  cudaMalloc((void**)&cudamaps, numberOfMaps*sizeof(map));
+  cudaMemcpy( cudamaps, maps, numberOfMaps*sizeof(map), cudaMemcpyHostToDevice);
+
+
+  int numberOfLights = lightsVector.size();
+  int* cudalights = NULL;
+  cudaMalloc( (void**)&cudalights, numberOfLights*sizeof(int));
+  cudaMemcpy(cudalights,&lightsVector[0],numberOfLights*sizeof(int),cudaMemcpyHostToDevice);
+
+  //package camera
+  cameraData cam;
+  cam.resolution = renderCam->resolution;
+  cam.position = renderCam->positions[frame];
+  cam.view = renderCam->views[frame];
+  cam.up = renderCam->ups[frame];
+  cam.fov = renderCam->fov;
+  cam.aperture = renderCam->aperture;
+  cam.focalDist = renderCam->focalDist;
+
+ 
+  //kernel launches
+
+  dim3 compactedBlocksPerGrid ( (int) ceil( (float)numberOfThreads/(tileSize*tileSize)));
+  raytraceRayT<<<compactedBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage,cudaobjidbuffer, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials,cudamaps,numberOfMaps, cudalights,numberOfLights,cudarays,dof,cudaperlindata);
+
+  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage,cudarays,iterations);
+  
+  //retrieve image from GPU
+  cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec4), cudaMemcpyDeviceToHost);
+  if(iterations == 1)
+	cudaMemcpy( renderCam->objIdBuffer, cudaobjidbuffer, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(int), cudaMemcpyDeviceToHost);
+
+  //free up stuff, or else we'll leak memory like a madman
+  cudaFree( cudaimage );
+  cudaFree( cudageoms );
+  cudaFree( cudamaterials );
+  cudaFree(cudamaps);
+  cudaFree(cudalights);
+  cudaFree(cudarays);
+  cudaFree(cudaobjidbuffer);
+  cudaFree(cudaperlindata);
+  delete [] geomList;
+
+  // make certain the kernel has completed 
+  cudaThreadSynchronize();
+
+  checkCUDAError("Kernel failed!");
+}

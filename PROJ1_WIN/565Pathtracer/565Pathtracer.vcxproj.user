@@ -13,7 +13,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release (v5.5)|Win32'">
-    <LocalDebuggerCommandArguments>scene=../../scenes/sphere.txt frame=0 mblur=0 dof=0</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>scene=../../scenes/sampleScene.txt frame=0 mblur=0 dof=0</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

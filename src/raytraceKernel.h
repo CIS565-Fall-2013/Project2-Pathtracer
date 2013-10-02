@@ -22,4 +22,7 @@
 
 void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials,map* maps,int numberOfMaps, geom* geoms, int numberOfGeoms, int mblur,int dof);
 
+//FOR TEXTURE MODE
+void cudaRaytraceCoreT(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials,map* maps,int numberOfMaps, geom* geoms, int numberOfGeoms, int mblur,int dof);
+
 #endif

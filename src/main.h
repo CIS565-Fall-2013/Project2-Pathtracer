@@ -55,7 +55,7 @@ bool singleFrameMode;
 int mblur=0;
 int dof=0;
 int currentSelectedObjId = -1;
-
+int textureMode = 0;
 
 //-------------------------------
 //------------GL STUFF-----------
