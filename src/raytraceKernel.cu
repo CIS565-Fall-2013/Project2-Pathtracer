@@ -51,6 +51,15 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
   return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
 }
 
+__host__ __device__ glm::vec3 generateRandomOffsetFromThread(glm::vec2 resolution, float time, int x, int y){
+  int index = x + (y * resolution.x);
+   
+  thrust::default_random_engine rng(hash(index*time));
+  thrust::uniform_real_distribution<float> u01(-0.5,0.5);
+
+  return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
+}
+
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
@@ -73,6 +82,31 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
   return r;
 }
 
+//Function that does the initial raycast from the camera with small jittered offset
+__host__ __device__ ray jitteredRaycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
+{
+  ray r;
+  float width = resolution.x;
+  float height = resolution.y;
+  vec3 M = eye + view;
+  vec3 A = cross(view, up);
+  vec3 B = cross(A, view);
+  vec3 H = (A * length(view) * tanf(fov.x * ((float)PI/180.0f))) / length(A);
+  vec3 V = -(B * length(view) * tanf(fov.y * ((float)PI/180.0f))) / length(B); // LOOK: Multiplied by negative to flip the image
+
+  vec3 offset = generateRandomNumberFromThread(resolution, time, x, y);
+
+  // offset the point by a small random number ranging from [-0.5,0.5] for anti-aliasing
+  vec3 P = M + ((2.0f*(offset.x+x))/(width-1)-1)*H + ((2.0f*(offset.y+y))/(height-1)-1)*V;
+  vec3 D = P - eye;
+  vec3 DN = glm::normalize(D);
+
+  r.origin = P;
+  r.direction = DN;
+  return r;
+}
+
+
 //Kernel that blacks out a given image buffer
 __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -94,51 +128,36 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
   {
       glm::vec3 color;
 	  
-	  float frac = 1 / 255.0;
-
-	  //color.x = image[index].x*255.0;
-	  //color.y = image[index].y*255.0;
-	  //color.z = image[index].z*255.0;
-
-	  //color.x = min(max(color.x, 0.0), 255.0);
-	  //color.y = min(max(color.y, 0.0), 255.0);
-	  //color.z = min(max(color.z, 0.0), 255.0);
-
-	  //image[index].x = color.x * frac;
-	  //image[index].y = color.y * frac;
-	  //image[index].z = color.z * frac;
+	  //glm::clamp(image[index], vec3(0,0,0), vec3(1,1,1));
 
 	  imageAccumd[index] = (imageAccumd[index] * (iteration - 1) + image[index]) / iteration;
+
+	  glm::clamp(imageAccumd[index], vec3(0,0,0), vec3(1,1,1));
 
       color.x = imageAccumd[index].x*255.0;
       color.y = imageAccumd[index].y*255.0;
       color.z = imageAccumd[index].z*255.0;
 
-	  color.x = min(max(color.x, 0.0), 255.0);
-	  color.y = min(max(color.y, 0.0), 255.0);
-	  color.z = min(max(color.z, 0.0), 255.0);
+      if(color.x>255){
+        color.x = 255;
+      }
 
+      if(color.y>255){
+        color.y = 255;
+      }
 
-   //   if(color.x>255){
-   //     color.x = 255;
-   //   }
+      if(color.z>255){
+        color.z = 255;
+      }
 
-   //   if(color.y>255){
-   //     color.y = 255;
-   //   }
+	  if(color.x < 0)
+		  color.x = 0;
 
-   //   if(color.z>255){
-   //     color.z = 255;
-   //   }
+	  if(color.y < 0)
+		  color.y = 0;
 
-	  //if(color.x < 0)
-		 // color.x = 0;
-
-	  //if(color.y < 0)
-		 // color.y = 0;
-
-	  //if(color.z < 0)
-		 // color.z = 0;
+	  if(color.z < 0)
+		  color.z = 0;
       
       // Each thread writes one pixel location in the texture (textel)
       PBOpos[index].w = 0;
@@ -154,7 +173,8 @@ __global__ void constructRayPool(ray* rayPool, cameraData cam, float time)
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * cam.resolution.x);
 
-	ray r = raycastFromCameraKernel(cam.resolution, time, (float)x, (float)y, cam.position, cam.view, cam.up, cam.fov);
+	// for anti-aliasing: use jittered ray cast instead.
+	ray r = jitteredRaycastFromCameraKernel(cam.resolution, time, (float)x, (float)y, cam.position, cam.view, cam.up, cam.fov);
 	r.isTerminated = false;
 	r.pixelID = index;
 	r.attenuation = vec3(1,1,1);
@@ -305,13 +325,13 @@ __device__ vec3 shadowFeeler(staticGeom* geoms, int numberOfGeoms, material* mat
 
 //Core pathtracer kernel
 __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cameraData cam,
-                            staticGeom* geoms, int numberOfGeoms, material* cudamat, int numberOfMat, int* cudalightIndex, int numberOfLights, float iter, int bounce, float sqrtNumRays)
+                            staticGeom* geoms, int numberOfGeoms, material* cudamat, int numberOfMat, int* cudalightIndex, int numberOfLights, float iter, int bounce, int blockDim1Size)
 {
 	// Note: For ray parallelization, these ids will not necessarily correspond to the index of the pixel that can be used for the color array.
 	// So instead of using these IDs directly, store pixel index that the ray is responsible for during rayPool construction
 	int rayIdx = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int rayIdy = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int rayIndex = rayIdx + (rayIdy * sqrtNumRays);
+	int rayIndex = rayIdx + (rayIdy * blockDim1Size);
 	int rayPixelIndex = rayPool[rayIndex].pixelID;
 
 	ray &r = rayPool[rayIndex];
@@ -321,11 +341,6 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 	int matId = -1;
 	int geomId = -1;
 	float t = FLT_MAX;
-
-	if (rayIdx > cam.resolution.x) return;
-	if (rayIdy > cam.resolution.y) return;
-	if (rayIndex > cam.resolution.x * cam.resolution.y) return;
-
 
 	if (bounce == 0)
 	{
@@ -348,21 +363,22 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 		if (emittance != 0)
 		{
 			r.isTerminated = true;
-			colors[rayPixelIndex] *= (emittance * matColor);
+			colors[rayPixelIndex] *= emittance * matColor;
 		}
 		else
 		{
 			vec3 shading = vec3(0,0,0);
 	
 			// compute shading and the next ray r.
-			calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, iter, rayIdx * rayIdy * bounce);
-			colors[rayPixelIndex] *= rayAttenuation * shading;
+			calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, iter, rayIndex + rayPixelIndex + bounce);
+		
+			colors[rayPixelIndex] *= shading;
 
 			// attenuate ray
 			rayAttenuation = rayAttenuation * matColor;
 			r.attenuation = rayAttenuation;
 
-			if (rayAttenuation.x < 0.005 && rayAttenuation.y < 0.005 && rayAttenuation.z < 0.005 || bounce == MAX_BOUNCE)
+			if ((rayAttenuation.x < 0.01 && rayAttenuation.y < 0.01 && rayAttenuation.z < 0.01) || bounce == MAX_BOUNCE)
 			{
 				colors[rayPixelIndex] = vec3(0,0,0);
 				r.isTerminated = true;
@@ -371,8 +387,8 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 	}
 	else
 	{
-		colors[rayPixelIndex] = vec3(0,0,0);
 		r.isTerminated = true;
+		colors[rayPixelIndex] = vec3(0,0,0);
 	}
 	
 	
@@ -546,6 +562,7 @@ void cleanupTriMesh(thrust::device_ptr<staticGeom> geoms, int numberOfGeoms)
 {
 	for (int i = 0 ; i < numberOfGeoms ; ++i)
 	{
+		// TODO: Consider using geoms.get() first then iterate through the raw pointers.
 		staticGeom sg = geoms[i];
 		if (sg.type == MESH)
 		{
@@ -661,15 +678,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		constructRayPool<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaRayPool, cam, (float)iterations);
 
 		// Trace all bounces of the ray in a BFS manner
-		for(int bounce = 0; bounce <= (int)MAX_BOUNCE; ++bounce)
+		for(int bounce = 0; bounce <= MAX_BOUNCE; ++bounce)
 		{
 			// Update blockSize based on the number of rays.
-			float sqrtNumRays = sqrtf((float)numRays);
+			float sqrtNumRays = ceil(sqrtf((float)numRays));
 			int blockSize = (int)ceil(sqrtNumRays/(float)tileSize);
 			dim3 rayBlockPerGrid(blockSize, blockSize);
 
 			// TODO: ssratio is just 1 for now in path tracing mode.
-			pathtraceRay<<<rayBlockPerGrid,threadsPerBlock>>>(cudaRayPool, 1, cudaimage, cam, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, (float)iterations, bounce, sqrtNumRays);
+			pathtraceRay<<<rayBlockPerGrid,threadsPerBlock>>>(cudaRayPool, 1, cudaimage, cam, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, (float)iterations, bounce, blockSize * tileSize);
 
 			// Stream compaction using thrust
 			thrust::device_ptr<ray> cudaRayPoolDevicePtr(cudaRayPool);
@@ -678,7 +695,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 			// pointer arithmetic to figure out the number of rays.
 			numRays = compactCudaRayPoolDevicePtr.get() - cudaRayPoolDevicePtr.get();
 
-			if (numRays < 1)
+			if (numRays < 0)
 			{
 				printf("Number of rays = 0. Terminating...\n");
 				break;
