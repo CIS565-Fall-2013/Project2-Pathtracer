@@ -133,11 +133,17 @@ __host__ __device__ ray computeLightRay( glm::vec3 light, glm::vec3 intersection
 }
 
 // Calculate reflected ray
-__host__ __device__ ray computeReflectedRay( ray currentRay, glm::vec3 intersection_normal, glm::vec3 intersection_point ) {
-	ray reflected_ray;
-	reflected_ray.origin = intersection_point;
-	reflected_ray.direction = -2*glm::dot(currentRay.direction, intersection_normal)*intersection_normal + currentRay.direction;
-	return reflected_ray;
+__host__ __device__ glm::vec3 computeReflectedRay( ray currentRay, glm::vec3 intersection_normal ) {
+  return -2*glm::dot(currentRay.direction, intersection_normal)*intersection_normal + currentRay.direction;
+}
+
+/* 
+   Calculate refracted ray 
+    - At the moment this is just ideal refraction
+*/
+__host__ __device__ glm::vec3 computeRefractedRay( ray currentRay, glm::vec3 intersection_normal ) {
+  // TODO finish
+  return -2*glm::dot(currentRay.direction, intersection_normal)*intersection_normal + currentRay.direction;
 }
 
 //Kernel that blacks out a given image buffer
@@ -158,8 +164,11 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   int index = x + (y * resolution.x);
 
   float scl = 1.0f/((float)iterations);
+
+  // Do an average of all surrounding pixels
   
   if(x<=resolution.x && y<=resolution.y){
+
 
       glm::vec3 color;
       color.x = scl*image[index].x*255.0;
@@ -188,7 +197,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
-__global__ void raycastFromCameraKernel( glm::vec2 resolution, cameraData cam, ray_data* ray_pool, int numberOfRays ) {
+__global__ void raycastFromCameraKernel( glm::vec2 resolution, float time, cameraData cam, ray_data* ray_pool, int numberOfRays ) {
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -198,16 +207,32 @@ __global__ void raycastFromCameraKernel( glm::vec2 resolution, cameraData cam, r
   if ( index > numberOfRays )
     return;
 
-  // DEBUG initialize brdf accums to 1.0
+  // Randomness for anti-aliasing
+  thrust::default_random_engine rng(hash( float(index)*time ));
+  thrust::uniform_real_distribution<float> xi1(-1,1);
+  thrust::uniform_real_distribution<float> xi2(-1,1);
+
+  // Randomness for Depth of Field
+  thrust::uniform_real_distribution<float> xv(-1,1);
+  thrust::uniform_real_distribution<float> yv(-1,1);
+  thrust::uniform_real_distribution<float> zv(-1,1);
+
 
   // Create ray using pinhole camera projection
   float px_size_x = tan( cam.fov.x * (PI/180.0) );
   float px_size_y = tan( cam.fov.y * (PI/180.0) );
-	
+
+  float scl = 1.0;
+  // Shift x,y values for anti-aliasing
+  float xf = float(x) + scl*px_size_x*xi1(rng);
+  float yf = float(y) + scl*px_size_y*xi2(rng);
+
+  // Depth of field needs to be more interactive, need to be able change focal plane
   ray r;
-  r.origin = cam.position;
-  r.direction = cam.view + (-2*px_size_x*x/resolution.x + px_size_x)*glm::cross( cam.view, cam.up ) \
-		     + (-2*px_size_y*y/resolution.y + px_size_y)*cam.up;
+  r.origin = cam.position + 0.1f*glm::vec3( xv(rng), yv(rng), zv(rng) ); 
+  //r.origin = cam.position;
+  r.direction = cam.view + (-2.0f*px_size_x*xf/resolution.x + px_size_x)*glm::cross( cam.view, cam.up ) \
+		         + (-2.0f*px_size_y*yf/resolution.y + px_size_y)*cam.up;
 
   // Set ray in ray pool
   ray_pool[index].Ray = r;
@@ -264,6 +289,8 @@ __global__ void sampleBRDF( int resolution, float time, ray_data* ray_pool, int 
 
   int obj_index;
   material mat;
+  glm::vec3 new_direction;
+  glm::vec3 brdf(1.0, 1.0, 1.0);
 
   if ( index > numberOfRays )
     return;
@@ -275,15 +302,26 @@ __global__ void sampleBRDF( int resolution, float time, ray_data* ray_pool, int 
   obj_index = ray_pool[index].collision_index;
   mat = materials[geoms[obj_index].materialid];
 
+  // Handle Diffuse 
   // Sample new direction
-  //thrust::default_random_engine rng(hash( time*index*i ));
-  glm::vec3 new_direction = calculateRandomDirectionInHemisphere( ray_pool[index].Intersection.direction, xi1(rng), xi2(rng) );
+  if ( mat.hasReflective ) {
+    // Calculate reflection vector
+    new_direction = computeReflectedRay( ray_pool[index].Ray, ray_pool[index].Intersection.direction );
+    brdf = mat.color;
+  } else if ( mat.hasRefractive ) {
+    // At the moment this function just does a reflection
+    new_direction = computeRefractedRay( ray_pool[index].Ray, ray_pool[index].Intersection.direction );
+    brdf = mat.color;
+  } else { 
+     new_direction = calculateRandomDirectionInHemisphere( ray_pool[index].Intersection.direction, xi1(rng), xi2(rng) );
+    float diffuse = glm::dot( new_direction, ray_pool[index].Intersection.direction );
+    brdf = 2*diffuse*mat.color;
+    // Diffuse weighting
+  }
 
-  // Compute diffuse BRDF
-  float diffuse = glm::dot( new_direction, ray_pool[index].Intersection.direction );
-
-  glm::vec3 brdf = 2*diffuse*mat.color;
-
+  // Handle Perfect Specular Reflection
+   
+  
   // Debug Modes
   /*
   if ( debugMode == DEBUG_DIRECTIONS ) { 
@@ -323,7 +361,8 @@ __global__ void updateImage( glm::vec2 image_resolution, glm::vec3* image, int r
   int image_index = ray_pool[index].image_index;
   
   // The final Emmission value contains the path 
-  image[image_index] += ray_pool[index].Emission;
+  if ( ray_pool[index].Emission.x > 0 || ray_pool[index].Emission.y == 0 || ray_pool[index].Emission.z == 0 )
+    image[image_index] += ray_pool[index].Emission;
 }
 
 /* 
@@ -463,7 +502,7 @@ __global__ void copyRays( ray_data* new_ray_pool, int number_of_rays_new, ray_da
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, float time, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms ){
 
   // set up crucial magic
   int tileSize = 8;
@@ -533,7 +572,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMalloc( (void**)&cuda_indices, numberOfRays*sizeof(int) );
 
   // Perform initial raycasts from camera
-  raycastFromCameraKernel<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, cam, rayPool, numberOfRays );
+  raycastFromCameraKernel<<<fullBlocksPerGrid, threadsPerBlock>>>( renderCam->resolution, time, cam, rayPool, numberOfRays );
 
   int res = (int)ceil(sqrt((float(numberOfRays))));
   //printf("resolution: %d \n", res);
@@ -546,14 +585,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   thrust::device_ptr<int> msk_dptr = thrust::device_pointer_cast(ray_mask);  
   thrust::device_ptr<int> idx_dptr = thrust::device_pointer_cast(cuda_indices);  
 
-  int traceDepth = 3; //determines how many bounces the raytracer traces
+  int traceDepth = 5; //determines how many bounces the raytracer traces
   // Iterate through ray calls accumulating in brdf_accums 
   for ( int i=0; i < traceDepth; ++i ) {
 
     resetRayMask<<<fullBlocksPerGrid, threadsPerBlock>>>( res, ray_mask, numberOfRays );
     cudaThreadSynchronize();
 
-    rayCollisions<<<fullBlocksPerGrid, threadsPerBlock>>>( res, (float)iterations, rayPool, numberOfRays, cudageoms, numberOfGeoms, ray_mask );
+    rayCollisions<<<fullBlocksPerGrid, threadsPerBlock>>>( res, time, rayPool, numberOfRays, cudageoms, numberOfGeoms, ray_mask );
     cudaThreadSynchronize();
 
 
@@ -582,7 +621,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     rayPool = rayPoolNew;
     rayPoolNew = rayPoolSwap;
 
-    sampleBRDF<<<fullBlocksPerGrid, threadsPerBlock>>>( res, (float)(i+1)*iterations, rayPool, numberOfRays, cudamaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaimage, debugMode );
+    sampleBRDF<<<fullBlocksPerGrid, threadsPerBlock>>>( res, (float)(i+1)*time, rayPool, numberOfRays, cudamaterials, numberOfMaterials, cudageoms, numberOfGeoms, cudaimage, debugMode );
     cudaThreadSynchronize();
   }
 

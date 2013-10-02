@@ -104,7 +104,8 @@ void runCuda(){
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  
+  float curtime;
+
   if(iterations<renderCam->iterations){
     uchar4 *dptr=NULL;
     iterations++;
@@ -121,9 +122,10 @@ void runCuda(){
       materials[i] = renderScene->materials[i];
     }
     
-  
-    // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    curtime =  glutGet( GLUT_ELAPSED_TIME )/250.0f;
+    printf( "time: %f \n", curtime ); 
+    //cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, curtime, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -302,6 +304,7 @@ void initCuda(){
   // Clean up on program exit
   atexit(cleanupCuda);
 
+  //struct tm* t0; 
   runCuda();
 }
 
