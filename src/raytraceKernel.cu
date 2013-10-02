@@ -946,9 +946,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
    }
    if (textureArray)
    {
+<<<<<<< HEAD
 	   for (int i = 0; i < numberOfTextures; i ++)
 		   if (textureArray [i].texels)
 			   cudaFree (textureArray [i].texels);
+=======
+//	   for (int i = 0; i < numberOfTextures; i ++)
+//		   if (textureArray [i].texels)
+//			   cudaFree (textureArray [i].texels);
+>>>>>>> 59a047ef07da833b33804277f3e08785347c8b03
 	   cudaFree (textureArray);
    }
 
