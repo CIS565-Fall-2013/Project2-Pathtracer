@@ -278,6 +278,7 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 							rstate.index = -1;//retire ray
 						}
 					}else{
+						//Not a light
 						if(bounce < rconfig.traceDepth - 1){
 							//if we have more bounces to do, Bounce ray. 
 
@@ -307,39 +308,40 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 					if(rconfig.mode == TRACEDEPTH_DEBUG){
 						colors[pixelIndex] += bounce/float(rconfig.traceDepth)*glm::vec3(1,1,1);
 						rstate.index = -1;//retire ray
-					}else if(rconfig.mode == PATHTRACE){
-						//Compute global illumination component, we've hit the sky
-						staticGeom globalLight = geoms[rconfig.globalLightGeomInd];
-						material globalLightMat = materials[globalLight.materialid];
-						if(rstate.bounceType == DIFFUSE){
-							//Diffuse shading is special case, we may want to include shadows in our shading.
-							if(rconfig.globalLightGeomInd > -1)//if we have a global light
-							{
-								glm::vec3 globalLightPos;
-								if(globalLight.type == SPHERE)
+					}else 
+						if(rconfig.mode == PATHTRACE){
+							//Compute global illumination component, we've hit the sky
+							staticGeom globalLight = geoms[rconfig.globalLightGeomInd];
+							material globalLightMat = materials[globalLight.materialid];
+							if(rstate.bounceType == DIFFUSE){
+								//Diffuse shading is special case, we may want to include shadows in our shading.
+								if(rconfig.globalLightGeomInd > -1)//if we have a global light
 								{
-									globalLightPos = getRandomPointOnSphere(globalLight, time*(bounce+1)+rIndex);
-								}else{
-									globalLightPos = getRandomPointOnCube(globalLight, time*(bounce+1)+rIndex);
+									glm::vec3 globalLightPos;
+									if(globalLight.type == SPHERE)
+									{
+										globalLightPos = getRandomPointOnSphere(globalLight, time*(bounce+1)+rIndex);
+									}else{
+										globalLightPos = getRandomPointOnCube(globalLight, time*(bounce+1)+rIndex);
+									}
+									glm::vec3 globalLightDirection = globalLightPos-rstate.r.origin;
+
+									float globalLightDot = clamp(-glm::dot(rstate.r.direction, globalLightDirection),0.0f,1.0f);
+
+									if(rconfig.globalShadows){
+										//Cast shadow ray
+
+									}else{
+										//Approximate lambertian shading
+										colors[pixelIndex] += rstate.T*globalLightMat.absorptionCoefficient*globalLightMat.emittance*globalLightDot;
+									}
 								}
-								glm::vec3 globalLightDirection = globalLightPos-rstate.r.origin;
-
-								float globalLightDot = clamp(-glm::dot(rstate.r.direction, globalLightDirection),0.0f,1.0f);
-
-								if(rconfig.globalShadows){
-									//Cast shadow ray
-
-								}else{
-									//Approximate lambertian shading
-									colors[pixelIndex] += rstate.T*globalLightMat.absorptionCoefficient*globalLightMat.emittance*globalLightDot;
-								}
+							}else{
+								//Primary or specular reflection, just display sky color
+								colors[pixelIndex] += rstate.T*globalLightMat.specularColor;
 							}
-						}else{
-							//Primary or specular reflection, just display sky color
-							colors[pixelIndex] += rstate.T*globalLightMat.specularColor;
+							rstate.index = -1;//retire ray
 						}
-						rstate.index = -1;//retire ray
-					}
 				}
 			}else{
 				//Ray no longer transmits any useful info
