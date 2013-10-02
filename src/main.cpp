@@ -107,7 +107,7 @@ int main(int argc, char** argv){
 	renderOpts->antialiasing = true;
 	renderOpts->streamCompaction = true;
 	renderOpts->frameFiltering = true;
-	renderOpts->globalShadows = false;
+	renderOpts->globalShadows = true;
 
 
 	renderOpts->airIOR = 1.0;
@@ -338,6 +338,10 @@ void keyboard(unsigned char key, int x, int y)
 		renderOpts->frameFiltering = !renderOpts->frameFiltering;
 		frameFilterCounter = 0;
 		cout << "Frame Filter: " << renderOpts->frameFiltering<< endl;
+		break;
+	case 'G':
+		renderOpts->globalShadows = !renderOpts->globalShadows;
+		cout << "Global Shadows: " << renderOpts->globalShadows<< endl;
 		break;
 	case 'f':
 		frameFilterCounter = 0;

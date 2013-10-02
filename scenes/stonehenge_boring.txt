@@ -71,7 +71,18 @@ ABSCOEFF    0.05 0.05 0.02
 RSCTCOEFF   0
 EMITTANCE   0
 
-
+//Define global lighting conditions
+MATERIAL 	6 					//Moonlight
+RGB         1 1 1       	//Emitter Color
+SPECEX      -1					//Flag to use as global light material				
+SPECRGB     0.01 0.01 0.01       //Direct lighting background color (daylight sky blue)
+REFL        0 //Must be zero
+REFR        0 //Must be zero       
+REFRIOR     0       
+SCATTER     0        	
+ABSCOEFF    0.8 0.8 1		//Diffuse shading light color (Full white light)
+RSCTCOEFF   0
+EMITTANCE   0.8
 
 CAMERA
 RES         600 600
@@ -79,7 +90,7 @@ FOVY        25
 ITERATIONS  500
 FILE        stonehenge.bmp
 frame 0
-EYE         0 6 50
+EYE         0 15 50
 VIEW        0 0 -1
 UP          0 1 0
 
@@ -104,7 +115,7 @@ SCALE       1e5 0.1 1e5
 //Island
 OBJECT 2
 sphere
-material 1
+material 2
 frame 0
 TRANS       0 0 0
 ROTAT       0 0 0
@@ -144,8 +155,8 @@ OBJECT 6
 cube
 material 1
 frame 0
-TRANS       10 5 25
+TRANS       0 10 0
 ROTAT       0 0 0
-SCALE       1 20 1
+SCALE       5 20 1
 
 

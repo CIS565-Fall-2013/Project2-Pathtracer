@@ -168,6 +168,17 @@ ABSCOEFF    .0 0.02 0.02
 RSCTCOEFF   13
 EMITTANCE   0
 
+MATERIAL 	14 					//Daylight
+RGB         1 0.77 0.075       	//Emitter Color
+SPECEX      -1					//Flag to use as global light material				
+SPECRGB     0.66 0.81 0.94      //Direct lighting background color (daylight sky blue)
+REFL        0 //Must be zero
+REFR        0 //Must be zero       
+REFRIOR     0       
+SCATTER     0        	
+ABSCOEFF    1 1 1		//Diffuse shading light color (Full white light)
+RSCTCOEFF   0
+EMITTANCE   1
 
 CAMERA
 RES         800 800
@@ -268,3 +279,12 @@ frame 0
 TRANS       0 5 5
 ROTAT       0 90 0
 SCALE       .01 10 10 
+
+//Global light
+OBJECT 11
+sphere
+material 14
+frame 0
+TRANS       0 5e4 0
+ROTAT       0 0 0
+SCALE       1e4 1e4 1e4

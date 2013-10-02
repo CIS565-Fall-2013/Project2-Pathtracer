@@ -250,8 +250,13 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 				glm::vec3 intersectionPoint;
 				glm::vec3 normal;
 				int ind = firstIntersect(geoms, numberOfGeoms, rstate.r, intersectionPoint, normal, dist);
-
-				if(ind >= 0){
+				if(rstate.bounceType == SHADOW){
+					if(ind == rconfig.globalLightGeomInd)
+					{
+						colors[pixelIndex] += rstate.T;
+					}
+					rstate.index = -1;
+				}else if(ind >= 0){
 					//we hit something!
 
 					//calculate transmission through material
@@ -264,6 +269,7 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 					rstate.T *= calculateTransmission(absorbtionCoeff, dist);
 
 					//Transmission computed, now let's check on what we hit. This is where code will diverge quite a bit
+
 
 					//Check if it's a light
 					material m = materials[geoms[ind].materialid];
@@ -324,23 +330,26 @@ __global__ void traceRay(cameraData cam, renderOptions rconfig, float time, int 
 									}else{
 										globalLightPos = getRandomPointOnCube(globalLight, time*(bounce+1)+rIndex);
 									}
-									glm::vec3 globalLightDirection = globalLightPos-rstate.r.origin;
+									glm::vec3 globalLightDirection = glm::normalize(globalLightPos-rstate.r.origin);
 
-									float globalLightDot = clamp(-glm::dot(rstate.r.direction, globalLightDirection),0.0f,1.0f);
+									float globalLightDot = clamp(glm::dot(rstate.r.direction, globalLightDirection),0.0f,1.0f);
 
 									if(rconfig.globalShadows){
 										//Cast shadow ray
-
+										rstate.T *= globalLightMat.absorptionCoefficient*globalLightMat.emittance*globalLightDot;
+										rstate.r.direction =  globalLightDirection;
+										rstate.bounceType = SHADOW;
 									}else{
 										//Approximate lambertian shading
 										colors[pixelIndex] += rstate.T*globalLightMat.absorptionCoefficient*globalLightMat.emittance*globalLightDot;
+										rstate.index = -1;//retire ray
 									}
 								}
 							}else{
 								//Primary or specular reflection, just display sky color
 								colors[pixelIndex] += rstate.T*globalLightMat.specularColor;
+								rstate.index = -1;//retire ray
 							}
-							rstate.index = -1;//retire ray
 						}
 				}
 			}else{
