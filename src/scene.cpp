@@ -30,13 +30,8 @@ scene::scene(string filename){
 				    loadCamera();
 				    cout << " " << endl;
 				}
-<<<<<<< HEAD
-				else if(strcmp(tokens[0].c_str(), "TEXTURE")==0){
-				    loadTexture(tokens[1]);;
-=======
 				else if(strcmp(tokens[0].c_str(), "TEXTUREID")==0){
 				    loadTexture(tokens[1]);
->>>>>>> 59a047ef07da833b33804277f3e08785347c8b03
 				    cout << " " << endl;
 				}
 			}

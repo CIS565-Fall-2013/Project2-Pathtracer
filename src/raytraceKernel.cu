@@ -363,22 +363,28 @@ __global__ void copyArray (int *from, int *to, int fromLength)
 }
 
 // Kernel to do inclusive scan.
+// Do NOT copy the results back in the same kernel as threads in other blocks might be still accessing the same location in 
+// global memory, causing a read/write conflict. Use copyArray or cudaMemcpy.
 __global__ void inclusiveScan (int *secondaryArray, int *tmpArray, int primArrayLength, int iteration)
 {
-	int		curIndex = blockDim.x*blockIdx.x + threadIdx.x;
-	int		prevIndex = curIndex - (int)pow ((float)2, (float)(iteration-1));
+	unsigned long	curIndex = blockDim.x*blockIdx.x + threadIdx.x;
+	long	prevIndex = curIndex - floor (pow ((float)2.0, (float)(iteration-1)));
 
 	if (curIndex < primArrayLength)
-		if (curIndex >= pow ((float)2, (float)iteration-1))
+	{
+		if (/*curIndex >= floor (pow ((float)2.0, (float)(iteration-1)))*/prevIndex >= 0)
 			tmpArray [curIndex] = secondaryArray [curIndex] + secondaryArray [prevIndex];
+	}
 }
 
 // Kernel to shift all elements of Array to the right. 
 // The last element is thrown out in the process and the first element becomes 0.
 // Can convert an inclusive scan result to an exclusive scan.
+// Do NOT copy the results back in the same kernel as threads in other blocks might be still accessing the same location in 
+// global memory, causing a read/write conflict and erroneous values. Use copyArray or cudaMemcpy.
 __global__ void	shiftRight (int *Array, int *secondArray, int arrayLength)
 {
-	int		curIndex = blockDim.x*blockIdx.x + threadIdx.x;
+	unsigned long	curIndex = blockDim.x*blockIdx.x + threadIdx.x;
 	if (curIndex < arrayLength)
 	{
 		if (curIndex > 0)
@@ -387,17 +393,17 @@ __global__ void	shiftRight (int *Array, int *secondArray, int arrayLength)
 			secondArray [curIndex] = 0;
 	}
 
-	__syncthreads ();
-	// Make sure we make the first element 0 only after all the shifting has taken place.
-	if (curIndex < arrayLength)
-		Array [curIndex] = secondArray [curIndex];
+	//__syncthreads ();
+	//// Copy the results of the shift back to the main secondary array from the temp array.
+	//if (curIndex < arrayLength)
+	//	Array [curIndex] = secondArray [curIndex];
 }
 
 
 // Kernel to do stream compaction.
 __global__ void	compactStream (ray *rayPoolOnDevice, ray *tempRayPool, bool *primaryArrayOnDevice, int *secondaryArray, int rayPoolLengthOnDevice)
 {
-	int		curIndex = blockDim.x*blockIdx.x + threadIdx.x;
+	unsigned long	curIndex = blockDim.x*blockIdx.x + threadIdx.x;
 	if (curIndex < rayPoolLengthOnDevice)
 	{
 		int secondArrayIndex = secondaryArray [curIndex];
@@ -585,7 +591,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   float movement = 3.0/nIterations;			// For motion blur.
   int nBounces = 6;
   int oneEighthDivisor = nIterations / 8;	// For antialiasing.
-
+  int errCount = 0;
   // For each point sampled in the area light, launch the raytraceRay Kernel which will compute the diffuse, specular, ambient
   // and shadow colours. It will also compute reflected colours for reflective surfaces.
   for (int i = 0; i < nIterations; i ++)
@@ -692,15 +698,23 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		
 		// Parallel scan. We can't do it in place, so we accumulate in secondaryArray2, and copy back to secondaryArray
 		// at the end of each iteration.
-		for (int k = 1; k <= ceil (log2f (rayPoolLength)); ++ k) 
+		float test = log2f (rayPoolLength);
+		for (int k = 1; k <= ceil (test); ++ k) 
 		{
+			cudaDeviceSynchronize ();
 			inclusiveScan<<<fullBlocksPerGrid, threadsPerBlock1D>>>(secondaryArray, secondaryArray2, rayPoolLength, k);
-			copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (secondaryArray2, secondaryArray, rayPoolLength);
+			cudaDeviceSynchronize ();
+//			copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (secondaryArray2, secondaryArray, rayPoolLength);
+			cudaMemcpy (secondaryArray, secondaryArray2, rayPoolLength*sizeof (int), cudaMemcpyDeviceToDevice);
+			cudaDeviceSynchronize ();
 		}
 //		checkCUDAError("inclusiveScan Kernel failed!");
 	
 		// Next, we convert the result of the parallel scan (inclusive) into exclusive scan.
 		shiftRight<<<fullBlocksPerGrid, threadsPerBlock1D>>>(secondaryArray, secondaryArray2, rayPoolLength);
+		cudaDeviceSynchronize ();
+		cudaMemcpy (secondaryArray, secondaryArray2, rayPoolLength*sizeof (int), cudaMemcpyDeviceToDevice);
+
 //		checkCUDAError("shiftRight Kernel failed!");
 //		copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (secondaryArray2, secondaryArray, rayPoolLength);
 //		checkCUDAError("copyArray-shiftRight Kernel failed!");
@@ -713,9 +727,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		{
 			if (secondaryArrayOnHost [k] != secondaryArrayOnHost2 [k])
 			{
-				std::cout << "\nERROR!: Secondary Arrays don't match. GPU scanning is inaccurate. Mismatch at " << k;
-				std::cin.get ();
-				exit (EXIT_FAILURE);
+				std::cout << "\nERROR!: Secondary Arrays don't match. GPU scanning is inaccurate." 
+						  << "\nMismatch at " << k << " CPU val: " << secondaryArrayOnHost [k] << " GPU val: " << secondaryArrayOnHost2 [k]
+						  << " Raypool Length: " << rayPoolLength;
+				errCount ++;
+				if (errCount > 15)
+				{
+					std::cin.get ();
+					exit (EXIT_FAILURE);
+				}
 			}
 		}
 		
@@ -800,15 +820,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
    }
    if (textureArray)
    {
-<<<<<<< HEAD
-	   for (int i = 0; i < numberOfTextures; i ++)
-		   if (textureArray [i].texels)
-			   cudaFree (textureArray [i].texels);
-=======
 //	   for (int i = 0; i < numberOfTextures; i ++)
 //		   if (textureArray [i].texels)
 //			   cudaFree (textureArray [i].texels);
->>>>>>> 59a047ef07da833b33804277f3e08785347c8b03
 	   cudaFree (textureArray);
    }
 
