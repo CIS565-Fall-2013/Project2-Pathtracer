@@ -70,7 +70,6 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
   return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
 }
 
-//TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov, glm::vec3 centreProj,
 													glm::vec3	halfVecH, glm::vec3 halfVecV)
@@ -132,6 +131,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   }
 }
 
+// Intersects the castRay with all the geometry in the scene (geoms) and returns the intercept information.
 __device__ interceptInfo getIntercept (staticGeom * geoms, sceneInfo objectCountInfo, ray castRay, material* textureArray)
 {
 	glm::vec3 intrPoint = glm::vec3 (0, 0, 0);
@@ -193,12 +193,15 @@ __device__ interceptInfo getIntercept (staticGeom * geoms, sceneInfo objectCount
 	return theRightIntercept;
 }
 
+// Given MaxWidth of a 2D array, and the x and y co-ordinates or indices of an element, returns the equivalent 1D array index.
 __device__ unsigned long getIndex (int x, int y, int MaxWidth)
 {	return (unsigned long) y*MaxWidth + x ;	}
 
+// Check for approximate equality.
 __host__ __device__ bool isApproximate (float valToBeCompared, float valToBeCheckedAgainst) 
 { if ((valToBeCompared >= valToBeCheckedAgainst-0.001) && (valToBeCompared <= valToBeCheckedAgainst+0.001)) return true;	return false; }
 
+// Given the UV coordinates (UVcoords) and a Texture, this returns the bilinearly interpolated colour at that point.
 __device__ glm::vec3 getColour (mytexture &Texture, glm::vec2 UVcoords)
 {	
 		unsigned long texelXY, texelXPlusOneY, texelXYPlusOne, texelXPlusOneYPlusOne;
@@ -261,11 +264,14 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
   // Ray pool is a massive 1-D array, so we need to compute the index of the element of ray pool
   // that each thread will handle.
 
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x +			// X-part: straightforward
+			(threadIdx.y * (int)(blockDim.x * ceil ((float)rayPoolLength / (float)(blockDim.x*blockDim.y))));  // Y-part: as below:
   // No. of blocks in the grid = ceil (rayPoolLength / (blockDim.x*blockDim.y))
   // Multiplying that with the no. threads in a block gives the no. of threads in a single row of grid.
   // Multiplying that with row number (threadIdx.y) and adding the x offset (X-part) gives the index.
-  int index = (blockIdx.x * blockDim.x) + threadIdx.x +			// X-part: straightforward
-			(threadIdx.y * (int)(blockDim.x * ceil ((float)rayPoolLength / (float)(blockDim.x*blockDim.y))));  // Y-part: as below:
+
+  // threadID gives the index of the thread when the block of threads is flattened out into a 1D array.
+  // We need this because we're using shared memory.
   int threadID = threadIdx.y*blockDim.x + threadIdx.x;
   int colourIndex;
 
@@ -334,18 +340,6 @@ __global__ void createRayPool (ray *rayPool, bool *primaryArray, int *secondaryA
 
 __global__ void copyArray (bool *from, int *to, int fromLength)
 {
-	/*__shared__ int blockArrays []
-	__shared__ bool *pArrayBlock;
-	__shared__ int *sArrayBlock;
-	
-	if (threadIdx.x == 0)
-	{
-		pArrayBlock = (bool *)blockArrays;
-		sArrayBlock = (int *)&pArrayBlock [blockDim.x];
-	}
-	__syncthreads ();*/
-
-//	int blockIndex = threadIdx.x;
 	int globalIndex = blockDim.x*blockIdx.x + threadIdx.x;
 
 	if (globalIndex < fromLength)
@@ -354,18 +348,6 @@ __global__ void copyArray (bool *from, int *to, int fromLength)
 
 __global__ void copyArray (ray *from, ray *to, int fromLength)
 {
-	/*__shared__ int blockArrays []
-	__shared__ bool *pArrayBlock;
-	__shared__ int *sArrayBlock;
-	
-	if (threadIdx.x == 0)
-	{
-		pArrayBlock = (bool *)blockArrays;
-		sArrayBlock = (int *)&pArrayBlock [blockDim.x];
-	}
-	__syncthreads ();*/
-
-//	int blockIndex = threadIdx.x;
 	int globalIndex = blockDim.x*blockIdx.x + threadIdx.x;
 
 	if (globalIndex < fromLength)
@@ -374,18 +356,6 @@ __global__ void copyArray (ray *from, ray *to, int fromLength)
 
 __global__ void copyArray (int *from, int *to, int fromLength)
 {
-	/*__shared__ int blockArrays []
-	__shared__ bool *pArrayBlock;
-	__shared__ int *sArrayBlock;
-	
-	if (threadIdx.x == 0)
-	{
-		pArrayBlock = (bool *)blockArrays;
-		sArrayBlock = (int *)&pArrayBlock [blockDim.x];
-	}
-	__syncthreads ();*/
-
-//	int blockIndex = threadIdx.x;
 	int globalIndex = blockDim.x*blockIdx.x + threadIdx.x;
 
 	if (globalIndex < fromLength)
@@ -395,16 +365,6 @@ __global__ void copyArray (int *from, int *to, int fromLength)
 // Kernel to do inclusive scan.
 __global__ void inclusiveScan (int *secondaryArray, int *tmpArray, int primArrayLength, int iteration)
 {
-//	__shared__ int blockArrays []
-//	__shared__ bool *pArrayBlock;
-//	__shared__ int *sArrayBlock;
-
-//	if (threadIdx.x == 0)
-//	{
-//		pArrayBlock = (bool *)blockArrays;
-//		sArrayBlock = (int *)&pArrayBlock [blockDim.x];
-//	}
-
 	int		curIndex = blockDim.x*blockIdx.x + threadIdx.x;
 	int		prevIndex = curIndex - (int)pow ((float)2, (float)(iteration-1));
 
@@ -427,9 +387,10 @@ __global__ void	shiftRight (int *Array, int *secondArray, int arrayLength)
 			secondArray [curIndex] = 0;
 	}
 
-//	__syncthreads ();
+	__syncthreads ();
 	// Make sure we make the first element 0 only after all the shifting has taken place.
-//	Array [curIndex] = secondArray [curIndex];
+	if (curIndex < arrayLength)
+		Array [curIndex] = secondArray [curIndex];
 }
 
 
@@ -445,41 +406,6 @@ __global__ void	compactStream (ray *rayPoolOnDevice, ray *tempRayPool, bool *pri
 	}
 }
 
-// Device function to check if a point is in shadow.
-// Given a ray r, it intersects it with all the primitives in the scene to check whether it intersects
-// with any other primitive than light. If it does, then the point (ray's origin) is in shadow, and it returns true. 
-__device__ bool isShadowRayBlocked (ray r, glm::vec3 lightPos, staticGeom *geomsList, sceneInfo objectCountInfo)
-{
-	float min = 1e6, interceptValue;
-	glm::vec3 intrPoint, intrNormal;
-	glm::vec2 UVcoords = glm::vec2 (0, 0);
-	for (int i = 0; i < objectCountInfo.nCubes; ++i)
-	{
-		staticGeom currentGeom = geomsList [i];
-		interceptValue = boxIntersectionTest(currentGeom, r, intrPoint, intrNormal, UVcoords);
-		if (interceptValue > 0)
-		{
-			if (interceptValue < min)
-				min = interceptValue;
-		}
-	}
-
-	for (int i = objectCountInfo.nCubes; i <= (objectCountInfo.nCubes+objectCountInfo.nSpheres); ++i)
-	{
-		staticGeom currentGeom = geomsList [i];
-		interceptValue = sphereIntersectionTest(currentGeom, r, intrPoint, intrNormal);
-		if (interceptValue > 0)
-		{
-			if (interceptValue < min)
-				min = interceptValue;
-		}
-	}
-
-	if (glm::length (lightPos - r.origin) > (min+0.1))
-		return true;
-	return false;
-}
-
 // This kernel will accumulate all the colours calculated in an iteration into the actual colour array.
 __global__ void		accumulateIterationColour (glm::vec3* accumulator, glm::vec3* iterationColour, glm::vec2 resolution)
 {
@@ -489,8 +415,7 @@ __global__ void		accumulateIterationColour (glm::vec3* accumulator, glm::vec3* i
 		accumulator [index] += iterationColour [index];
 }
 
-// This kernel surveys the rays that are still alive and replaces
-// the colours of their respective pixels with noise (0,0,0)
+// This kernel replaces the colours of the respective pixels of all the rays in the ray pool with noise (0,0,0)
 __global__ void		addNoise (glm::vec3 *localColours, ray *rayPoolOnDevice, int rayPoolLength, glm::vec2 resolution)
 {
 	// Index calculation, as in raytraceRay
@@ -503,39 +428,6 @@ __global__ void		addNoise (glm::vec3 *localColours, ray *rayPoolOnDevice, int ra
 		int colourIndex = currentRay.y * resolution.x + currentRay.x;
 		localColours [colourIndex] = glm::vec3 (0);
 	}
-}
-
-// If errorCode is not cudaSuccess, kills the program.
-void onDeviceErrorExit (cudaError_t errorCode, glm::vec3 *cudaimage, staticGeom *cudageoms, material * materialColours, int numberOfMaterials)
-{
-  if (errorCode != cudaSuccess)
-  {
-	  std::cout << "\nError while trying to send texture data to the GPU!";
-	  std::cin.get ();
-
-	  if (cudaimage)
-		cudaFree( cudaimage );
-	  if (cudageoms)
-		cudaFree( cudageoms );
-	  if (materialColours)
-	  {
-		   /*for (int i = 0; i < numberOfMaterials; i ++)
-		   {
-			   if (materialColours [i].hasTexture)
-				cudaFree (materialColours[i].Texture.texels);
-
-			   if (materialColours [i].hasNormalMap)
-				cudaFree (materialColours[i].NormalMap.texels);
-		   }*/
-		  cudaFree (materialColours);
-	  }
-
-	  cudaimage = NULL;
-	  cudageoms = NULL;
-	  materialColours = NULL;
-
-	  exit (EXIT_FAILURE);
-  }
 }
 
 //TODO: Done!
@@ -674,60 +566,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMemcpy (textureArray, textureList, numberOfTextures*sizeof(mytexture), cudaMemcpyHostToDevice);
   delete [] textureList;
 
-  // TODO: Texture mapping: Use index to a texture array.
-  // Deep copying textures and normal maps:
-  //glm::vec3 *texture = NULL;
-  //glm::vec3 *norMap = NULL;
-  //material *copyMaterial = new material [numberOfMaterials];	// SUCKS!
-  //for (int i = 0; i < numberOfMaterials; i ++)
-  //{
-	 // copyMaterial [i] = materials [i];
-	 // copyMaterial [i].Texture.texels = NULL;
-	 // copyMaterial [i].NormalMap.texels = NULL;
-	 // int noOfTexels = 0, noOfNMapTexels = 0;
-	 // if (copyMaterial [i].hasTexture)
-	 // {
-		//  noOfTexels = materials [i].Texture.texelHeight * materials [i].Texture.texelWidth;
-		//  cudaError_t returnCode2 = cudaMalloc ((void **)&texture, noOfTexels * sizeof (glm::vec3));
-		//  onDeviceErrorExit (returnCode2, cudaimage, cudageoms, materialColours, numberOfMaterials);
-		//  copyMaterial [i].Texture.texels = texture;
-	 // }
-
-	 // if (copyMaterial [i].hasNormalMap)
-	 // {
-		//  noOfNMapTexels = materials [i].NormalMap.texelHeight * materials [i].NormalMap.texelWidth;
-		//  cudaError_t returnCode2 = cudaMalloc ((void **)&norMap, noOfNMapTexels * sizeof (glm::vec3));
-		//  onDeviceErrorExit (returnCode2, cudaimage, cudageoms, materialColours, numberOfMaterials);
-		//  copyMaterial [i].NormalMap.texels = norMap;
-	 // }
-  //}
-
-  //cudaMemcpy (materialColours, copyMaterial, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
-
-  //for (int i = 0; i < numberOfMaterials; i ++)
-  //{
-
-	 // if (noOfTexels)
-		//  cudaMemcpy( curMaterialDevice->Texture.texels, materials [i].Texture.texels, noOfTexels*sizeof(glm::vec3), cudaMemcpyHostToDevice);
-	 // if (noOfNMapTexels)
-		//  cudaMemcpy (curMaterialDevice->NormalMap.texels, materials [i].NormalMap.texels, noOfNMapTexels*sizeof(glm::vec3), cudaMemcpyHostToDevice);
-
-  //}
-
-  // Need to check whether the above method is correct.
-
-  // Copy the render parameters like ks, kd values, the no. of times the area light is sampled, 
-  // the position of the light samples w/r to the light's geometry and so on.
-  //renderInfo	RenderParams, *RenderParamsOnDevice = NULL;
-  //RenderParams.ks = 0.4;
-  //RenderParams.kd = 1 - RenderParams.ks;
-  //RenderParams.nLights = renderCam->iterations;
-  //RenderParams.sqrtLights = sqrt ((float)RenderParams.nLights);
-  //RenderParams.lightStepSize = 1.0/(RenderParams.sqrtLights-1);
   glm::vec3 lightPosInBodySpace = glm::vec3 (0, -0.6, 0);
-  //RenderParams.lightCol = materials [geoms [lightIndex].materialid].color * materials [geoms [lightIndex].materialid].emittance;
-  //cudaMalloc ((void **)&RenderParamsOnDevice, sizeof (renderInfo));
-  //cudaMemcpy (RenderParamsOnDevice, &RenderParams, sizeof (renderInfo), cudaMemcpyHostToDevice);
 
   //package camera
   cameraData cam;
@@ -798,6 +637,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  int *secondaryArray = NULL;
 	  cudaMalloc ((void **)&secondaryArray, rayPoolLength * sizeof (int));
 	  int *secondaryArrayOnHost = new int [rayPoolLength];
+	  int *secondaryArrayOnHost2 = new int [rayPoolLength];
 
 	  // Launch createRayPool kernel to create the ray pool and populate the primary and secondary arrays.
 	  fullBlocksPerGrid = dim3 ((int)ceil(float(cam.resolution.x)/threadsPerBlock.x), (int)ceil(float(cam.resolution.y)/threadsPerBlock.y));
@@ -860,12 +700,25 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 //		checkCUDAError("inclusiveScan Kernel failed!");
 	
 		// Next, we convert the result of the parallel scan (inclusive) into exclusive scan.
-		// Again, we use secondaryArray2 to store the shifted values, and then copy back to secondaryArray.
 		shiftRight<<<fullBlocksPerGrid, threadsPerBlock1D>>>(secondaryArray, secondaryArray2, rayPoolLength);
 //		checkCUDAError("shiftRight Kernel failed!");
-		copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (secondaryArray2, secondaryArray, rayPoolLength);
+//		copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (secondaryArray2, secondaryArray, rayPoolLength);
 //		checkCUDAError("copyArray-shiftRight Kernel failed!");
-
+		cudaMemcpy (primaryArray, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
+		secondaryArrayOnHost [0] = 0;
+		for (int k = 1; k < rayPoolLength; ++ k)
+			secondaryArrayOnHost [k] = secondaryArrayOnHost [k-1] + primaryArray [k-1];
+		cudaMemcpy (secondaryArrayOnHost2, secondaryArray, rayPoolLength * sizeof (int), cudaMemcpyDeviceToHost);
+		for (int k = 0; k < rayPoolLength; ++k)
+		{
+			if (secondaryArrayOnHost [k] != secondaryArrayOnHost2 [k])
+			{
+				std::cout << "\nERROR!: Secondary Arrays don't match. GPU scanning is inaccurate. Mismatch at " << k;
+				std::cin.get ();
+				exit (EXIT_FAILURE);
+			}
+		}
+		
 		// We're done with the backup secondary array, so let's free the memory.
 		cudaFree (secondaryArray2);
 
@@ -914,6 +767,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	  delete [] primaryArray;
 	  delete [] secondaryArrayOnHost;
+	  delete [] secondaryArrayOnHost2;
 //	  delete [] rayPool;
 
 	  std::cout << "\rRendering.. " <<  ceil ((float)i/(nIterations-1) * 100) << " percent complete.";
