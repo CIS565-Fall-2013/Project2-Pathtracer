@@ -24,9 +24,20 @@ http://youtu.be/0hghD1Zi7qU
 -------------------------------------------------------------------------------
 Screen Shots
 -------------------------------------------------------------------------------
-With depth of field, 6000 iterations, 10 max bounce depth
+*With depth of field, refraction, reflection,8000 iterations, 10 max bounce depth
+![Alt test](/renders/8000.DOF.bmp "")
+
+*With depth of field, refraction,reflection,6000 iterations, 10 max bounce depth
 ![Alt test](/renders/pathTracer.DOF2.6000.bmp " ")
 
+*No DOF, 3000 iterations, refraction,reflection,3000 iterations, 10 max bounce depth
+![Alt test](/renders/pathTracer.refraction.10.3000.bmp " ")
+
+*No DOF, refraction, 500 iterations, 5 max bounce depth
+![Alt test](/renders/pathTracer.refraction.5.500.bmp " ")
+
+*Strange bug, bug disappears after I removed the sphere
+![Alt test](/renders/FirstImage.JPG "")
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
