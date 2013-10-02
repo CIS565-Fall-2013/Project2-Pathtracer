@@ -194,7 +194,7 @@ void runCuda(){
       gammaSettings gamma;
       gamma.applyGamma = true;
       gamma.gamma = 1.0/2.2;
-      gamma.divisor = renderCam->iterations;
+      gamma.divisor = renderCam->iterations * 4;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -251,14 +251,15 @@ void runCuda(){
 
 	void display(){
 		
-		if(glutGet(GLUT_ELAPSED_TIME) - timeSinceLastFrame > 1000)
-		{			
-			fps = frames;
+	//	if(glutGet(GLUT_ELAPSED_TIME) - timeSinceLastFrame > 1000)
+	//	{			
+	//		fps = frames;		
+			float executionTime = glutGet(GLUT_ELAPSED_TIME) - timeSinceLastFrame;
 			timeSinceLastFrame = glutGet(GLUT_ELAPSED_TIME);
-			frames = 0;
-		}
-		++frames;
-		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations | FPS: " + utilityCore::convertIntToString(fps);
+	//		frames = 0;
+	//	}
+	//	++frames;
+		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations | Execution Time: " + utilityCore::convertFloatToString(executionTime) + "ms";
 
 		runCuda();
 

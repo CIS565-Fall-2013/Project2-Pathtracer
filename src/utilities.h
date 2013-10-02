@@ -20,7 +20,7 @@
 #define PI                          3.1415926535897932384626422832795028841971
 #define TWO_PI                      6.2831853071795864769252867665590057683943
 #define SQRT_OF_ONE_THIRD           0.5773502691896257645091487805019574556476
-#define E                           2.7182818284590452353602874713526624977572
+#define NATURAL_E                   2.7182818284590452353602874713526624977572
 #define EPSILON                     .001
 #define ZERO_ABSORPTION_EPSILON     0.00001
 #define RAY_BIAS_AMOUNT             0.0002
@@ -36,6 +36,7 @@ namespace utilityCore {
     extern glm::mat4 buildTransformationMatrix(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale);
     extern void printCudaMat4(cudaMat4 m);
     extern std::string convertIntToString(int number);
+	extern std::string convertFloatToString(float number);
     extern std::istream& safeGetline(std::istream& is, std::string& t); //Thanks to http://stackoverflow.com/a/6089413
 
     //-----------------------------

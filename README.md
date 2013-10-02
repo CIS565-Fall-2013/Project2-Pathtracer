@@ -4,26 +4,32 @@ CIS565: Project 1: CUDA Raytracer
 Fall 2013
 -------------------------------------------------------------------------------
 
-
-Questions to answer:
-
-New method to pass light results in dimmer highlights?
 -------------------------------------------------------------------------------
 PROJECT DESCRIPTION
 -------------------------------------------------------------------------------
-This is a GPU ray tracing program. Features implemented including:
+This is a GPU path tracing program. Features implemented including:
 * Basic features
-	- Raycasting from a camera into a scene through a pixel grid
-	- Phong lighting for one point light source
-	- Diffuse lambertian surfaces
-	- Raytraced shadows
-	- Cube intersection testing
-	- Sphere surface point sampling
+	- Full global illumination (including soft shadows, color bleeding, etc.) by pathtracing rays through the scene. 
+    - Properly accumulating emittance and colors to generate a final image
+    - Supersampled antialiasing
+    - Parallelization by ray instead of by pixel via stream compaction using Thrust library.
+    - Perfect specular reflection (mirror)
+
 
 * Additional features
-	- Specular reflection 
-	- Soft shadows and area lights 
-	- Refraction
+	- Fresnel refraction and reflection for transparent objects
+	- Motion blur
+	- Depth of Field
+
+-------------------------------------------------------------------------------
+IMPLEMENTATION DETAILS
+-------------------------------------------------------------------------------
+Starting from my ray tracer from last project, I decided to test the concept of path tracing before heavily modifying 
+my code for ray parallelization or other stuff. So, with a naive path tracer, which looks even simpler than a raytracer,
+my first image lookes like this:
+
+Apparently, the result was not at all random and it seemed that the light followed a few very limited paths, almost like 
+a reflection. So, after taking Liam's advice and changing 
 
 -------------------------------------------------------------------------------
 SCREEN SHOTS AND VIDEOS
@@ -40,7 +46,7 @@ SCREEN SHOTS AND VIDEOS
 HOW TO BUILD
 -------------------------------------------------------------------------------
 * Project tested in Visual Studio 2012 in Release(5.5) configuration with 
-  compute_20,sm_21
+  compute_30,sm_30
 
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
@@ -82,5 +88,18 @@ THIRD PARTY CODE USED
 -------------------------------------------------------------------------------
 * An Efficient and Robust Ray¨CBox Intersection Algorithm, A. Williams, et al.  
   http://people.csail.mit.edu/amy/papers/box-jgt.pdf
+* Thrust library for stream compaction
 
-
+-------------------------------------------------------------------------------
+TO DO LIST (listed by importance)
+-------------------------------------------------------------------------------
+* More BRDF models:
+	* Oren-Nayar model
+	* Microfacet model for refraction
+	* Torrance-Sparrow model
+	* Ward model
+* HEAVY optimization
+* Faster convergence
+* Interactive camera (must do optimization first)
+* OBJ file loading 
+* k-d tree or BVH

@@ -9,13 +9,19 @@
 #include <time.h>
 #include <cuda.h>
 #include <cmath>
+#include <vector>
+#include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/remove.h>
 #include "sceneStructs.h"
 #include "glm/glm.hpp"
 #include "utilities.h"
 #include "raytraceKernel.h"
 #include "intersections.h"
 #include "interactions.h"
-#include <vector>
+
+
+
 /*
 
 #include "utils/cuPrintf.cuh"
@@ -35,6 +41,12 @@ void checkCUDAError(const char *msg) {
   }
 } 
 
+struct ray_is_dead{  
+	__host__ __device__  bool operator()(const ray r)  
+	{    
+		return r.index == -1;  
+	}
+};
 //LOOK: This function demonstrates how to use thrust for random number generation on the GPU!
 //Function that generates static.
 __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolution, float time, int x, int y){
@@ -51,6 +63,7 @@ __host__ __device__ glm::vec2 generateRandomNumberFromThreadForSSAA(glm::vec2 re
    
   thrust::default_random_engine rng(hash(index*time));
   thrust::uniform_real_distribution<float> u01(0,1);
+//  thrust::uniform_real_distribution<float> v01(0,1);
 
   return glm::vec2(x - distanceToBoundary + (float)u01(rng) * 2 * distanceToBoundary, y - distanceToBoundary + (float)u01(rng) * 2 * distanceToBoundary);
 }
@@ -94,9 +107,9 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   if(x<=resolution.x && y<=resolution.y){
 
       glm::vec3 color;
-      color.x = image[index].x*255.0/float(iterations/2);
-      color.y = image[index].y*255.0/float(iterations/2);
-      color.z = image[index].z*255.0/float(iterations/2);
+      color.x = image[index].x*255.0/float(iterations);
+      color.y = image[index].y*255.0/float(iterations);
+      color.z = image[index].z*255.0/float(iterations);
 
       if(color.x>255){
         color.x = 255;
@@ -365,34 +378,33 @@ __global__ void raytracePrimary(glm::vec2 resolution, int time, cameraData cam, 
    }
 }
 
-__global__ void rayTracerIterative(int iteration, int depth, glm::vec2 resolution, ray *rayPool, int rayCount, glm::vec3* colors,
+__global__ void rayTracerIterative(int iteration, int depth, int tileSize, ray *rayPool, int rayCount, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
 
-	glm::vec3 bgColor(0.0f);
-	glm::vec3 phongColor(0.0f), reflColor(0.0f), refraColor(0.0f);;
-	glm::vec3 returnColor(0.0f);
-
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-    int index = x + (y * resolution.x);
+    int y = (blockIdx.y * blockDim.y) + threadIdx.y;  // blockIdx.y is always zero
 
-	// intersection test	
-	if(rayPool[index].index != -1){
+	int index = tileSize * x + y;
+
+	if(index < rayCount){
+		// intersection test	
 		glm::vec3 intersectionPoint, intersectionNormal;
-		int intersIndex = rayIntersect(rayPool[index], geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials);
+		ray r = rayPool[index];
+		int intersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials);
 
 		if(intersIndex == -1) 
 		{
-			colors[rayPool[index].index] += glm::vec3(0.0f);
-			rayPool[index].index = -1;
+			colors[r.index] += glm::vec3(0.0f);
+			r.index = -1;
+			rayPool[index] = r;
 			return;
 		}
 		else if(materials[geoms[intersIndex].materialid].emittance > 0.0f) // intersected with light source geometry
 		{
-			rayPool[index].accumulatedColor *= materials[geoms[intersIndex].materialid].color;		
-			colors[rayPool[index].index] += rayPool[index].accumulatedColor;
-//			colors[rayPool[index].index] = (float)(iteration + 1); 
-			rayPool[index].index = -1;
+			r.accumulatedColor *= materials[geoms[intersIndex].materialid].color * materials[geoms[intersIndex].materialid].emittance;	
+			colors[r.index] += r.accumulatedColor;
+			r.index = -1;
+			rayPool[index] = r;
 			return;
 		}
 		else // intersected with actual geometry
@@ -400,67 +412,69 @@ __global__ void rayTracerIterative(int iteration, int depth, glm::vec2 resolutio
 			glm::vec3 reflDir, refraDir;
 			float nextIndexOfRefraction;
 			Fresnel fresnel;
-			if(depth == 9) 
+/*
+			if(depth == 99) 
 			{
-				colors[rayPool[index].index] += glm::vec3(0.0f);
-				rayPool[index].index = -1;
+				colors[r.index] += glm::vec3(0.0f);
+				r.index = -1;
+				rayPool[index] = r;
 				return;
-			}
+			}*/
 
-			else if(materials[geoms[intersIndex].materialid].hasRefractive == 1) // for fresnel, if refractive, it will be reflective
+			if(materials[geoms[intersIndex].materialid].hasRefractive == 1) // for fresnel, if refractive, it will be reflective
 			{
-				if(abs(rayPool[index].mediaIOR - 1) < 0.00001f)  // current ray is in air
+				if(abs(r.mediaIOR - 1) < 0.00001f)  // current ray is in air
 				{
-					refraDir = calculateTransmissionDirection(rayPool[index].direction, intersectionNormal, rayPool[index].mediaIOR, materials[geoms[intersIndex].materialid].indexOfRefraction, nextIndexOfRefraction);
+					refraDir = calculateTransmissionDirection(r.direction, intersectionNormal, r.mediaIOR, materials[geoms[intersIndex].materialid].indexOfRefraction, nextIndexOfRefraction);
 	//				printf("in air %f\n", nextIndexOfRefraction);
 				}
 				else                                              // current ray is in glass
 				{
 					intersectionNormal = -intersectionNormal;
-					refraDir = calculateTransmissionDirection(rayPool[index].direction, intersectionNormal, rayPool[index].mediaIOR, 1.0f, nextIndexOfRefraction);
+					refraDir = calculateTransmissionDirection(r.direction, intersectionNormal, r.mediaIOR, 1.0f, nextIndexOfRefraction);
 	//				printf("in glass, depth: %d\n", depth);
 				
 				}
-				reflDir = calculateReflectionDirection(rayPool[index].direction, intersectionNormal);
-				fresnel = calculateFresnel(intersectionNormal, rayPool[index].direction, rayPool[index].mediaIOR, nextIndexOfRefraction, reflDir, refraDir);
+//					refraDir = calculateTransmissionDirection(r.direction, abs(r.mediaIOR - 1) < 0.00001f ? intersectionNormal : -intersectionNormal, r.mediaIOR, abs(r.mediaIOR - 1) < 0.00001f ? materials[geoms[intersIndex].materialid].indexOfRefraction : 1.0f, nextIndexOfRefraction);
+
+				reflDir = calculateReflectionDirection(r.direction, intersectionNormal);
+				fresnel = calculateFresnel(intersectionNormal, r.direction, r.mediaIOR, nextIndexOfRefraction, reflDir, refraDir);
 
 				thrust::default_random_engine rng(hash(iteration *(depth + 1)* index));
 				thrust::uniform_real_distribution<float> u01(0,1);
 //				float russianroulette = (float)u01(rng);
 
+				/*r.origin = intersectionPoint + 0.01f * ((float)u01(rng) < fresnel.reflectionCoefficient ? reflDir : refraDir);
+				r.direction = (float)u01(rng) < fresnel.reflectionCoefficient ? reflDir : refraDir;
+				r.mediaIOR = (float)u01(rng) < fresnel.reflectionCoefficient ? r.mediaIOR : nextIndexOfRefraction;
+				rayPool[index] = r;*/
 				if((float)u01(rng) < fresnel.reflectionCoefficient)
 				{
-					ray reflRay;
-					reflRay.origin = intersectionPoint + 0.01f * reflDir;
-					reflRay.direction = reflDir;
-					reflRay.mediaIOR = rayPool[index].mediaIOR;
-					reflRay.accumulatedColor = rayPool[index].accumulatedColor;
-					rayPool[index] = reflRay;
-				}
-				
+					r.origin = intersectionPoint + 0.01f * reflDir;
+					r.direction = reflDir;
+					r.mediaIOR = r.mediaIOR;
+					r.accumulatedColor = r.accumulatedColor;
+					rayPool[index] = r;
+				}				
 				else
 				{
-					ray refraRay;
-					refraRay.origin = intersectionPoint + 0.01f * refraDir;
-					refraRay.direction = refraDir;
-					refraRay.mediaIOR = nextIndexOfRefraction;
-					refraRay.accumulatedColor = rayPool[index].accumulatedColor;
-					rayPool[index] = refraRay;
+					r.origin = intersectionPoint + 0.01f * refraDir;
+					r.direction = refraDir;
+					r.mediaIOR = nextIndexOfRefraction;
+					r.accumulatedColor = r.accumulatedColor;
+					rayPool[index] = r;
 				}
 
 			}
 			else if(materials[geoms[intersIndex].materialid].hasReflective == 1)
 			{
-				reflDir = calculateReflectionDirection(rayPool[index].direction, intersectionNormal);
-				ray reflRay;
-				reflRay.origin = intersectionPoint + 0.01f * reflDir;
-				reflRay.direction = reflDir;
-				reflRay.index = rayPool[index].index;
-				reflRay.accumulatedColor = rayPool[index].accumulatedColor;
-
-				rayPool[index] = reflRay;
+				reflDir = calculateReflectionDirection(r.direction, intersectionNormal);
+				r.origin = intersectionPoint + 0.01f * reflDir;
+				r.direction = reflDir;
+				r.index = r.index;
+				r.accumulatedColor = r.accumulatedColor;
+				rayPool[index] = r;
 			}
-
 			else
 			{
 				thrust::default_random_engine rng(hash(iteration *(depth + 1)* index));
@@ -469,31 +483,54 @@ __global__ void rayTracerIterative(int iteration, int depth, glm::vec2 resolutio
 				float russianroulette2 = (float)v01(rng);
 
 				glm::vec3 newdir = calculateRandomDirectionInHemisphere(intersectionNormal, russianroulette1, russianroulette2);
-				ray newray;
-				newray.origin =  intersectionPoint + 0.01f * newdir;
-				newray.direction = newdir;
-				newray.index = rayPool[index].index;
-				newray.accumulatedColor = rayPool[index].accumulatedColor * glm::clamp(glm::dot(intersectionNormal, newdir), 0.0f, 1.0f) * materials[geoms[intersIndex].materialid].color;
+				r.origin =  intersectionPoint + 0.01f * newdir;
+				r.direction = newdir;
+				r.accumulatedColor = 0.8f * r.accumulatedColor * glm::clamp(glm::dot(intersectionNormal, newdir), 0.0f, 1.0f) * materials[geoms[intersIndex].materialid].color;
+				rayPool[index] = r;
 
-				rayPool[index] = newray;
 			}
 		}
 	}
 }
 
 __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, cameraData cam, ray *rayPool){
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
+    int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+    int index = x + (y * resolution.x);
+    glm::vec2 jitteredScreenCoords;
+	ray r;
+//	printf("888\n");
+    if((x<=resolution.x && y<=resolution.y))
+    {
+//		r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+	    jitteredScreenCoords = generateRandomNumberFromThreadForSSAA(resolution, time, x, y, 0.5f);
+	    r = raycastFromCameraKernel(resolution, time, jitteredScreenCoords.x, jitteredScreenCoords.y, cam.position, cam.view, cam.up, cam.fov);
+        r.index = index;
+	    r.accumulatedColor = glm::vec3(1.0f);
+	    r.mediaIOR = 1.0f;	    
+    }
 
-  if((x<=resolution.x && y<=resolution.y))
-  {
-     ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
-     r.index = index;
-	 r.accumulatedColor = glm::vec3(1.0f);
-	 r.mediaIOR = 1.0f;
-	 rayPool[index] = r;
-  }
+	// depth of field
+	float focalLength = 13.0f;
+	float aperture = 1.0f;
+
+	thrust::default_random_engine rng(hash(index*time));
+    thrust::uniform_real_distribution<float> u(0,1);
+//	thrust::uniform_real_distribution<float> v(0,1);
+	float u1 = u(rng);
+	float v1 = u(rng);
+	/*if(/ *x == 200 &&* / y == 700)
+	{
+//		printf("y: %d\n", y);
+		printf("u(rng) = %f, v(rng) = %f\n", u(rng), u(rng));
+	}*/
+//	glm::vec3 offset = aperture * glm::vec3(u1 * cos((float)TWO_PI*v1), u1 * sin((float)TWO_PI*v1), 0.0f);
+	glm::vec3 offset = aperture * glm::normalize(generateRandomNumberFromThread(resolution, time, x, y));
+	offset.z = 0.0f;
+	glm::vec3 focalPlaneIntersection = r.origin + focalLength / glm::dot(r.direction, glm::normalize(cam.view)) * r.direction;
+	r.origin += offset;
+	r.direction = glm::normalize(focalPlaneIntersection - r.origin);
+	rayPool[index] = r;
 }
 
 
@@ -503,92 +540,112 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   // frame: current frame, objects and cam move between frames in multi-frame mode
   // iterations: curent iteration, objects and cam do not move between iterations
-  int traceDepth = 10; //determines how many bounces the raytracer traces
+    int traceDepth = 10; //determines how many bounces the raytracer traces
 
-  // set up crucial magic
-  int tileSize = 8;
-  dim3 threadsPerBlock(tileSize, tileSize);
-  dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
-  
-    
-  // construct initial ray pool
-  int rayPoolCount = (int)(renderCam->resolution.x * renderCam->resolution.y);
-  ray* rayPool = new ray[rayPoolCount]; 
-
-    //package camera
-  cameraData cam;
-  cam.resolution = renderCam->resolution;
-  cam.position = renderCam->positions[frame];
-  cam.view = renderCam->views[frame];
-  cam.up = renderCam->ups[frame];
-  cam.fov = renderCam->fov;
-
-  ray* cudaray = NULL;
-  cudaMalloc((void**)&cudaray, rayPoolCount*sizeof(ray));
-  cudaMemcpy( cudaray, rayPool, rayPoolCount*sizeof(ray), cudaMemcpyHostToDevice);
-
-  // first kernel launch to populate ray pool
-  rayTracerIterativePrimary<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, iterations, cam, cudaray);
-
-//  dim3 blocksPerGrid((int)ceil((float)rayPoolCount/(float)(tileSize*tileSize)));
   //send image to GPU
-  glm::vec3* cudaimage = NULL;
-  cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
-  cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+    glm::vec3* cudaimage = NULL;
+    cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
+    cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
   //package geometry and materials and sent to GPU
-  staticGeom* geomList = new staticGeom[numberOfGeoms];
-  for(int i=0; i<numberOfGeoms; i++){
-    staticGeom newStaticGeom;
-    newStaticGeom.type = geoms[i].type;
-    newStaticGeom.materialid = geoms[i].materialid;
-    newStaticGeom.translation = geoms[i].translations[frame];
-    newStaticGeom.rotation = geoms[i].rotations[frame];
-    newStaticGeom.scale = geoms[i].scales[frame];
-    newStaticGeom.transform = geoms[i].transforms[frame];
-    newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
-    geomList[i] = newStaticGeom;
-  }
+    staticGeom* geomList = new staticGeom[numberOfGeoms];
+    for(int i=0; i<numberOfGeoms; i++){
+       staticGeom newStaticGeom;
+       newStaticGeom.type = geoms[i].type;
+       newStaticGeom.materialid = geoms[i].materialid;
+       newStaticGeom.translation = geoms[i].translations[frame];
+//	   if(i == 6) 
+//		   newStaticGeom.translation += (float)iterations * glm::vec3(-0.1f, 0.0f, 0.0f);
+       newStaticGeom.rotation = geoms[i].rotations[frame];
+       newStaticGeom.scale = geoms[i].scales[frame];
+       newStaticGeom.transform = geoms[i].transforms[frame];
+	   newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+	  /* if(i == 6)
+	   {
+	/ *	   newStaticGeom.transform.x.w += (float)iterations * (-0.1f);
+		   newStaticGeom.inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(cudaMat4ToGlmMat4(newStaticGeom.transform)));* /
+		   newStaticGeom.translation += (iterations < 4000 ? (float)iterations : (float)4000) * glm::vec3(-0.0015f, 0.0f, 0.0f);
+		   glm::mat4 transform = utilityCore::buildTransformationMatrix(newStaticGeom.translation, newStaticGeom.rotation, newStaticGeom.scale);
+		   newStaticGeom.transform = utilityCore::glmMat4ToCudaMat4(transform);
+		   newStaticGeom.inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+	   }*/
+//       newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+       geomList[i] = newStaticGeom;
+    }
   
-  staticGeom* cudageoms = NULL;
-  cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
-  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+    staticGeom* cudageoms = NULL;
+    cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
+    cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
 
-  material* cudamaterials = NULL;
-  cudaMalloc((void**)&cudamaterials, numberOfMaterials*sizeof(material));
-  cudaMemcpy( cudamaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
+    material* cudamaterials = NULL;
+    cudaMalloc((void**)&cudamaterials, numberOfMaterials*sizeof(material));
+    cudaMemcpy( cudamaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
+  
+  //package camera
+    cameraData cam;
+    cam.resolution = renderCam->resolution;
+    cam.position = renderCam->positions[frame];
+    cam.view = renderCam->views[frame];
+    cam.up = renderCam->ups[frame];
+    cam.fov = renderCam->fov;
 
-  size_t size;
-  cudaDeviceSetLimit(cudaLimitStackSize, 10000 * sizeof(float));
-  cudaDeviceGetLimit(&size, cudaLimitStackSize);
-
+//  size_t size;
+//  cudaDeviceSetLimit(cudaLimitStackSize, 10000 * sizeof(float));
+//  cudaDeviceGetLimit(&size, cudaLimitStackSize);
+//
 //  cudaDeviceGetLimit(&size, cudaLimitMallocHeapSize);
 //  printf("MallocHeapSize found to be %d\n", (int)size);
 //  cudaDeviceSetLimit(cudaLimitMallocHeapSize, size_t size)
   
 //  printf("Stack size found to be %d\n",(int)size);
 
+  // first kernel launch to populate ray pool
+  // construct initial ray pool
 
+    int rayPoolCount = (int)(renderCam->resolution.x * renderCam->resolution.y);
+    ray* rayPool = new ray[rayPoolCount]; 
+
+  // set up crucial magic
+    int tileSize = 12;
+    dim3 threadsPerBlock(tileSize, tileSize);
+    dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
+
+    ray* cudaray = NULL;
+    cudaMalloc((void**)&cudaray, rayPoolCount*sizeof(ray));
+    cudaMemcpy( cudaray, rayPool, rayPoolCount*sizeof(ray), cudaMemcpyHostToDevice);
+
+    rayTracerIterativePrimary<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, iterations, cam, cudaray);
   //kernel launches
-  for(int i = 0; i < traceDepth; ++i)
-  {
-     rayTracerIterative<<<fullBlocksPerGrid, threadsPerBlock>>>(iterations, i, renderCam->resolution, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+    for(int i = 0; i < traceDepth; ++i)
+    {
+	  // resize block and grid 
+	    dim3 blocksPerGrid((int)ceil((float)rayPoolCount/(float)(tileSize*tileSize)));
+  //	 printf("blocksPerGrid: %d, %d, %d\n", blocksPerGrid.x, blocksPerGrid.y, blocksPerGrid.z);
+	    rayTracerIterative<<<blocksPerGrid, threadsPerBlock>>>(iterations, i, tileSize, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+	  // do stream compaction
+	    thrust::device_ptr<ray> ray_ptr = thrust::device_pointer_cast(cudaray);
+	    thrust::device_ptr<ray> rayPool_last = thrust::remove_if(ray_ptr, ray_ptr + rayPoolCount, ray_is_dead());
+	    rayPoolCount = thrust::distance(ray_ptr, rayPool_last) + 1;
+//	 printf("rayPoolCount: %d\n", rayPoolCount);
+	 
+    }
 
-  }
 
-  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, iterations);
+//  printf("--------------------------\n");
+
+    sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, iterations);
   //retrieve image from GPU
-  cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+    cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
   
-  //free up stuff, or else we'll leak memory like a madman
-  cudaFree( cudaray);
-  cudaFree( cudaimage );
-  cudaFree( cudageoms );
-  cudaFree( cudamaterials);
-  delete geomList;
-  delete rayPool;
-  // make certain the kernel has completed
-  cudaThreadSynchronize();
-
-  checkCUDAError("Kernel failed!");
+    //free up stuff, or else we'll leak memory like a madman
+    cudaFree( cudaray);
+    cudaFree( cudaimage );
+    cudaFree( cudageoms );
+    cudaFree( cudamaterials);
+    delete geomList;
+    delete rayPool;
+    // make certain the kernel has completed
+    cudaThreadSynchronize();
+  
+    checkCUDAError("Kernel failed!");
 }

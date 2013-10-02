@@ -121,5 +121,5 @@
     <Property Name="EnableToolsExtResourceNaming" Value="True" />
     <Property Name="EnableToolsExtStartEndRangeTrace" Value="True" />
     <Property Name="ExtensionsToSynchronize" Value="*.*;" />
-    <Property Name="WorkingDirectory" Value="G:\GitHub\Project1-RayTracer\PROJ1_WIN\565Raytracer" />
+    <Property Name="WorkingDirectory" Value="G:\GitHub\Project2-Pathtracer\PROJ1_WIN\565Raytracer" />
 </Model>
