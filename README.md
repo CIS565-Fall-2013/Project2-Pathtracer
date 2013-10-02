@@ -115,6 +115,51 @@ Here is an example depth map,
 -------------------------------------------------------------------------------
 BUILDING AND RUNNING THE CODE
 -------------------------------------------------------------------------------
+
+New additional command line options:
+dof, mblur,textureMode
+
+Eg: 
+565Pathtracer.exe scene="../testScene.txt" dof=1 mblur=0 
+565Pathtracer.exe scene="../testScene.txt" textureMode=1 
+
+There are a few example scene files under the "scenes/" directory.
+Desicription of the scene file format can be found at 
+https://github.com/vimanyu/Project1-RayTracer under the heading "TAKUAscene format".
+
+Here are a few things that I added to the existing TAKUAscene format.
+
+* Map : These are basically texture maps which are bound to materials. Materials have an attribute called "MAPID" that links the material to the map.
+Different types of maps are supported, and they have the following common attributes (though for some maps, the meanings of the attributes are not self-explanatory).
+
+MAP (int)  	 // Map header
+type        	 //Type of map
+COL1 (vec3)      // Primary color 
+COL2 (vec3)      // Secondary color
+WIDTH1 (float)   // Width of the primary color
+WIDTH2  (float)  // Width of the secondary color
+SMOOTH  (int)    // Smooth interpolation between the two colors
+
+Types of maps:
+1. base 
+For base maps, the options are more or less non-functional. Base maps are a special kind of map which the materials use to specify that all the properties come from the material, and none from the map.
+This is in effect a dummy map
+
+2.hstripe:
+For horizontal stripes. The attributes perform expected actions. Width2 is ignored.
+
+3.vstripe:
+For vertical stripes. The attributes perform expected actions. Width2 is ignored.
+
+4. checkerboard:
+For 2D grid textures. All the attributes are useful.
+
+5. marble
+For marble looking patterns. The colors are expected, but the width1 and width2 settings have an effect on the turbulence and the amplitude of noise functions
+
+6.perlin
+A generic perlin function.
+
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
