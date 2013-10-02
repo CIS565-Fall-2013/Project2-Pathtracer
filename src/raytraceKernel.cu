@@ -28,11 +28,11 @@
 #define LIGHT_NUM 1
 #define ANTI_NUM 1
 #define STREAMCOMPACTION 1
-#define TITLESIZESC 256//this title size is for stream compaction
-#define TITLESIZE 16
+#define TITLESIZESC 64//this title size is for stream compaction
+#define TITLESIZE 8
 #define MOTIONBLUR 1
-//#define DOF 1
-#define MAXDEPTH 20
+#define DOF 1
+#define MAXDEPTH 15
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
@@ -67,9 +67,6 @@ struct is_done
 		return r.isDone;
     }
 };
-
-//thrust::host_vector<rayPixel> globalRayPool;
-
 
 
 //LOOK: This function demonstrates how to use thrust for random number generation on the GPU!
@@ -548,7 +545,7 @@ __host__ __device__ int pathTraceIterativeSC(ray& r, staticGeom* geoms, int numb
 		r.origin = intersectionPoint + 0.001f * r.direction;
 	}
 
-	color *= currMaterial.color;// * diffuseTerm;
+	color *= currMaterial.color;
 	return colorCheck(color);
 }
 
@@ -624,7 +621,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaEventCreate(&stop);
   cudaEventRecord( start, 0);
 
-	//time(&timer1) * 1000;
+
   int traceDepth = 1; //determines how many bounces the raytracer traces
   // set up crucial magic
   int tileSize;	  
@@ -708,16 +705,18 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 //kernel launches
 #ifdef STREAMCOMPACTION
 	addPreColors<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaPreImage, cudaimage, renderCam->resolution);
+
 	//initialize ray pool
 	rayPixel* cudaRayPool = NULL;
 	cudaMalloc((void**)&cudaRayPool, renderCam->resolution.x * renderCam->resolution.y *sizeof(rayPixel));
 	initializeRayPool<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaRayPool, renderCam->resolution, cudaimage, cam, (float)iterations);
 	int count = 0;
-	//printf("original device size %d ", deviceRayPool.size());
+	
+
 	int poolSize = renderCam->resolution.x * renderCam->resolution.y;
 	tileSize = TITLESIZESC;
 	threadsPerBlock = dim3(tileSize, 1);
-	//fullBlocksPerGrid = dim3((int)ceil(float(deviceRayPool.size())/float(tileSize)), 1);
+
 	while(poolSize > 0 && count < MAXDEPTH)
 	{
 		fullBlocksPerGrid = dim3((int)ceil(float(poolSize)/float(tileSize)), 1);

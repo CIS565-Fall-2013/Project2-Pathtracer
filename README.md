@@ -2,7 +2,8 @@
 
 CUDA Path Tracing
 -------------------------------------------------------------------------------
-Description:
+**Description:**
+
 In this project, except for implementing the basic requirement of Pathtracer, I also did motion blur, depth of filed, fresnel-based refraction and OBJ mesh loader.
 
 For the path tracer, due the recursion ability of GPU, I decided to change the path tracer to a iterative one. I multiply the color for each time the ray hit an object. If before the max depth of iteration, the ray hit the light, then add this color to scene, otherwise, just simply set this color to black. I accumulate the color for each iteration and divide by the iteration for rendering. At the every beginning of each iteration, I will jitter around the ray direction using random number, which can has the effect of supersampled antialiasing. 
@@ -15,8 +16,18 @@ For the depth of filed, I changed the camera aim at position base on the focal l
 
 In fresnel refraction, I treated the light as unpolarised and average the result of reflection coefficient from s-polarised and p-polarized. Then the refraction coefficient is just using T = 1 - R. 
 
-The OBJ mesh loader I am using TinyObjLoader from https://github.com/syoyo/tinyobjloader, which is a simple, robust and easy to use library. Then I added the triangle intersection function for testing the ray intersect with triangle in the mesh. Due to the ability of my graphic card, it cannot load a large mesh file.
+The OBJ mesh loader I am using TinyObjLoader from [https://github.com/syoyo/tinyobjloader](https://github.com/syoyo/tinyobjloader "TinyOBJLoader"), which is a simple, robust and easy to use library. Then I added the triangle intersection function for testing the ray intersect with triangle in the mesh. Due to the ability of my graphic card, it cannot load a large mesh file.
 
+
+
+**Performance Evaluation:**
+
+I did performance evaluation in stream compaction and without stream compaction related to the max depth for iteration. There is a very interesting result here. When the max depth is smaller than 10, the path tracer without stream compaction is actually faster than the one with stream compaction. However, when I keep increasing the max depth, the time for path tracer without stream compaction goes up very quickly. The iteration time for path tracer with stream compaction goes up very slow with the increasing max depth.
+
+ ![Alt text](/ScperformaceTest.png "Stream Compaction and Max Depth")
+
+
+**Render Samples:**
 
 ![Alt text](/renders/test5000.0MB.bmp "With Motion Blur")
 
@@ -27,6 +38,8 @@ The OBJ mesh loader I am using TinyObjLoader from https://github.com/syoyo/tinyo
 ![Alt text](/renders/test3500.0OBJ.bmp "With OBJ Loader")
 
 ![Alt text](/renders/test4000.0.bmp "For fun")
+
+
 
 
 -------------------------------------------------------------------------------
