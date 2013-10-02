@@ -127,7 +127,7 @@ SCALE       .01 10 10
 
 OBJECT 1
 cube
-material 4
+material 0
 frame 0
 TRANS       0 5 -5
 ROTAT       0 90 0
@@ -143,7 +143,7 @@ SCALE       .01 10 10
 
 OBJECT 3
 cube
-material 6
+material 2
 frame 0
 TRANS       -5 5 0
 ROTAT       0 0 0
@@ -151,7 +151,7 @@ SCALE       .01 10 10
 
 OBJECT 4
 cube
-material 3
+material 1
 frame 0
 TRANS       5 5 0
 ROTAT       0 0 0
