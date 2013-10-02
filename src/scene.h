@@ -30,7 +30,7 @@ public:
     vector<geom> objects;
     vector<material> materials;
 	vector<glm::vec3> mymainpoints;
-	float maxmin[6];
+	float *maxmin ;  // float * numbers = new float[x+10];
     camera renderCam;
 };
 

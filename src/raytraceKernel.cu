@@ -188,7 +188,7 @@ __global__ void initializeray(glm::vec2 resolution, float time,cameraData cam, r
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, cameraData cam, int rayDepth, glm::vec3* colors, 
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials,ray* newr, glm::vec3* colBounce, int bou,int num,int blockdim,glm::vec3* myvertex, int numVertices){
+                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials,ray* newr, glm::vec3* colBounce, int bou,int num,int blockdim,glm::vec3* myvertex, int numVertices,float *m ){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -220,8 +220,9 @@ if ( index < num )
         }else if(geoms[i].type==CUBE){
             depth = boxIntersectionTest(geoms[i], r, intersectionPoint, intersectionNormal);
         }else if(geoms[i].type==MESH){
-			//float bbox = boxIntersectionTest(glm::vec3(0,0,0), glm::vec3 ,geoms[i],r,myvertex,numVertices,intersectionPoint, intersectionNormal);
-            depth = meshIntersectionTest(geoms[i],r,myvertex,numVertices,intersectionPoint, intersectionNormal);
+			depth = boxIntersectionTest( glm::vec3(m[1],m[5],m[3]) ,glm::vec3(m[0],m[4],m[2]),geoms[i],r,intersectionPoint, intersectionNormal);
+			if (depth != -1)
+				depth = meshIntersectionTest(geoms[i],r,myvertex,numVertices,intersectionPoint, intersectionNormal);
         }else{
             //lol?
         }
@@ -354,7 +355,7 @@ if ( index < num )
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms,std::vector<glm::vec3> mypoints){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms,std::vector<glm::vec3> mypoints,float *maxmin ){
   
   int traceDepth = 1; //determines how many bounces the raytracer traces
 
@@ -372,11 +373,23 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   //Send vertices of the mesh to GPU
   glm::vec3* mvertex = NULL;
   cudaMalloc((void**)&mvertex,mypoints.size() * sizeof(glm::vec3));
+ 
   for(int i=0; i < mypoints.size(); i++){
 	   
 	   cudaMemcpy( &mvertex[i] , &mypoints[i], sizeof(glm::vec3), cudaMemcpyHostToDevice);
   }
+  
 
+    //Send maxmins of the mesh to GPU
+  float* mami = NULL;
+  cudaMalloc((void**)&mami,6 * sizeof(float));
+   if(maxmin != NULL)
+  {
+  for(int i=0; i < 6; i++){
+	   
+	   cudaMemcpy( &mami[i] , &maxmin[i], sizeof(float), cudaMemcpyHostToDevice);
+  }
+   }
 
   //package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
@@ -439,7 +452,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   for(int bounce = 1; bounce <=5; ++bounce)
   {   
  
-  raytraceRay<<<StreamBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials,raypool,colorBounce,bounce,N,blockdim,mvertex,numVertices);
+  raytraceRay<<<StreamBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials,raypool,colorBounce,bounce,N,blockdim,mvertex,numVertices,mami);
   raytoColorbouncecopy<<<StreamBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,colorBounce,raypool,N,blockdim);
 
   thrust::device_ptr<ray> rptr = thrust::device_pointer_cast(raypool);  

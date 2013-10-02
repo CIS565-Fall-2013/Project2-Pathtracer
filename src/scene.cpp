@@ -43,7 +43,7 @@ int scene::loadObject(string objectid){
         cout << "Loading Object " << id << "..." << endl;
         geom newObject;
         string line;
-        
+        maxmin = NULL; 
         //load object type 
         utilityCore::safeGetline(fp_in,line);
         if (!line.empty() && fp_in.good()){
@@ -363,7 +363,9 @@ int scene::loadmesh(string filename )
 	//glm::vec3 p(1.0,6.0,0); // position  
 
 	float inf = 10000000000.0f;
+	//maxmin = new float[6]  ;
 	//maxmin[6] = {-inf,inf,-inf,inf,-inf,inf};
+	maxmin = new float[6]; 
 	maxmin[0] = -inf ; 
 	maxmin[1] =  inf ; 
 	maxmin[2] = -inf ; 
@@ -391,9 +393,9 @@ int scene::loadmesh(string filename )
 		if(v3[0] < maxmin[1] )  maxmin[1] = v3[0]; // minimum x of v3 is stored 
 
 
-		if(v1[1] > maxmin[2] )  maxmin[0] = v1[1]; // maximum x of v1 is stored 
-		if(v2[1] > maxmin[2] )  maxmin[0] = v2[1]; // maximum x of v2 is stored 
-		if(v3[1] > maxmin[2] )  maxmin[0] = v3[1]; // maximum x of v3 is stored 
+		if(v1[1] > maxmin[2] )  maxmin[2] = v1[1]; // maximum x of v1 is stored 
+		if(v2[1] > maxmin[2] )  maxmin[2] = v2[1]; // maximum x of v2 is stored 
+		if(v3[1] > maxmin[2] )  maxmin[2] = v3[1]; // maximum x of v3 is stored 
 
 		if(v1[1] < maxmin[3] )  maxmin[3] = v1[1]; // minimum x of v1 is stored 
 		if(v2[1] < maxmin[3] )  maxmin[3] = v2[1]; // minimum x of v2 is stored 
