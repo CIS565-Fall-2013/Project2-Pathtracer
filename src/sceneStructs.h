@@ -16,6 +16,9 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	glm::vec2 px;
+	glm::vec3 color;
+	bool isContinue;
 };
 
 struct geom {
@@ -89,6 +92,7 @@ struct mesh{
 
 	// Static Information
 	int numberOfFaces;
+	int numberOfVerts;
 
 	// Vertex and Face
 	glm::vec3* vertices;

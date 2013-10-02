@@ -329,6 +329,7 @@ int scene::loadMesh(string filename){
 	m.vertices = vertices;
 	m.faces = staticFaces;
 	m.numberOfFaces = faces.size();
+	m.numberOfVerts = vert_pos.size();
 	m.min = min_v;
 	m.max = max_v;
 

@@ -23,8 +23,8 @@ __host__ __device__ bool rayBlocked(glm::vec3 const& p1, glm::vec3 const& p2, in
 __host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms, int& geomId);
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
-__host__ __device__ float meshIntersectionTest(staticGeom mesh, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
-__host__ __device__ float triangleIntersectionTest(cudaMat4 invT, face f, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float meshIntersectionTest(staticGeom meshGeom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, mesh* meshes);
+__host__ __device__ float triangleIntersectionTest(staticGeom meshGeom, face f, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, glm::vec3* vertices);
 __host__ __device__ float getArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3);
 __host__ __device__ glm::vec3 getRandomPoint(staticGeom geom, float randomSeed);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
@@ -99,7 +99,8 @@ __host__ __device__ bool rayBlocked(glm::vec3 const& p1, glm::vec3 const& p2, in
 
 //Geometry agnostic wrapper around the intersection tests
 __host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms, int& geomId){
-	float temp, intersect = 1000000;
+	float temp = -1.0f, intersect = 1000000;
+	bool changed = false;
 	glm::vec3 temp_IP, temp_N;
 	for(int i = 0; i < numberOfGeoms; i++){
 		switch(geoms[i].type){
@@ -110,7 +111,7 @@ __host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::
 			temp = boxIntersectionTest(geoms[i], r, temp_IP, temp_N);
 			break;
 		default:
-			temp = -1;
+			//temp = meshIntersectionTest(geoms[i], r, temp_IP, temp_N, meshes);
 			break;
 		}
 
@@ -122,6 +123,7 @@ __host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::
 			geomId = i;
 		}
 	  }
+
 	return intersect;
 }
 
@@ -225,32 +227,54 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   return glm::length(r.origin - realIntersectionPoint);
 }
 
-__host__ __device__ float triangleIntersectionTest(staticGeom mesh, face f, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, glm::vec3* vertices){
-	glm::vec3 ro = multiplyMV(mesh.inverseTransform, glm::vec4(r.origin, 1.0f));
-	glm::vec3 rd = multiplyMV(mesh.inverseTransform, glm::vec4(r.direction, 0.0f));
+__host__ __device__ float meshIntersectionTest(staticGeom meshGeom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, mesh* meshes){
+	mesh m = meshes[meshGeom.meshId];
+
+	glm::vec3 temp_IP, temp_N;
+	float temp = -1.0f, t_min = 100000;
+	bool changed = false;
+
+	for(int i = 0; i < m.numberOfFaces; i++){
+		temp = triangleIntersectionTest(meshGeom, m.faces[i], r, temp_IP, temp_N, m.vertices);
+		if(!epsilonCheck(temp, -1.0f) && temp < t_min){
+			t_min = temp;
+			intersectionPoint = temp_IP;
+			normal = temp_N;
+			changed = true;
+		}
+	}
+
+	if(changed) return t_min;
+	else return -1.0f;
+}
+
+__host__ __device__ float triangleIntersectionTest(staticGeom meshGeom, face f, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, glm::vec3* vertices){
+	glm::vec3 ro = multiplyMV(meshGeom.inverseTransform, glm::vec4(r.origin, 1.0f));
+	glm::vec3 rd = glm::normalize(multiplyMV(meshGeom.inverseTransform, glm::vec4(r.direction, 0.0f)));
 
 	glm::vec3 p1, p2, p3;
-	p1 = vertices[f.p1], p2 = vertices[f.p2],p3 = vertices[f.p3];
+	p1 = vertices[f.p1], p2 = vertices[f.p2], p3 = vertices[f.p3];
 	
 	glm::vec3 N = glm::normalize(glm::cross(p3 - p1, p2 - p1));
 	float t = glm::dot(N, p1 - ro) / glm::dot(N, rd);
 	glm::vec3 P = ro + t * rd;
 
-	float s, s1, s2, s3;
+	float s, s1, s2, s3, s_rep;
 	s = getArea(p1,p2,p3);
-	s1 = getArea(P, p2, p3) / s;
-	s2 = getArea(P, p3, p1) / s;
-	s3 = getArea(P, p1, p2) / s;
+	s_rep = 1.0f / s;
+	s1 = s_rep * getArea(P, p2, p3);
+	s2 = s_rep * getArea(P, p3, p1);
+	s3 = s_rep * getArea(P, p1, p2);
 
-	if(s1 < -.001f || s1 > 1.001f || s2 < -.001f || s2 > 1.001f || s3 < -.001f || s3 > 1.001f || s1 + s2 + s3 - 1 > .001) return -1.0f;
+	if(s1 < 0 || s1 > 1 || s2 < 0 || s2 > 1 || s3 < 0 || s3 > 1 || !epsilonCheck(s1 + s2 + s3 - 1, 0.0f)) return -1.0f;
 	else{
 		// Calculate Normal
-		float sign = glm::dot(rd, N);
-		if(sign > -.001) normal = N;
-		else normal = -1.0f * N;
+		normal = glm::normalize(multiplyMV(meshGeom.transform, glm::vec4(N, 0.0f)));
+		float sign = glm::dot(rd, normal);
+		if(sign < 0.0f) normal = -1.0f * normal;
 		
 		// Transform intersection point to world coord
-		intersectionPoint = multiplyMV(mesh.transform, glm::vec4(P, 1.0f));
+		intersectionPoint = multiplyMV(meshGeom.transform, glm::vec4(P, 1.0f));
 
 		return glm::length(intersectionPoint - r.origin);
 	}
@@ -260,17 +284,16 @@ __host__ __device__ float getArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3){
 	// Get Triangle Area
 	cudaMat3 m1, m2, m3;
     glm::vec3 x, y, z;
-	x = glm::vec3(p1.x, p2.x, p3.x), y = glm::vec3(p1.y, p2.y, p3.y), z = glm::vec3(p1.z, p2.z, p3.z);
 	
-	m1.x = y, m1.y = z, m1.z = glm::vec3(1.0);
-	m2.x = z, m2.y = x, m2.z = glm::vec3(1.0);
-	m3.x = x, m3.y = y, m3.z = glm::vec3(1.0);
+	m1.x = glm::vec3(p1.y, p1.z, 1.0f), m1.y = glm::vec3(p2.y, p2.z, 1.0f), m1.z = glm::vec3(p3.y, p3.z, 1.0f);
+	m2.x = glm::vec3(p1.z, p1.x, 1.0f), m2.y = glm::vec3(p2.z, p2.x, 1.0f), m2.z = glm::vec3(p3.z, p3.x, 1.0f);
+	m3.x = glm::vec3(p1.x, p1.y, 1.0f), m3.y = glm::vec3(p2.x, p2.y, 1.0f), m3.z = glm::vec3(p3.x, p3.y, 1.0f);
 
 	float d1, d2, d3;
 
 	d1 = determinant(m1), d2 = determinant(m2), d3 = determinant(m3);
 
-	return .5 * sqrt(pow(d1,2) + pow(d2,2) + pow(d3,2)); 
+	return .5f * std::sqrt(std::pow(d1,2) + std::pow(d2,2) + std::pow(d3,2)); 
 }
 
 //returns x,y,z half-dimensions of tightest bounding box
