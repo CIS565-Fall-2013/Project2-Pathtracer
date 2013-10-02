@@ -446,8 +446,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 				cudaraypool, rayPoolSize, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
 			if(rconfig->streamCompaction)
 			{
-				printf("Raypool size%d\n", rayPoolSize);
+				//printf("Raypool size%d\n", rayPoolSize);
 				rayPoolSize = raypoolCompaction(&cudaraypool, rayPoolSize);
+
 
 				blockCount = (int)ceil(float(rayPoolSize)/float(blockSize));
 

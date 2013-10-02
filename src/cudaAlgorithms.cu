@@ -3,10 +3,10 @@
 template<typename DataType, typename FlagOperation>
 __global__ void	flagCheck(DataType* data, int* flagArray, int N, FlagOperation op)
 {
-	
+
 	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
 	int dataIndex  = threadIdx.x + blockIndex*blockDim.x;
-	
+
 	if(dataIndex < N)
 	{
 		flagArray[dataIndex] = op(data[dataIndex])?1:0;
@@ -18,7 +18,7 @@ __global__ void scatter(DataType* streamIn, DataType* streamOut, int* indecies, 
 {
 	int blockIndex = blockIdx.x + blockIdx.y*gridDim.x;
 	int dataIndex  = threadIdx.x + blockIndex*blockDim.x;
-	
+
 	if(dataIndex < N)
 	{
 		if(flagArray[dataIndex])
@@ -30,7 +30,7 @@ __global__ void scatter(DataType* streamIn, DataType* streamOut, int* indecies, 
 template<typename DataType, typename FlagOperation>
 __host__ int streamCompaction(DataType* streamIn, DataType** streamOut, int N, FlagOperation op)
 {
-	
+
 	int blockSize = MAX_BLOCK_DIM_X;
 	dim3 threadsPerBlock(blockSize);;
 	dim3 fullBlocksPerGrid;
@@ -50,17 +50,15 @@ __host__ int streamCompaction(DataType* streamIn, DataType** streamOut, int N, F
 
 	//Set flags
 	flagCheck<<<fullBlocksPerGrid, threadsPerBlock>>>(streamIn, flagArray, N, op);
-	printf("Flag Check Done, running exclusive scan\n");
 	//Sum Flags
 	int newN = exclusive_scan_sum(flagArray, indecies, N);
-	printf("Flag Sum: %d\n", newN);
 
 	//Allocate new array
 	cudaMalloc((void**)streamOut, newN*sizeof(DataType));
 	if(newN > 0)
 	{
-	//Scatter
-	scatter<<<fullBlocksPerGrid, threadsPerBlock>>>(streamIn, *streamOut, indecies, flagArray, N);
+		//Scatter
+		scatter<<<fullBlocksPerGrid, threadsPerBlock>>>(streamIn, *streamOut, indecies, flagArray, N);
 	}
 	cudaFree(indecies);
 	cudaFree(flagArray);
@@ -231,7 +229,7 @@ __host__ void exclusive_to_inclusive(DataType* data, int N, DataType result)
 template<typename DataType, typename BinaryOperation>
 __host__ DataType inclusive_scan(DataType* datain, DataType* dataout, int N, BinaryOperation op)
 {
-	
+
 	//Divide array into blocks
 	//TODO: Get this dynamically
 	int blockSize = MAX_BLOCK_DIM_X;
