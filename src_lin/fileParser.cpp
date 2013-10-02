@@ -80,9 +80,9 @@ int FileParser::parse( const char input[], SceneDesc& sceneDesc )
     vec3 ambient(0.0f);
     float shininess = 0;
     
-    float attenu_const = 1;
+    float attenu_const = 0;
     float attenu_linear = 0;
-    float attenu_quadratic = 0;
+    float attenu_quadratic = 1;
 
     vector<mat4> transtack;
     int maxvert = 0;

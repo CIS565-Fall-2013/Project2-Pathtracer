@@ -1,9 +1,11 @@
 #include <GL/glew.h>
 #include <iostream>
 #include <cuda_gl_interop.h>
+#include <thrust/device_ptr.h>
+#include <thrust/remove.h>
 #include "cudaRaytracer.h"
 #include "cudaRaytracerKernel.h"
-
+#include "stream_compact.h"
 
 #include "timer.h"
 
@@ -22,18 +24,27 @@ CudaRayTracer::CudaRayTracer()
     d_outputImage = 0;
     h_outputImage = 0;
 
-    //d_posBuffer = 0;
-    //d_rayBuffer = 0;
-    //d_specuBuffer = 0;
+    d_posBuffer = 0;
+    d_rayBuffer = 0;
+    d_normalBuffer = 0;
     d_directIllum = 0;
     d_indirectIllum = 0;
+    d_marker = 0;
+    d_marker_temp = 0;
+    h_marker = 0;
 
     d_primitives = 0;
     d_lights = 0;
     d_materials = 0;
 
     d_devStates = 0;
+    d_sobolStates = 0;
+    d_vectors = 0;
 
+    iteration = 1;
+    depth = 0;
+
+    numValidPath = 0;
 }
 
 CudaRayTracer::~CudaRayTracer()
@@ -41,66 +52,70 @@ CudaRayTracer::~CudaRayTracer()
     cleanUp();
 }
 
-void CudaRayTracer::renderImage( cudaGraphicsResource* pboResource, int iteration )
+void CudaRayTracer::renderImage( cudaGraphicsResource* pboResource )
 {
 
 
     cudaErrorCheck( cudaGraphicsMapResources( 1, &pboResource, 0 ) );
     cudaErrorCheck( cudaGraphicsResourceGetMappedPointer((void**) &d_outputImage, &pboSize, pboResource ) );
-    if( iteration == 1 )
-    {
-        cudaErrorCheck( cudaMemset( (void*)d_outputImage, 0, sizeof(float) * 4 * width * height ) );
-        cudaErrorCheck( cudaMemset( (void*)d_directIllum, 0, sizeof(float) * 3 * width * height * MAXDEPTH ) );
-        cudaErrorCheck( cudaMemset( (void*)d_indirectIllum, 0, sizeof(float) * 3 * width * height * MAXDEPTH ) );
-        //cudaErrorCheck( cudaMemset( (void*)d_specuBuffer, 0, sizeof(float) * 3 * width * height ) );
-        //cudaErrorCheck( cudaMemset( (void*)d_posBuffer, 0, sizeof(float) * 3 * width * height ) );
-        //cudaErrorCheck( cudaMemset( (void*)d_rayBuffer, 0, sizeof(float) * 3 * width * height ) );
-    }
 
+ 
     GpuTimer timer;
     timer.Start();
     //Launch the ray tracing kernel through the wrapper
-    rayTracerKernelWrapper( d_outputImage, d_directIllum, d_indirectIllum, width, height, cameraData, 
-        d_primitives, numPrimitive, d_lights, numLight, d_materials, numMaterial, 1, d_devStates, iteration );
+    if( depth == 0 )
+    {
+                
+        //cudaErrorCheck( cudaMemset( (void*)d_normalBuffer, 0, sizeof(glm::vec3)  * width * height ) );
+        //cudaErrorCheck( cudaMemset( (void*)d_posBuffer, 0, sizeof(glm::vec3)  * width * height ) );
+        //cudaErrorCheck( cudaMemset( (void*)d_rayBuffer, 0, sizeof(glm::vec3)  * width * height ) );
+        //initMarkerWrapper( width, height, d_marker_temp );
+        cudaErrorCheck( cudaMemcpy( d_marker, h_marker, sizeof( int )*width*height, cudaMemcpyHostToDevice ) );
+        pathTracerEyeRayKernelWrapper( &param );
+    }
+    else
+        pathTracerKernelWrapper( &param );
     timer.Stop();
-
-    std::cout<<"Render time: "<<timer.Elapsed()<<" ms. at iteration "<<iteration<<std::endl;
+    ++depth;
+    //std::cout<<"Render time: "<<timer.Elapsed()<<" ms. at iteration "<<iteration<<std::endl;
+    std::cout<<"valid ray: "<<numValidPath<<"\n";
     cudaErrorCheck( cudaGraphicsUnmapResources( 1, &pboResource, 0 ) );
 
 
+    compactSurvivingPath();
 }
 
-void CudaRayTracer::renderImage( FIBITMAP* outputImage )
-{
-
-    cudaErrorCheck( cudaMemset( (void*)d_outputImage, 0, sizeof(unsigned char) * 4 * width * height ) );
-
-    GpuTimer timer;
-    //timer.Start();
-    //Launch the ray tracing kernel through the wrapper
-    //rayTracerKernelWrapper( d_outputImage, 0, 0, width, height, cameraData, 
-    //    d_primitives, numPrimitive, d_lights, numLight, d_materials, numMaterial, 1, d_devStates,iteration );
-    //timer.Stop();
-
-    std::cout<<"Render time: "<<timer.Elapsed()<<" ms."<<std::endl;
-   
-    memset( h_outputImage, 0,sizeof(unsigned char) * 4 * width * height );
-    cudaErrorCheck( cudaMemcpy( (void*)h_outputImage, d_outputImage, sizeof(unsigned char) * 4 * width * height , cudaMemcpyDeviceToHost) );
-
-    //Pixel p;
-    RGBQUAD p;
-    for( int h = 0; h < height; ++h )
-        for( int w = 0; w < width; ++w )
-        {
-            p.rgbRed = h_outputImage[ 4*h*width + 4*w];
-            p.rgbGreen = h_outputImage[ 4*h*width + 4*w+1];
-            p.rgbBlue = h_outputImage[ 4*h*width + 4*w+2];
-            p.rgbReserved = 255;
-            FreeImage_SetPixelColor( outputImage, w, height-1-h, &p );
-            //outputImage.writePixel( w, h, p );
-        }
-    
-}
+//void CudaRayTracer::renderImage( FIBITMAP* outputImage )
+//{
+//
+//    cudaErrorCheck( cudaMemset( (void*)d_outputImage, 0, sizeof(unsigned char) * 4 * width * height ) );
+//
+//    GpuTimer timer;
+//    //timer.Start();
+//    //Launch the ray tracing kernel through the wrapper
+//    //rayTracerKernelWrapper( d_outputImage, 0, 0, width, height, cameraData, 
+//    //    d_primitives, numPrimitive, d_lights, numLight, d_materials, numMaterial, 1, d_devStates,iteration );
+//    //timer.Stop();
+//
+//    std::cout<<"Render time: "<<timer.Elapsed()<<" ms."<<std::endl;
+//   
+//    memset( h_outputImage, 0,sizeof(unsigned char) * 4 * width * height );
+//    cudaErrorCheck( cudaMemcpy( (void*)h_outputImage, d_outputImage, sizeof(unsigned char) * 4 * width * height , cudaMemcpyDeviceToHost) );
+//
+//    //Pixel p;
+//    RGBQUAD p;
+//    for( int h = 0; h < height; ++h )
+//        for( int w = 0; w < width; ++w )
+//        {
+//            p.rgbRed = h_outputImage[ 4*h*width + 4*w];
+//            p.rgbGreen = h_outputImage[ 4*h*width + 4*w+1];
+//            p.rgbBlue = h_outputImage[ 4*h*width + 4*w+2];
+//            p.rgbReserved = 255;
+//            FreeImage_SetPixelColor( outputImage, w, height-1-h, &p );
+//            //outputImage.writePixel( w, h, p );
+//        }
+//    
+//}
 
 void CudaRayTracer::packSceneDescData( const SceneDesc &sceneDesc )
 {
@@ -212,20 +227,24 @@ void CudaRayTracer::cleanUp()
         delete [] h_outputImage;
     h_outputImage = 0;
 
+    if( h_marker )
+        delete [] h_marker;
+    h_marker = 0;
+
     ////if( d_outputImage )
     //    cudaErrorCheck( cudaFree( d_outputImage ) );
     //d_outputImage = 0;
 
-    //if( d_posBuffer )
-    //    cudaErrorCheck( cudaFree( d_posBuffer ) );
-    //d_posBuffer = 0;
-    //if( d_specuBuffer )
-    //    cudaErrorCheck( cudaFree( d_specuBuffer ) );
-    //d_posBuffer = 0;
+    if( d_posBuffer )
+       cudaErrorCheck( cudaFree( d_posBuffer ) );
+    d_posBuffer = 0;
+    if( d_normalBuffer )
+        cudaErrorCheck( cudaFree( d_normalBuffer ) );
+    d_posBuffer = 0;
 
-    //if( d_rayBuffer )
-    //    cudaErrorCheck( cudaFree( d_rayBuffer ) );
-    //d_rayBuffer = 0;
+    if( d_rayBuffer )
+        cudaErrorCheck( cudaFree( d_rayBuffer ) );
+    d_rayBuffer = 0;
     if( d_directIllum )
         cudaErrorCheck( cudaFree( d_directIllum ) );
     d_directIllum = 0;
@@ -250,6 +269,23 @@ void CudaRayTracer::cleanUp()
     if( d_devStates  )
        cudaErrorCheck( cudaFree(d_devStates) );
     d_devStates = 0;
+    if( d_sobolStates  )
+       cudaErrorCheck( cudaFree(d_sobolStates) );
+    d_sobolStates = 0;
+
+    if( d_vectors )
+        cudaErrorCheck( cudaFree(d_vectors) );
+    d_vectors  = 0;
+
+    if( d_marker )
+        cudaErrorCheck( cudaFree(d_marker) );
+    d_marker = 0;
+
+    if( d_marker_temp )
+        cudaErrorCheck( cudaFree(d_marker_temp) );
+    d_marker = 0;
+
+    curandDestroyDistribution(poisson_dist);
 }
 
 void  CudaRayTracer::init( const SceneDesc &scene )
@@ -259,6 +295,7 @@ void  CudaRayTracer::init( const SceneDesc &scene )
 
     width = scene.width;
     height = scene.height;
+    numValidPath = width * height;
     //Pack scene description data
     packSceneDescData( scene );
 
@@ -266,9 +303,9 @@ void  CudaRayTracer::init( const SceneDesc &scene )
     cudaErrorCheck( cudaMalloc( &d_primitives, sizeof( _Primitive ) * numPrimitive ) );
     cudaErrorCheck( cudaMalloc( &d_lights, sizeof( _Light ) * numLight ) );
     cudaErrorCheck( cudaMalloc( &d_materials, sizeof( _Material ) * numMaterial ) );
-    //cudaErrorCheck( cudaMalloc( &d_posBuffer, sizeof( float ) * width * height * 3 ) );
-    //cudaErrorCheck( cudaMalloc( &d_rayBuffer, sizeof( float ) * width * height * 3 ) );
-    //cudaErrorCheck( cudaMalloc( &d_specuBuffer, sizeof( float ) * width * height * 3 ) );
+    cudaErrorCheck( cudaMalloc( &d_posBuffer, sizeof( glm::vec3 ) * width * height ) );
+    cudaErrorCheck( cudaMalloc( &d_rayBuffer, sizeof( glm::vec3 ) * width * height ) );
+    cudaErrorCheck( cudaMalloc( &d_normalBuffer, sizeof( glm::vec3 ) * width * height ) );
     cudaErrorCheck( cudaMalloc( &d_directIllum, sizeof( float ) * width * height * 3 * MAXDEPTH ) );
     cudaErrorCheck( cudaMalloc( &d_indirectIllum, sizeof( float ) * width * height * 3 * MAXDEPTH ) );
     //cudaErrorCheck( cudaMalloc( &d_outputImage, sizeof( unsigned char )  * width * height * 4 ) );
@@ -278,10 +315,72 @@ void  CudaRayTracer::init( const SceneDesc &scene )
     cudaErrorCheck( cudaMemcpy( (void*)d_lights, h_pLights, sizeof( _Light ) * numLight , cudaMemcpyHostToDevice ) );
     cudaErrorCheck( cudaMemcpy( (void*)d_materials, h_pMaterials, sizeof( _Material ) * numMaterial , cudaMemcpyHostToDevice ) );
 
+    cudaErrorCheck( cudaMemset( (void*)d_directIllum, 0, sizeof(float) * 3 * width * height * MAXDEPTH ) );
+    cudaErrorCheck( cudaMemset( (void*)d_indirectIllum, 0, sizeof(float) * 3 * width * height * MAXDEPTH ) ); 
+
+    //allocate a marker array for stream compaction and populate it with index values
+
+    h_marker = new int[ width * height ];
+    for( int i = 0; i < width * height; ++i ) 
+        h_marker[i] = i;
+    cudaErrorCheck( cudaMalloc( (void**)&d_marker, sizeof( int ) * width * height ) );
+    cudaErrorCheck( cudaMemcpy( (void*)d_marker, (void*)h_marker, sizeof( int )*width*height, cudaMemcpyHostToDevice ) );
+
+    cudaErrorCheck( cudaMalloc( (void**)&d_marker_temp, sizeof( int ) * width * height ) );
+    initMarkerWrapper( width, height, d_marker_temp );
+
+        
+    setupDevStates();
+
+
+    param.outputImage = &d_outputImage;
+    param.directIllum = &d_directIllum;
+    param.indirectIllum = &d_indirectIllum;
+    param.posBuf = &d_posBuffer;
+    param.rayBuf = &d_rayBuffer;
+    param.normalBuf = &d_normalBuffer;
+    param.marker = &d_marker;
+    param.rayNum = &numValidPath;
+    param.width = width;
+    param.height = height;
+    param.cameraData = &cameraData;
+    param.primitives = &d_primitives;
+    param.primitiveNum = numPrimitive;
+    param.lights = &d_lights;
+    param.lightNum =numLight;
+    param.mtl = &d_materials;
+    param.mtlNum = numMaterial;
+    param.DOPSampleCount = 0;
+    param.state  = &d_devStates;
+    param.sobolState = &d_sobolStates;
+    param.depth = &depth;
+    param.iteration = &iteration;
+
     //allocate host memory
     //h_outputImage = new unsigned char[ 4 * width * height ];
-    
-    setupDevStates();
+
+}
+
+void CudaRayTracer::resetPathDepth()
+{
+    depth = 0;
+    iteration += 1;
+    numValidPath = width * height;
+}
+void CudaRayTracer::resetIteration()
+{
+    depth = 0;
+    iteration = 1;
+    numValidPath = width * height;
+    cudaErrorCheck( cudaMemset( (void*)d_outputImage, 0, sizeof(float) * 4 * width * height ) );
+
+    cudaErrorCheck( cudaMemset( (void*)d_directIllum, 0, sizeof(float) * 3 * width * height * MAXDEPTH ) );
+    cudaErrorCheck( cudaMemset( (void*)d_indirectIllum, 0, sizeof(float) * 3 * width * height * MAXDEPTH ) ); 
+    cudaErrorCheck( cudaMemset( (void*)d_normalBuffer, 0, sizeof(glm::vec3)  * width * height ) );
+    cudaErrorCheck( cudaMemset( (void*)d_posBuffer, 0, sizeof(glm::vec3)  * width * height ) );
+    cudaErrorCheck( cudaMemset( (void*)d_rayBuffer, 0, sizeof(glm::vec3)  * width * height ) );
+    //initMarkerWrapper( width, height, d_marker_temp );
+    //cudaErrorCheck( cudaMemcpy( d_marker, h_marker, sizeof( int )*width*height, cudaMemcpyHostToDevice ) );
 }
 
 void CudaRayTracer::updateCamera( const SceneDesc &sceneDesc )
@@ -310,6 +409,35 @@ void CudaRayTracer::updateCamera( const SceneDesc &sceneDesc )
 
 void CudaRayTracer::setupDevStates()
 {
-    cudaErrorCheck( cudaMalloc( (void**)&d_devStates, 8*8*sizeof(curandState) ) );
-    setupRandSeedWrapper(8,8, d_devStates ) ;
+    curandDirectionVectors32_t* vectors;
+    if( CURAND_STATUS_SUCCESS != curandGetDirectionVectors32(  &vectors, CURAND_DIRECTION_VECTORS_32_JOEKUO6 ) )
+    {
+          std::cout<<"ERROR at "<<__FILE__<<":"<<__LINE__<<"\n";
+          exit(1);
+    }
+
+    cudaErrorCheck( cudaMalloc( (void**)&d_devStates, width*height*sizeof(curandState) ) );
+
+    cudaErrorCheck( cudaMalloc( (void**)&d_sobolStates, width*height*sizeof(curandStateSobol32_t) ) );
+    cudaErrorCheck( cudaMalloc( (void**)&d_vectors, sizeof(unsigned int)*32 ) );
+    cudaErrorCheck( cudaMemcpy( d_vectors, vectors[0], sizeof(unsigned int)*32, cudaMemcpyHostToDevice ) );
+    //std::cout<<"state size:"<<sizeof(curandState)*width*height/1024/1024<<std::endl;
+    setupRandSeedWrapper(width,height,d_devStates ) ;
+    setupSobolRandSeedWrapper( width, height, d_sobolStates, d_vectors);
+    //if( CURAND_STATUS_SUCCESS != curandCreatePoissonDistribution( 100, &poisson_dist ) )
+    //{
+    //    std::cout<<"ERROR at "<<__FILE__<<":"<<__LINE__<<"\n";
+    //    exit(1);
+    //}
+}
+
+void CudaRayTracer::compactSurvivingPath()
+{
+    compactNaturalNum( d_marker, d_marker_temp, numValidPath );
+
+    //copy the compact result bact to the marker-in-use array
+    cudaErrorCheck( cudaMemcpy( (void*)d_marker, (void*)d_marker_temp, sizeof(int)*width*height, cudaMemcpyDeviceToDevice ) );
+    initMarkerWrapper( width, height, d_marker_temp );
+    //update the number of surviving valid paths
+    numValidPath = countValidPath( d_marker, numValidPath );
 }

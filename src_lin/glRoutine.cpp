@@ -53,7 +53,6 @@ glm::mat4 cameraRotate(1.0f, 0.0f, 0.0f, 0.0f,
                        0.0f, 0.0f, 0.0f, 1.0f );
 glm::vec4 initialEyePos( 0.0f,0.0f, 0.0f,1.0f);
 glm::vec3 eyePosTranslate;
-int iteration = 1;
 
 void glut_display()
 {
@@ -61,7 +60,12 @@ void glut_display()
     theScene.eyePos = (cameraRotate * initialEyePos ).xyz;
     theScene.eyePos = theScene.eyePos +eyePosTranslate;
     cudaRayTracer->updateCamera( theScene );
-    cudaRayTracer->renderImage( pboResource, iteration++ );
+
+    cudaRayTracer->renderImage( pboResource );
+    if( cudaRayTracer->depth >= MAXDEPTH ) //we have reached trace depth limit
+    {
+        cudaRayTracer->resetPathDepth();
+    }
 
     //render a quad to display the image
     glClearColor( 0, 0, 0, 0 );
@@ -107,6 +111,7 @@ void glut_keyboard( unsigned char key, int x, int y)
 
 int initPBO()
 {
+    float clearData[] = {0.0f, 0.0f,0.0f,0.0f};
     if( pbo ) 
     {
         //ungister from CUDA context
@@ -121,6 +126,7 @@ int initPBO()
     glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo );
     //glBufferData( GL_PIXEL_UNPACK_BUFFER, sizeof( GLubyte) * win_w * win_h * 4, NULL, GL_STREAM_DRAW );
     glBufferData( GL_PIXEL_UNPACK_BUFFER, sizeof( GLfloat) * win_w * win_h * 4, NULL, GL_STREAM_DRAW );
+    glClearBufferData( GL_PIXEL_UNPACK_BUFFER, GL_RGBA32F, GL_BGRA, GL_FLOAT, clearData );
     glBindBuffer( GL_PIXEL_UNPACK_BUFFER, 0 );
 
     //register with CUAD context
@@ -286,7 +292,7 @@ int initGL()
 
 void cameraEventHandler( int id )
 {
-    iteration = 1;
+    cudaRayTracer->resetIteration();
 }
 
 void initGLUI( int win_id )

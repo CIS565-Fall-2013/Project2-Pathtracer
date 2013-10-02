@@ -4,6 +4,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
+#include <curand_kernel.h>
 #include "glm\glm.hpp"
 
 #define FLOAT_INF 0x7F800000
@@ -12,6 +13,7 @@
 #define TYPE_TRIANGLE 1
 #define TYPE_BBOX 2
 #define MAXDEPTH 5
+#define DST_SCALE 2
 
 #define cudaErrorCheck( errNo ) checkError( (errNo), __FILE__, __LINE__ )
 
@@ -77,3 +79,29 @@ typedef struct _Material
     glm::vec3 ambient;
     float shininess;
 } _Material;
+
+typedef struct _Param
+{
+    float** outputImage;
+    float** directIllum;
+    float** indirectIllum;
+    glm::vec3** posBuf;
+    glm::vec3** rayBuf;
+    glm::vec3** normalBuf;
+    int** marker;
+    int* rayNum;
+    int width;
+    int height;
+    _CameraData* cameraData;
+    _Primitive** primitives;
+    int primitiveNum;
+    _Light** lights;
+    int lightNum;
+    _Material** mtl;
+    int mtlNum;
+    int DOPSampleCount;
+    curandState** state;
+    curandStateSobol32_t** sobolState;
+    unsigned short* depth;
+    unsigned short* iteration;
+};

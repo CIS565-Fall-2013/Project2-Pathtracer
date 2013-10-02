@@ -59,7 +59,6 @@ int main( int argc, char* argv[] )
         cerr<<"Error: "<<glewGetErrorString(errCode)<<endl;
         return 1;
     }
-
     if( initGL() != 0 )
         return 1;
 

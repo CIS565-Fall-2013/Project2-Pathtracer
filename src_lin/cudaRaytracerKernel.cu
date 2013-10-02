@@ -4,26 +4,65 @@
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 #include <curand_kernel.h>
+#include "cudaRaytracer.h"
 #include "cudaRaytracerKernel.h"
 
-__device__ glm::vec3 diffuse_direction( const glm::vec3* normal, curandState *state )
+__device__ glm::vec3 diffuse_direction( const glm::vec3* normal, curandState* state,curandStateSobol32_t* soboState )
 {
     float theta = (float)acosf( sqrtf(1.0 - curand_uniform(state) ) );
-    float phi = 2 * 3.1415926 * curand_uniform(state);
+    float phi = 2 * 3.1415926535897932384626433832795 * curand_uniform(state);
+
+    //float theta = (float)acosf( sqrtf( 1.0 - ( (float)curand_discrete( state, poisson_dist )/UINT_MAX ) ) );
+    //float phi = 2 * 3.1415926 * ( (float)curand_discrete( state, poisson_dist )/UINT_MAX);
+
     glm::vec3 U;
     glm::vec3 V;
 
     //construct the coordinate
     U = glm::cross( *normal, glm::vec3( 1.0f, 0.0f, 0.0f ) );
+
     if( (U.x*U.x + U.y*U.y + U.z*U.z ) < 0.01 )
     {
-        U = glm::cross( *normal, glm::vec3( 0.0f, 1.0f, 0.0f ) );
+        U =  glm::normalize( glm::cross( *normal, glm::vec3( 0.0f, 1.0f, 0.0f ) ) );
     }
-    V = glm::cross( *normal, U ); 
+    else
+        U = glm::normalize( U );
+    V = glm::normalize( glm::cross( *normal, U ) );
 
     //convert theta & phi to direction vector
-    return U*(cosf(phi)*sin(theta) ) + V * ( sin(phi)*sin(theta) ) +
-           (*normal)*cos(theta);
+    return glm::normalize( U*(cosf(phi)*sin(theta) ) + V * ( sin(phi)*sin(theta) ) +
+           (*normal)*cos(theta) );
+}
+
+__device__ glm::vec3 specular_direction( const glm:: vec3* incoming, const glm::vec3* normal, curandState* state,
+                                         curandStateSobol32_t* sobolState, float* weight )
+{
+    //float theta = (float)acosf( sqrtf(1.0 - curand_uniform(state) ) );
+    //float phi = 2 * 3.1415926 * curand_uniform(state);
+    //glm::vec3 U;
+    //glm::vec3 V;
+
+    ////construct the coordinate
+    //U = glm::cross( *normal, glm::vec3( 1.0f, 0.0f, 0.0f ) );
+    //if( (U.x*U.x + U.y*U.y + U.z*U.z ) < 0.01f )
+    //{
+    //    U = glm::cross( *normal, glm::vec3( 0.0f, 1.0f, 0.0f ) );
+    //}
+    //V = glm::cross( *normal, U ); 
+
+    //convert theta & phi to direction vector
+   // return U*(cosf(phi)*sin(theta) ) + V * ( sin(phi)*sin(theta) ) +
+    //       (*normal)*cos(theta);
+    if( curand_uniform(state) < 0.2f )
+    {
+        //*weight = 1.0f/0.2f;
+        return diffuse_direction( normal, state, sobolState );
+    }
+    else
+    {
+        //*weight = 1.0f/0.8f;
+        return glm::normalize( glm::reflect( *incoming, *normal) );
+    }
 }
 
 __device__ glm::vec3 getSurfaceNormal( glm::vec3* point, const _Primitive* const primitive )
@@ -139,23 +178,23 @@ __device__ float rayBoxIntersect( const _Primitive* const box,
 }
 
 __device__ glm::vec3 shade( glm::vec3* point, glm::vec3* normal, glm::vec3* eyeRay, 
-                           const _Material* const mtl, const glm::vec3* const lightColor,
-                           const glm::vec3* const L )
+                           const _Material* const mtl, const _Light* const light,//const glm::vec3* const lightColor,
+                           const glm::vec3* const L, float lightDst )
 {
     //glm::vec3 L;
     glm::vec3 H;
-    //float lightDst;
-    //float attenu;   //attenuation factor, unused right now
+   
+    float attenu;   //attenuation factor
 
     glm::vec3 color(0.0f,0.0f,0.0f);
 
     //if( lightPos->x > .0f ) //local light
     //{
     //    L = glm::normalize( glm::vec3(*lightPos) - (*point) );
-    //    //lightDst = glm::distance( (*point), glm::vec3(light->pos));
+    //lightDst = glm::distance( (*point), glm::vec3(light->pos));
     //    //lightDst = glm::length( L );
-    //    //attenu = light->attenu_const + 
-    //    //            ( light->attenu_linear + light->attenu_quadratic * lightDst ) * lightDst;
+    attenu = light->attenu_const + 
+               ( light->attenu_linear + light->attenu_quadratic * lightDst ) * lightDst;
     //}
     //else
     //{
@@ -167,7 +206,7 @@ __device__ glm::vec3 shade( glm::vec3* point, glm::vec3* normal, glm::vec3* eyeR
         return color;
 
     H = glm::normalize( *L - *eyeRay );
-    color = (*lightColor)   *
+    color = (light->color)   / attenu *
                 ( mtl->diffuse * fmaxf( glm::dot( *normal, *L ), 0.0f ) +
                 mtl->specular * powf( fmaxf( glm::dot( *normal, H ), 0.0f ), mtl->shininess ) );
 
@@ -248,8 +287,8 @@ __device__ glm::vec3 shadowTest( glm::vec3* point, glm::vec3* normal, glm::vec3 
     glm::vec3 O;
     float lightDst, occluderDst;
     int shadowPct = 0;
-    float delta = 1;
-    float deltaX = 1;
+    //float delta = 1;
+    //float deltaX = 1;
     ushort2 LSample;
     int threadId = threadIdx.x + blockDim.x * threadIdx.y;
     
@@ -334,7 +373,7 @@ __device__ glm::vec3 shadowTest( glm::vec3* point, glm::vec3* normal, glm::vec3 
         
         }
         if( shadowPct == 0 )
-            color += shade(point, normal, eyeRay, mtl, &light->color, &L );
+            color += shade(point, normal, eyeRay, mtl, light, &L, lightDst );
         //L = ( glm::vec3(light->pos) + -glm::vec3(light->width/2.0,0, light->width /2.0 ) +
         //                                         glm::vec3( deltaX * ( 1.0f+x*curand_uniform(&state[threadId]) ),
         //                                         0.0f, 
@@ -438,11 +477,217 @@ __global__ void raycastKernel( //unsigned char* const outputImage,
 __global__ void pathTracerKernel( ///unsigned char* const outputImage,
                                float* const outputImage,
                                float* const directIllum,
-                               float* const indirectIllum, 
-                               int width, int height, _CameraData cameraData,
+                               float* const indirectIllum,
+                               glm::vec3* posBuf,
+                               glm::vec3* rayBuf,
+                               glm::vec3* normalBuf,
+                               int* marker,
+                               int raycount,
+                               _CameraData cameraData,
                                const _Primitive* const primitives, int primitiveNum,
                                const _Light* const lights, int lightNum, _Material* mtls, int mtlNum,
-                               curandState *state, unsigned short iteration )
+                               curandState *state,curandStateSobol32_t* sobolState,
+                               unsigned short depth, unsigned short iteration )
+{
+  
+    float2 offset;
+    glm::vec3 ray;
+    glm::vec3 raysource;
+    glm::vec3 incidentP;
+    glm::vec3 shiftP;
+    glm::vec3 surfaceNormal;
+    glm::vec3 color(0.0f,0.0f,0.0f);
+    glm::vec3 reflectRay;
+    //glm::vec3 finalColor(0.0f,0.0f,0.0f);
+    //glm::vec3 cumulativeSpecular( 1.0f, 1.0f, 1.0f );
+    float weight;
+    int hitId;
+    int shadowSampleCount;
+    _Material mtl;
+    curandState local_state;
+    int outIdx;
+    int outIdx2;
+    int outIdx3;
+    
+
+    //generate ray based on block and thread idx
+    int idx= blockIdx.x * blockDim.x + threadIdx.x;
+
+    if( idx >= raycount )
+        return;
+
+    //outIdx = ( idx.y * width + idx.x ) * 4; //element to shade in the output buffer
+    //outIdx2 = ( idx.y * width + idx.x ) * 3;
+    //outIdx3 = ( idx.y * width + idx.x ) * 3 * MAXDEPTH;
+    outIdx = marker[blockIdx.x * blockDim.x + threadIdx.x];
+    outIdx3 = outIdx * 3 * MAXDEPTH;
+    outIdx2 =  outIdx * 4;
+    local_state = state[outIdx];
+
+    ray = rayBuf[ outIdx ];
+    raysource = posBuf[ outIdx ];
+
+    //    unsigned int test = curand_discrete( &local_state, poisson_dist );
+    //for( int i = 0; i < 100; ++i )
+    //    test = curand_discrete( &local_state, poisson_dist );
+    //color.x += test;
+    //else
+    //{
+    //    //ray = glm::vec3( &rayDirs[outIdx2] );
+    //    ray = glm::make_vec3(  &rayDirs[outIdx2] );
+    //    if( ray.x == 0 && ray.y == 0 && ray.z == 0 )
+    //        return;
+    //    raysource = glm::make_vec3( &raySources[outIdx2] );
+    //    cumulativeSpecular = glm::make_vec3( &accuSpecu[outIdx2] );
+    //}
+      //use roulette to determine if the trace should stop
+
+    //for( depth = 0; depth < MAXDEPTH; ++depth )
+    //{
+    if( 0.5 < curand_uniform( &local_state ) && depth < MAXDEPTH ) //Russian Roulette
+    { 
+      
+        hitId = raytrace( &ray,&raysource, primitives, primitiveNum, lights, lightNum, &incidentP, &surfaceNormal );
+        if( hitId >= 0 )
+        {
+            mtl = mtls[primitives[hitId].mtl_id];
+            shiftP = incidentP +  (0.001f * surfaceNormal);
+            
+            if( hitId > 1 ) //skip light gemoetry
+            {
+                shadowSampleCount = 0; //this will be accumulated in the shadowTest
+                for( int i = 0; i < lightNum; ++i )
+                {
+                   
+                    color  +=  shadowTest( &shiftP, &surfaceNormal, &ray, primitives+2, primitiveNum-2, &mtl, lights+i, &local_state, &shadowSampleCount );
+
+                }
+                color /= shadowSampleCount;
+            }
+
+            //Assume no self-emit objects currently
+            //if( depth == 0 )
+            //    color += mtl.ambient + mtl.emission;
+
+            directIllum[outIdx3+depth*3  ] = color.x *2; // / 0.5
+            directIllum[outIdx3+depth*3+1] = color.y *2;
+            directIllum[outIdx3+depth*3+2] = color.z *2;
+
+            //compute the solid angle-weighted term
+            //weight = glm::dot( surfaceNormal, -ray ) / glm::distance( shiftP, raysource )*glm::distance( shiftP, raysource );
+            //weight = glm::distance( raysource ,shiftP );
+            //weight = weight * weight; 
+            //weight = glm::dot( -ray, surfaceNormal ) / weight;
+            //weight = 1;
+
+            indirectIllum[outIdx3+(depth-1)*3  ] *= 2;
+            indirectIllum[outIdx3+(depth-1)*3+1] *= 2;
+            indirectIllum[outIdx3+(depth-1)*3+2] *=  2;
+
+
+            weight = 1;
+            //generate a ray for a further bounce
+            if( glm::all(glm::equal(mtl.specular, glm::vec3(0.0f,0.0f,0.0f) ) ) )
+            {
+                reflectRay = diffuse_direction( &surfaceNormal, &local_state, sobolState );
+            }
+            else
+            {
+                reflectRay = specular_direction( &ray, &surfaceNormal, &local_state, sobolState, &weight );
+            }
+            glm::vec3  H = glm::normalize( reflectRay - ray );
+            color = ( mtl.diffuse * fmaxf( glm::dot( surfaceNormal, reflectRay ), 0.0f ) +
+                     mtl.specular * powf( fmaxf( glm::dot( surfaceNormal, H ), 0.0f ), mtl.shininess ) ) ;
+
+            //weight *= glm::dot( reflectRay, surfaceNormal );
+            indirectIllum[outIdx3+depth*3  ] = color.x * weight;
+            indirectIllum[outIdx3+depth*3+1] = color.y * weight;
+            indirectIllum[outIdx3+depth*3+2] = color.z * weight;
+
+
+            posBuf[outIdx] = shiftP;
+            rayBuf[outIdx] = reflectRay;
+            normalBuf[outIdx] = surfaceNormal;
+            state[outIdx] = local_state;
+            return;
+        }
+
+    }
+    //else //No hit, mark this ray as invalid
+    //{    
+            marker[idx] = -1;
+
+            //and accumuluate the color computed so far
+            color.x = color.y = color.z = 0;
+            for( int i = depth-1; i >= 0; --i )
+            {
+                color = glm::make_vec3( &directIllum[outIdx3+i*3] ) + color * glm::make_vec3(&indirectIllum[outIdx3+i*3]);
+                         
+            }
+            
+            outputImage[ outIdx2    ] = (outputImage[ outIdx2 ] * (iteration-1)+ color.x)/iteration ;
+            outputImage[ outIdx2 + 1] = (outputImage[ outIdx2+1 ] * (iteration-1)+ color.y)/iteration ;
+            outputImage[ outIdx2 + 2] = (outputImage[ outIdx2+2 ] * (iteration-1)+ color.z)/iteration ;
+
+            //restore the curand state to global memory
+            state[outIdx] = local_state;
+            return;
+    //}
+
+
+    //calculate the final shading color
+    //color.x = color.y = color.z = 0;
+    //for( int i = depth-1; i >= 0; --i )
+    //{
+    //    color = glm::make_vec3( &directIllum[outIdx3+i*3] ) + color * glm::make_vec3(&indirectIllum[outIdx3+i*3]);
+    //    
+    //}
+    //outputImage[ outIdx    ] = (outputImage[ outIdx ] * (iteration-1)+ color.x)/iteration ;
+    //outputImage[ outIdx + 1] = (outputImage[ outIdx+1 ] * (iteration-1)+ color.y)/iteration ;
+    //outputImage[ outIdx + 2] = (outputImage[ outIdx+2 ] * (iteration-1)+ color.z)/iteration ;
+    //state[idx] = local_state;
+}
+
+void pathTracerKernelWrapper( //unsigned char* const outputImage, 
+                             _Param* param )
+{
+    dim3 blockSize = dim3(8*8,1,1);
+    dim3 gridSize = dim3( ((*param->rayNum)+ blockSize.x-1)/blockSize.x,1,1 );
+    if( gridSize.x == 0 ) 
+    {
+        return;
+    }
+    //The ray tracing work is done in the kernel
+    //raycastKernel<<< gridSize, blockSize >>>( outputImage, raySources, rayDirs, width, height, cameraData, primitives, primitiveNum,
+    //                                   lights, lightNum, mtl, mtlNum, state, iteration );
+    pathTracerKernel<<< gridSize, blockSize >>>( *param->outputImage, *param->directIllum, *param->indirectIllum, 
+                                                 *param->posBuf, *param->rayBuf,*param->normalBuf, *param->marker, 
+                                                 (*param->rayNum), (*param->cameraData), 
+                                                 *param->primitives,
+                                                 param->primitiveNum,
+                                                 *param->lights, 
+                                                 param->lightNum, 
+                                                 *param->mtl, param->mtlNum, 
+                                                 *param->state, *param->sobolState, 
+                                                 *param->depth, *param->iteration );
+    cudaErrorCheck( cudaGetLastError() );
+    cudaDeviceSynchronize(); 
+    cudaErrorCheck( cudaGetLastError() );
+}
+
+__global__ void pathTracerEyeRayKernel( ///unsigned char* const outputImage,
+                               float* const outputImage,
+                               float* const directIllum,
+                               float* const indirectIllum, 
+                               glm::vec3* posBuf,
+                               glm::vec3* rayBuf,
+                               glm::vec3* normalBuf,
+                               int* marker,
+                               int width, int height,
+                               _CameraData cameraData,
+                               const _Primitive* const primitives, int primitiveNum,
+                               const _Light* const lights, int lightNum, _Material* mtls, int mtlNum,
+                               curandState *state,curandStateSobol32_t* sobolState  )
 {
     ushort2 idx;
     float2 offset;
@@ -455,14 +700,15 @@ __global__ void pathTracerKernel( ///unsigned char* const outputImage,
     glm::vec3 reflectRay;
     //glm::vec3 finalColor(0.0f,0.0f,0.0f);
     //glm::vec3 cumulativeSpecular( 1.0f, 1.0f, 1.0f );
+    float weight;
     int hitId;
     int shadowSampleCount;
-    float pfd;
     _Material mtl;
     curandState local_state;
     int outIdx;
     int outIdx2;
     int outIdx3;
+    
 
     //generate ray based on block and thread idx
     idx.x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -471,9 +717,9 @@ __global__ void pathTracerKernel( ///unsigned char* const outputImage,
     if( idx.x > width || idx.y > height )
         return;
     outIdx = ( idx.y * width + idx.x ) * 4; //element to shade in the output buffer
-    outIdx2 = ( idx.y * width + idx.x ) * 3;
+    outIdx2 = ( idx.y * width + idx.x );
     outIdx3 = ( idx.y * width + idx.x ) * 3 * MAXDEPTH;
-    local_state = state[threadIdx.x + blockDim.x * threadIdx.y];
+    local_state = state[outIdx2];
 
     //offset.x = cameraData.viewportHalfDim.x * ( (idx.x+0.5) / (width/2.0) - 1 );
     //offset.y = cameraData.viewportHalfDim.y * ( 1- (idx.y+0.5) / (height/2.0)  );
@@ -483,27 +729,21 @@ __global__ void pathTracerKernel( ///unsigned char* const outputImage,
     ray = cameraData.wVec + offset.x * cameraData.vVec + offset.y * cameraData.uVec;
     ray = glm::normalize( ray );
     raysource = cameraData.eyePos;
-    
-    //else
-    //{
-    //    //ray = glm::vec3( &rayDirs[outIdx2] );
-    //    ray = glm::make_vec3(  &rayDirs[outIdx2] );
-    //    if( ray.x == 0 && ray.y == 0 && ray.z == 0 )
-    //        return;
-    //    raysource = glm::make_vec3( &raySources[outIdx2] );
-    //    cumulativeSpecular = glm::make_vec3( &accuSpecu[outIdx2] );
-    //}
-      //use roulette to determine if the trace should stop
-    short depth;
-    for( depth = 0; depth < MAXDEPTH; ++depth )
-    {
-        color.x = color.y = color.z = 0.0f; //clear color vector for use in current iteration
+
+        //if( 0.5 < curand_uniform( &local_state ) ) //Russian Roulette
+        //{  
+        //    //mark this ray invalid
+        //    marker[outIdx2] = -1;
+        //    return;
+        //}
+
         hitId = raytrace( &ray,&raysource, primitives, primitiveNum, lights, lightNum, &incidentP, &surfaceNormal );
         if( hitId >= 0 )
         {
             mtl = mtls[primitives[hitId].mtl_id];
             shiftP = incidentP +  (0.001f * surfaceNormal);
-            if( hitId > 1 )
+            
+            if( hitId > 1 ) //skip light gemoetry
             {
                 shadowSampleCount = 0; //this will be accumulated in the shadowTest
                 for( int i = 0; i < lightNum; ++i )
@@ -511,91 +751,84 @@ __global__ void pathTracerKernel( ///unsigned char* const outputImage,
                    
                     color  +=  shadowTest( &shiftP, &surfaceNormal, &ray, primitives+2, primitiveNum-2, &mtl, lights+i, &local_state, &shadowSampleCount );
 
-                    //sahding
-                    //if( shadowPct ==0 )
-                      //color += (1.0f-shadowPct)*shade( &incidentP, &surfaceNormal, &ray, &mtl, lights+i );
                 }
                 color /= shadowSampleCount;
             }
+
             color += mtl.ambient + mtl.emission;
 
-            directIllum[outIdx3+depth*3  ] = color.x;
-            directIllum[outIdx3+depth*3+1] = color.y;
-            directIllum[outIdx3+depth*3+2] = color.z;
-            //color = color * cumulativeSpecular;
-            //write color to output buffer
-            //outputImage[ outIdx    ] = (outputImage[ outIdx ] * (iteration-1)+ color.x)/iteration ;
-            //outputImage[ outIdx + 1] = (outputImage[ outIdx+1 ] * (iteration-1)+ color.y)/iteration ;
-            //outputImage[ outIdx + 2] = (outputImage[ outIdx+2 ] * (iteration-1)+ color.z)/iteration ;
-        
-            //if( !glm::all(glm::equal(mtl.specular, glm::vec3(0.0f,0.0f,0.0f) ) ) )
-            //{
+            directIllum[outIdx3 ] = color.x; // / 0.5
+            directIllum[outIdx3+1] = color.y;
+            directIllum[outIdx3+2] = color.z;
 
-            //    //ray = glm::normalize( glm::reflect( ray, surfaceNormal ) );
-            //    //raysource = shiftP;
-            //    reflectRay = glm::normalize( glm::reflect( ray, surfaceNormal ) );
-            //    rayDirs[outIdx2 ] = reflectRay.x;
-            //    rayDirs[outIdx2 +1] = reflectRay.y;
-            //    rayDirs[outIdx2 +2] = reflectRay.z;
-            //    //raySources[idx.y * width + idx.x] = shiftP;
-            //    raySources[outIdx2] = shiftP.x;
-            //    raySources[outIdx2+1] = shiftP.y;
-            //    raySources[outIdx2+2] = shiftP.z;
+            //compute the solid angle-weighted term
+            //weight = glm::dot( surfaceNormal, -ray ) / glm::distance( shiftP, raysource )*glm::distance( shiftP, raysource );
+            //weight = glm::distance( raysource ,shiftP );
+            //weight = weight * weight; 
+            //weight = glm::dot( -ray, surfaceNormal ) / weight;
+            //weight = 1;
 
-            //    accuSpecu[outIdx2] = cumulativeSpecular.x* mtl.specular.x;
-            //    accuSpecu[outIdx2+1] = cumulativeSpecular.y*mtl.specular.y;
-            //    accuSpecu[outIdx2+2] = cumulativeSpecular.z*mtl.specular.z;
-            //    //cumulativeSpecular *= mtl.specular;
-            //}
-
-            //generate a ray for further bounce
-            reflectRay = diffuse_direction( &surfaceNormal, &local_state );
+            weight = 1;
+            //generate a ray for a further bounce
+            if( glm::all(glm::equal(mtl.specular, glm::vec3(0.0f,0.0f,0.0f) ) ) )
+            {
+                reflectRay = diffuse_direction( &surfaceNormal, &local_state, sobolState );
+            }
+            else
+            {
+                reflectRay = specular_direction( &ray, &surfaceNormal, &local_state, sobolState, &weight );
+            }
             glm::vec3  H = glm::normalize( reflectRay - ray );
             color = ( mtl.diffuse * fmaxf( glm::dot( surfaceNormal, reflectRay ), 0.0f ) +
-                     mtl.specular * powf( fmaxf( glm::dot( surfaceNormal, H ), 0.0f ), mtl.shininess ) );
+                     mtl.specular * powf( fmaxf( glm::dot( surfaceNormal, H ), 0.0f ), mtl.shininess ) ) ;
 
-            indirectIllum[outIdx3+depth*3  ] = color.x;
-            indirectIllum[outIdx3+depth*3+1] = color.y;
-            indirectIllum[outIdx3+depth*3+2] = color.z;
+            //weight *= glm::dot( reflectRay, surfaceNormal );
+            indirectIllum[outIdx3  ] = color.x * weight;
+            indirectIllum[outIdx3+1] = color.y * weight;
+            indirectIllum[outIdx3+2] = color.z * weight;
 
-            raysource = shiftP;
-            ray = reflectRay;
+
+            posBuf[outIdx2] = shiftP;
+
+            rayBuf[outIdx2] = reflectRay;
+
+            normalBuf[outIdx2] = surfaceNormal;
+
+         
         }
-        else
-            break;
+        else //No hit, mark this ray as invalid
+        {
+            marker[outIdx2] = -1;
+            state[outIdx2] = local_state;
+            return;
+        }
 
-    }
 
-    //calculate the final shading color
-    color.x = color.y = color.z = 0;
-    for( int i = depth-1; i >= 0; --i )
-    {
-        color = glm::make_vec3( &directIllum[outIdx3+i*3] ) + color * glm::make_vec3(&indirectIllum[outIdx3+i*3]);
-        
-    }
-    outputImage[ outIdx    ] = (outputImage[ outIdx ] * (iteration-1)+ color.x)/iteration ;
-    outputImage[ outIdx + 1] = (outputImage[ outIdx+1 ] * (iteration-1)+ color.y)/iteration ;
-    outputImage[ outIdx + 2] = (outputImage[ outIdx+2 ] * (iteration-1)+ color.z)/iteration ;
-    state[threadIdx.x + blockDim.x * threadIdx.y] = local_state;
+    //calculate the shading color
+    //outputImage[ outIdx    ] = directIllum[outIdx3 ] ;
+    //outputImage[ outIdx + 1] = directIllum[outIdx3+1 ] ;
+    //outputImage[ outIdx + 2] = directIllum[outIdx3+2 ] ;
+    state[outIdx2] = local_state;
 }
 
-void rayTracerKernelWrapper( //unsigned char* const outputImage, 
-                             float* const outputImage,
-                             float* const directIllum,
-                             float* const indirectIllum, 
-                             int width, int height, _CameraData cameraData,
-                             const _Primitive* const primitives, int primitiveNum,
-                             const _Light* const lights, int lightNum, _Material* mtl, int mtlNum,
-                             int DOPsampleCount, curandState *state, unsigned short iteration )
+void pathTracerEyeRayKernelWrapper( //unsigned char* const outputImage, 
+                             _Param* param )
 {
     dim3 blockSize = dim3(8,8);
-    dim3 gridSize = dim3( (width + blockSize.x-1)/blockSize.x, (height + blockSize.y-1)/blockSize.y );
+    dim3 gridSize = dim3( (param->width + blockSize.x-1)/blockSize.x, (param->height + blockSize.y-1)/blockSize.y );
 
     //The ray tracing work is done in the kernel
     //raycastKernel<<< gridSize, blockSize >>>( outputImage, raySources, rayDirs, width, height, cameraData, primitives, primitiveNum,
     //                                   lights, lightNum, mtl, mtlNum, state, iteration );
-    pathTracerKernel<<< gridSize, blockSize >>>( outputImage, directIllum, indirectIllum, width, height, cameraData, primitives, primitiveNum,
-                                      lights, lightNum, mtl, mtlNum, state, iteration );
+    pathTracerEyeRayKernel<<< gridSize, blockSize >>>( *param->outputImage, *param->directIllum, *param->indirectIllum, 
+                                                 *param->posBuf, *param->rayBuf, *param->normalBuf, *param->marker,
+                                                 param->width, param->height, *param->cameraData, 
+                                                 *param->primitives,
+                                                 param->primitiveNum,
+                                                 *param->lights, 
+                                                 param->lightNum, 
+                                                 *param->mtl, param->mtlNum, 
+                                                 *param->state, *param->sobolState );
     cudaErrorCheck( cudaGetLastError() );
     cudaDeviceSynchronize(); 
     cudaErrorCheck( cudaGetLastError() );
@@ -605,11 +838,48 @@ __global__ void setupRandSeed(curandState *state)
 {
     int id = threadIdx.x + blockIdx.x * blockDim.x;
 
-    curand_init( 1234+id, id, 0, &state[id]);
+    curand_init( 1234, id, 0, &state[id]);
 }
 
-
-void setupRandSeedWrapper( int dimX, int dimY, curandState* states ) 
+__global__ void setupSobolRandSeed(curandStateSobol32_t *state, unsigned int* vector)
 {
-    setupRandSeed<<<dimX, dimY>>>(states);
+    int id = threadIdx.x + blockIdx.x * blockDim.x;
+
+    curand_init( vector, id, &state[id]);
+}
+
+void setupRandSeedWrapper( int width, int height, curandState* states ) 
+{
+    dim3 blockSize = dim3(8*8);
+    dim3 gridSize = dim3( (width*height + blockSize.x-1)/blockSize.x );
+    setupRandSeed<<<gridSize, blockSize>>>(states);
+    cudaErrorCheck( cudaGetLastError() );
+    cudaDeviceSynchronize(); 
+    cudaErrorCheck( cudaGetLastError() );
+}
+
+void setupSobolRandSeedWrapper( int width, int height, curandStateSobol32_t* states, unsigned int*vector ) 
+{
+    dim3 blockSize = dim3(8*8);
+    dim3 gridSize = dim3( (width*height + blockSize.x-1)/blockSize.x );
+    setupSobolRandSeed<<<gridSize, blockSize>>>(states, vector);
+    cudaErrorCheck( cudaGetLastError() );
+    cudaDeviceSynchronize(); 
+    cudaErrorCheck( cudaGetLastError() );
+}
+
+__global__ void initMarkerKernel( int* marker )
+{
+    int id = blockIdx.x * blockDim.x +threadIdx.x ;
+    marker[id] = -1;
+}
+
+void initMarkerWrapper( int width, int height, int* d_marker )
+{
+    dim3 blockSize = dim3(8*8);
+    dim3 gridSize = dim3( (width*height + blockSize.x-1)/blockSize.x );
+    initMarkerKernel<<<gridSize, blockSize>>>( d_marker );
+    cudaErrorCheck( cudaGetLastError() );
+    cudaDeviceSynchronize(); 
+    cudaErrorCheck( cudaGetLastError() );
 }
