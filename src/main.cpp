@@ -186,7 +186,7 @@ void runCuda(){
 			for(int x=0; x<renderCam->resolution.x; x++){
 				for(int y=0; y<renderCam->resolution.y; y++){
 					int index = x + (y * renderCam->resolution.x);
-					outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]/float(renderCam->iterations));
+					outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]/float(frameFilterCounter));
 				}
 			}
 
