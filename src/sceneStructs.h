@@ -16,7 +16,7 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
-	glm::vec2 px;
+	int px;
 	glm::vec3 color;
 	bool isContinue;
 };

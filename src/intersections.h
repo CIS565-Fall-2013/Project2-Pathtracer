@@ -121,10 +121,12 @@ __host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::
 			intersectionPoint = temp_IP;
 			normal = temp_N;
 			geomId = i;
+			changed = true;
 		}
 	  }
 
-	return intersect;
+	if(changed) return intersect;
+	else return -1;
 }
 
 //Cube intersection test, return -1 if no intersection, otherwise, distance to intersection

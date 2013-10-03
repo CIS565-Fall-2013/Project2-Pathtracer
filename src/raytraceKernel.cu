@@ -123,7 +123,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
-__global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
+__global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, cameraData cam, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms, material* mats, int* lightIds, int numberOfLights/*, mesh* meshes, int numberOfMeshes*/){
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -139,10 +139,10 @@ __global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, camera
 		
 		float t = 1.0f / glm::dot(r.direction, cam.view) * glm::dot(focal_point - r.origin, cam.view);
 		glm::vec3 aimed = r.origin + t * r.direction;
-		r.origin = r.origin + .5f * generateRandomNumberFromThread(resolution, time, x, y);
-		r.direction = 0.01f * generateRandomNumberFromThread(resolution, time, x, y) + glm::normalize(aimed - r.origin);
+		//r.origin = r.origin + .5f * generateRandomNumberFromThread(resolution, time, x, y);
+		//r.direction = 0.01f * generateRandomNumberFromThread(resolution, time, x, y) + glm::normalize(aimed - r.origin);
 	
-		float intersect, Ka = 0.0f, Kd = .5f, Ks = .5f;
+		float intersect;
 		int geomId;
 
 		glm::vec3 intersectionPoint, normal;
@@ -150,29 +150,30 @@ __global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, camera
 
 		// Intersection Checking
 		intersect = isIntersect(r, intersectionPoint, normal, geoms, numberOfGeoms, geomId);
-
+		
 		if (epsilonCheck(intersect, -1.0f)){
 			r.color = glm::vec3(0.0f);
 			r.isContinue = false;
 		}else{
 			if(IS_LIGHT(mats, geoms, geomId)){
-				r.color = COLOR(mats, geoms[geomId]);
+				r.color = r.color * COLOR(mats, geoms[geomId]) * EMITTANCE(mats, geoms[geomId]), 0.0f, 1.0f;
 				r.isContinue = false;
 			}else if(REFLECTIVE(mats, geoms[geomId]) > .001f){
-				r.color = COLOR(mats, geoms[geomId]);
+				r.color *= COLOR(mats, geoms[geomId]);
 				if(epsilonCheck(glm::length(glm::cross(r.direction, normal)), 0.0f)) reflectedRay = -1.0f * normal;
 				else if(epsilonCheck(glm::dot(-1.0f * r.direction, normal), 0.0f)) reflectedRay = r.direction;
 				else reflectedRay = r.direction - 2.0f * normal * glm::dot(r.direction, normal);
 				r.direction = reflectedRay;
-				r.origin = intersectionPoint + .001f * r.direction;
+				r.origin = intersectionPoint + .01f * r.direction;
 			}else{
 				// DIFFUSE CASE
-				thrust::default_random_engine rng(hash(index*time));
+				thrust::default_random_engine rng(hash(time * index));
 				thrust::uniform_real_distribution<float> u01(0,1);
-				r.color = glm::clamp(r.color * COLOR(mats, geoms[geomId]), 0.0f, 1.0f);
-				r.isContinue = false;
-				r.direction = calculateRandomDirectionInHemisphere(normal, (float) u01(rng), (float) u01(rng));
-				r.origin = intersectionPoint + .001f * r.direction;
+				r.color = r.color * COLOR(mats, geoms[geomId]), 0.0f, 1.0f;
+				
+				r.direction = calculateRandomDirectionInHemisphere(normal,(float)u01(rng),(float)u01(rng));
+
+				r.origin = intersectionPoint + .01f * r.direction;
 			}
 		}
 		rays[index] = r;
@@ -187,7 +188,7 @@ void __global__ setUpRays(glm::vec2 resolution, float time, cameraData cam, ray*
 	if(x <= resolution.x && y <= resolution.y){
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 		r.isContinue = true;
-		r.px = glm::vec2(x,y);
+		r.px = index;
 		r.color = glm::vec3(1.0);
 
 		rays[index] = r;
@@ -201,7 +202,7 @@ void __global__ accumulateColor(glm::vec2 resolution, glm::vec3* image, ray* ray
 
 	if(x <= resolution.x && y <= resolution.y){
 		ray r = rays[index];
-		int img_index = r.px.x + (r.px.y * resolution.x);
+		int img_index = r.px;
 		image[index] += r.color;
 	}
 }
@@ -221,7 +222,7 @@ void __global__ setColor(glm::vec2 resolution, ray* rays){
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, 
 	int* lightIds, int numberOfLights){
   
-  int maxTraceDepth = 2;
+  int maxTraceDepth = 8;
   int traceDepth = 0; 
 
   // set up crucial magic
@@ -273,23 +274,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   // set up rays
   setUpRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, cudarays);
-  std :: cout << "before loop" << std::endl;
-  cudaThreadSynchronize();
-  std::cout << "thread sync" << std::endl;
-  checkCUDAError("Kernel failed!");
+
   while(traceDepth < maxTraceDepth){
-	  pathtraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays, renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightids, numberOfLights);
+	  pathtraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays, renderCam->resolution, (float)iterations * (traceDepth+1), cam, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightids, numberOfLights);
 	  // TODO : 
 	  // compactStream<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudarays, newcudarays, numLiveRays);
 	  // fullBlocksPerGrid = ??
 	  // threadsPerBlock = ??
 	  traceDepth++;
-	  std :: cout << "FINISHED LOOP" << std::endl;
-	  cudaThreadSynchronize();
-	  std::cout << "thread sync" << std::endl;
-	  
-	  checkCUDAError("Kernel failed!");
-	  getchar();
   }
 
   accumulateColor<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaimage, cudarays);
