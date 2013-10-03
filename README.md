@@ -99,7 +99,7 @@ There are three types of user interactions supported.
 Finally, I ended up implementing this feature as an integral part of path tracer. We can think of it like this. If you don't like the way, your procedural textures are rendering in your path tracer, you can hit 't' and set your textures as per your liking, and then hit 't' again to path trace with these textures.
 A "Texture session"  basically shows a flat color render without any lighting.  The user can tweak values (see the keyboard controls given below) and interactively see if he likes any of the textures. Right now, the interface doesn't cover "all" the parameters, so you will be basically see derivations or variations from an existing configuration. For example, you can't change the colors, but can change the pattern.
 
-Last but not the least, since these are interactive features, images will not be able to describe completely. Please see the **video of these features**at this link,
+Last but not the least, since these are interactive features, images will not be able to describe them completely. Please see the **video of these features**at this link,
 
 https://vimeo.com/76013561
 
