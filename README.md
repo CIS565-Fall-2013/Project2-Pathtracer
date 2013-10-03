@@ -9,7 +9,7 @@ Fall 2013
 PROJECT DESCRIPTION
 -------------------------------------------------------------------------------
 This is a GPU path tracing program. Features implemented including:
-* Basic features
+# Basic features
 	- Full global illumination (including soft shadows, color bleeding, etc.) by pathtracing rays through the scene. 
     - Properly accumulating emittance and colors to generate a final image
     - Supersampled antialiasing
@@ -17,7 +17,7 @@ This is a GPU path tracing program. Features implemented including:
     - Perfect specular reflection (mirror)
 
 
-* Additional features
+# Additional features
 	- Fresnel refraction and reflection for transparent objects
 	- Motion blur
 	- Depth of Field
@@ -138,18 +138,18 @@ Motion blur is easy too, simply translate the object a bit every iteration. This
 
  ![Alt text](renders/Motion Blur.jpg?raw=true)
 
-* Depth of Field
+# Depth of Field
 
 Browsing Internet for knowlegde of Depth of Field, I found some great sites:
 
-	- For theory: http://http.developer.nvidia.com/GPUGems/gpugems_ch23.html
+	## For theory: http://http.developer.nvidia.com/GPUGems/gpugems_ch23.html
 
-	- For implementation: 
+	## For implementation: 
 	http://www.codermind.com/articles/Raytracer-in-C++-Depth-of-field-Fresnel-blobs.html
 	http://www.keithlantz.net/2013/03/path-tracer-depth-of-field/
 	http://www.colorseffectscode.com/Projects/GPUPathTracer.html (Shehzan's personel website)
 
-Having understood the theory, I followed the algorithm described by Shehzan and wrote my own code. Here is what it looks like:
+Having understood the theory, I followed the algorithm described by Shehzan and wrote my own code. Here is what it looks like (focus on the 2 green spheres):
 
  ![Alt text](renders/Depth of Field.jpg?raw=true)
 
