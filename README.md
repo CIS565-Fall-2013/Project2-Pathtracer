@@ -1,6 +1,6 @@
 ![Alt text](/renders/test4000FUN.0.bmp "With OBJ Loader")
 
-![Alt text](/renders/test4000.0WithOBJ.bmp "With OBJ Loader")
+![Alt text](/renders/test4000.0WithOBJ.bmp "FUN")
 
 
 
