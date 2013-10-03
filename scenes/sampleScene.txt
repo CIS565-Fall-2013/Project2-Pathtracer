@@ -188,7 +188,7 @@ TRANS       2 4 -2
 ROTAT       90 180 0
 SCALE       3 3 3 
 frame 1
-TRANS       2 4 -2
+TRANS       3 4 -2
 ROTAT       90 180 0
 SCALE       3 3 3
 
