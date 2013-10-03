@@ -10,6 +10,9 @@
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
+//
+float average_time;
+float prev_time;
 
 int main(int argc, char** argv){
 
@@ -104,7 +107,8 @@ void runCuda(){
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  
+  float curtime;
+
   if(iterations<renderCam->iterations){
     uchar4 *dptr=NULL;
     iterations++;
@@ -121,9 +125,12 @@ void runCuda(){
       materials[i] = renderScene->materials[i];
     }
     
-  
-    // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    curtime =  glutGet( GLUT_ELAPSED_TIME )/250.0f;
+    average_time += (curtime - prev_time)/4.0f;
+    prev_time = curtime;
+    printf( "average_time: %f \n", average_time/iterations ); 
+    //cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, curtime, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -143,7 +150,7 @@ void runCuda(){
       gammaSettings gamma;
       gamma.applyGamma = true;
       gamma.gamma = 1.0;
-      gamma.divisor = 1.0; //renderCam->iterations;
+      gamma.divisor = renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -224,8 +231,8 @@ void runCuda(){
 		switch (key) 
 		{
 		   case(27):
-			   exit(1);
-			   break;
+		     exit(1);
+		     break;
 		}
 	}
 
@@ -301,7 +308,9 @@ void initCuda(){
 
   // Clean up on program exit
   atexit(cleanupCuda);
+  prev_time = 0.0f;
 
+  //struct tm* t0; 
   runCuda();
 }
 

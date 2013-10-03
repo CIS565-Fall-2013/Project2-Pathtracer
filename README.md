@@ -1,3 +1,108 @@
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/all_features_awesome.bmp)
+
+-------------------------------------------------------------------------------
+Pathtracer:
+-------------------------------------------------------------------------------
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/dof_nice.bmp)
+
+
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/all_features.bmp)
+
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/dof_refl_refr.bmp)
+
+
+-------------------------------------------------------------------------------
+Video:
+-------------------------------------------------------------------------------
+This is pretty low-res. High-res to come soon!!!
+http://youtu.be/hzeRzmRnIo0
+
+-------------------------------------------------------------------------------
+Features:
+-------------------------------------------------------------------------------
+I implementing the requred features:
+
+* Properly accumulating emittance and colors to generate a final image
+* Supersampled antialiasing
+* Parallelization by ray instead of by pixel via stream compaction
+ * I used thrust for the scan step and implented my own parallel scatter
+* Perfect specular reflection
+
+And:
+* Fresnel-based Refraction, i.e. glass
+* Depth of field
+
+The following screenshot shows a comparison between anti-aliased and non-anti-aliased edges, its a bit hard to see because the render isn't fully converged. 
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/anti_aliasing.png)
+
+-------------------------------------------------------------------------------
+Cool Bugs:
+-------------------------------------------------------------------------------
+In the process of implementing various features in my path tracer I ran into 
+a number of awesome bugs. 
+
+This one is the result of poorly seeded random number, I'm still not sure if 
+I can recreate it :). 
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/artsy_bug.png)
+
+While implementing refraction a missing sqrt and refractive index flip lead to this one. 
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/refraction_bug.bmp)
+
+For comparison here is the fixed pure-refraction
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/refraction_pure.png)
+
+-------------------------------------------------------------------------------
+Performance Evalutation:
+-------------------------------------------------------------------------------
+TileSize vs. Average Time-per-frame ( seconds ) for a 400 by 400 Image on a GEFORCE 610M 1GB. 
+
+With stream compaction:
+* 2, 0.81
+* 4, 0.33
+* 8, 0.18
+* 16, 0.25
+
+Without stream compaction ( note: this code produces incorrect results but will be fixed ):
+* 2, 0.43
+* 4, 0.17
+* 8, 0.08
+* 16, 0.11
+
+At the moment it looks like my non-stream compaction implementation is faster by about a factor of 2. Once I get NVVP up and running I'll evaluate more closely the difference between the two. 
+
+
+For a 600 by 600 image using a TileSize of 8 I acheive an average time-per-frame of 0.33 with a raydepth of 6. 
+This comes out to ~6480000 rays/sec. 
+
+Once I fix the thrust::dealloc error in my code ( a quick google search seems to hint at the problem being some sort of ECC problem ) I'm going to do some profiling useing NVidia Visual Profiler ( such a cool tool! ). 
+
+
+
+
+
+
+
+
+-------------------------------------------------------------------------------
+First Steps:
+-------------------------------------------------------------------------------
+Moved some of my code from Project1 over and started getting the path tracer up and working. 
+Naive Implementation: 
+* Send out ray from camera, then calculate new ray direction by randomly sampling on a hemisphere
+* Sample the brdf using the new direction 
+
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/path_tracer_first_steps.png)
+
+I put together debug some simple debug modes:
+
+New Ray direction ( converges to the point normal ):
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/sampled_directions.png)
+
+
+BRDF ( first object intersected color ):
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/brdf_sampling.png)
+
+
 -------------------------------------------------------------------------------
 CIS565: Project 2: CUDA Pathtracer
 -------------------------------------------------------------------------------
