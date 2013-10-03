@@ -10,6 +10,9 @@
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
+//
+float average_time;
+float prev_time;
 
 int main(int argc, char** argv){
 
@@ -123,7 +126,9 @@ void runCuda(){
     }
     
     curtime =  glutGet( GLUT_ELAPSED_TIME )/250.0f;
-    printf( "time: %f \n", curtime ); 
+    average_time += (curtime - prev_time)/4.0f;
+    prev_time = curtime;
+    printf( "average_time: %f \n", average_time/iterations ); 
     //cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
     cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, curtime, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
     
@@ -303,6 +308,7 @@ void initCuda(){
 
   // Clean up on program exit
   atexit(cleanupCuda);
+  prev_time = 0.0f;
 
   //struct tm* t0; 
   runCuda();

@@ -241,12 +241,19 @@ __global__ void raycastFromCameraKernel( glm::vec2 resolution, float time, camer
   float xf = float(x) + scl*px_size_x*xi1(rng);
   float yf = float(y) + scl*px_size_y*xi2(rng);
 
-  // Depth of field needs to be more interactive, need to be able change focal plane
+  // Not-as-nice-as-I-would-like DOF
+  float focal_point = 4.0f;
+  float depth_of_field_scale = 0.02f*focal_point;
   ray r;
-  r.origin = cam.position;// + 0.1f*glm::vec3( xv(rng), yv(rng), zv(rng) ); 
+  r.origin = cam.position + depth_of_field_scale*glm::vec3( xv(rng), yv(rng), zv(rng) ); 
   //r.origin = cam.position;
   r.direction = cam.view + (-2.0f*px_size_x*xf/resolution.x + px_size_x)*glm::cross( cam.view, cam.up ) \
-		         + (-2.0f*px_size_y*yf/resolution.y + px_size_y)*cam.up;
+		          + (-2.0f*px_size_y*yf/resolution.y + px_size_y)*cam.up;
+  r.direction *= focal_point;
+  r.direction += cam.position;
+
+  r.direction = glm::normalize( r.direction - r.origin  );
+
 
   // Set ray in ray pool
   ray_pool[index].Ray = r;
@@ -626,7 +633,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   thrust::device_ptr<int> msk_dptr = thrust::device_pointer_cast(ray_mask);  
   thrust::device_ptr<int> idx_dptr = thrust::device_pointer_cast(cuda_indices);  
 
-  int traceDepth = 5; //determines how many bounces the raytracer traces
+  int traceDepth = 6; //determines how many bounces the raytracer traces
   // Iterate through ray calls accumulating in brdf_accums 
   for ( int i=0; i < traceDepth; ++i ) {
 
@@ -693,9 +700,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   // make certain the kernel has completed
   cudaThreadSynchronize();
 
+  /*
   cudaError_t errorNum = cudaPeekAtLastError();
   if ( errorNum != cudaSuccess ) { 
       printf ("Cuda error -- %s\n", cudaGetErrorString(errorNum));
   }
   checkCUDAError("Kernel failed!");
+  */
 }

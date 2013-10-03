@@ -1,3 +1,59 @@
+
+
+
+
+-------------------------------------------------------------------------------
+Features:
+-------------------------------------------------------------------------------
+I implementing the requred features:
+
+* Properly accumulating emittance and colors to generate a final image
+* Supersampled antialiasing
+* Parallelization by ray instead of by pixel via stream compaction
+** I used thrust for the scan step and implented my own parallel scatter
+* Perfect specular reflection
+
+And:
+* Fresnel-based Refraction, i.e. glass
+* Depth of field
+
+The following screenshot shows a comparison between anti-aliased and non-anti-aliased edges
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/anti_aliasing.png)
+
+-------------------------------------------------------------------------------
+Cool Bugs:
+-------------------------------------------------------------------------------
+In the process of implementing various features in my path tracer I ran into 
+a number of awesome bugs. 
+
+This one is the result of poorly seeded random number, I'm still not sure if 
+I can recreate it :). 
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/artsy_bug.png)
+
+While implementing refraction a missing sqrt and refractive index flip lead to this one. 
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/refraction_bug.png)
+
+For comparison here is the fixed pure-refraction
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/refraction_pure.png)
+
+-------------------------------------------------------------------------------
+Performance Evalutation:
+-------------------------------------------------------------------------------
+TileSize vs. Average Time-per-frame ( milli-seconds ) for a 400 by 400 Image
+* 2, 0.81
+* 4, 0.33
+* 8, 0.18
+* 16, 0.25
+
+Once I fix the thrust::dealloc error in my code ( a quick google search seems to hint at the problem being some sort of ECC problem ) I'm going to do some profiling useing NVidia Visual Profiler ( such a cool tool! ). 
+
+
+
+
+
+
+
+
 -------------------------------------------------------------------------------
 First Steps:
 -------------------------------------------------------------------------------
