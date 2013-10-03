@@ -188,21 +188,3 @@ performance differences.
 THIRD PARTY CODE CREDITS
 -------------------------------------------------------------------------------
 * Perlin noise function: http://www.codermind.com/articles/Raytracer-in-C++-Part-III-Textures.html
-
--------------------------------------------------------------------------------
-SELF-GRADING
--------------------------------------------------------------------------------
-* On the submission date, email your grade, on a scale of 0 to 100, to Liam, liamboone+cis565@gmail.com, with a one paragraph explanation.  Be concise and realistic.  Recall that we reserve 30 points as a sanity check to adjust your grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We hope to only use this in extreme cases when your grade does not realistically reflect your work - it is either too high or too low.  In most cases, we plan to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as the path tracer.  We will determine the weighting at the end of the semester based on the size of each project.
-
--------------------------------------------------------------------------------
-SUBMISSION
--------------------------------------------------------------------------------
-As with the previous project, you should fork this project and work inside of your fork. Upon completion, commit your finished project back to your fork, and make a pull request to the master repository.
-You should include a README.md file in the root directory detailing the following
-
-* A brief description of the project and specific features you implemented
-* At least one screenshot of your project running, and at least one screenshot of the final rendered output of your pathtracer
-* Instructions for building and running your project if they differ from the base code
-* A link to your blog post detailing the project
-* A list of all third-party code used
