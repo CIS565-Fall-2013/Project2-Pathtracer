@@ -71,7 +71,7 @@ The idea is to do temporal sampling in addition to spatial sampling. Given a fra
 * **Depth of field:**
 Based on the aperture and focal plane specified as camera attributes in the config file.
 The idea is to jitter the rays in such a manner that the jittering is least at the focal plane region.
-![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/refr_refl_diff_DOF.bmp)
+![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/dof_image.bmp)
 
 * **Procedural textures:**
 I cannot be more fascinated by the beauty of procedural textures (two things that amazed me the most during this assignment are Monte Carlo sampling and Perlin Noise. 
