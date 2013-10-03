@@ -1,9 +1,7 @@
 -------------------------------------------------------------------------------
-CIS565: Project 2: CUDA Pathtracer
+CIS565: Project 2: CUDA Pathtracer (Due Wednesday, 10/02/13)
 -------------------------------------------------------------------------------
 Fall 2013
--------------------------------------------------------------------------------
-Due Wednesday, 10/02/13
 -------------------------------------------------------------------------------
 
 I was able to implement:
@@ -13,12 +11,14 @@ I was able to implement:
 * Parallelization by ray instead of by pixel via stream compaction (you may use Thrust for this).
 * Perfect specular reflection
 
-Nsight Insights:
-
-[pic1]
+-------------------------------------------------------------------------------
+Nsight Insights
+-------------------------------------------------------------------------------
 
 My program was running fine when "Generate GPU Debug Information" was set to "Yes" but immediately
 stopped execution when it was set to "No". No change in code.
+
+![Generate GPU Debug Information](https://raw.github.com/takfuruya/Project2-Pathtracer/master/1.png)
 
 I identified the issue on the host by running the following code after each kernel launch:
 
@@ -36,22 +36,25 @@ First, I checked the number of threads launched:
 	TraceRay<<<num_blocks_per_grid, num_threads_per_block>>>(...
 
 I was working on a device with compute capability 1.2 (GeForce 310M) whose specs are:
+
  - max 512 threads/block
  - max 65535 blocks/grid
  - 2 SM
  - 8 blocks/SM
+
 I am using ```ceil(800*800 / 512) = 1250``` blocks per grid so I am within limits.
 Then I checked the amount of memory used in this kernel by adding "ptxas" flag to nvcc.
 
-[pic2]
+![ptxas Flag](https://raw.github.com/takfuruya/Project2-Pathtracer/master/2.png)
 
 Building it, I was able to confirm that ```TraceRay``` kernel was using 63 registers.
 
-[pic3]
+![63 Registers](https://raw.github.com/takfuruya/Project2-Pathtracer/master/3.png)
 
 My device has limitation of 16384 registers per block so I guessed this was the issue:
 
-[pic4]
+![Max Registers Per Block](https://raw.github.com/takfuruya/Project2-Pathtracer/master/4.png)
+
 	(63 registers/thread) * (512 threads/block) = 32256 registers/block
 
 I changed ```num_threads_per_block``` to 128 such that,
