@@ -7,7 +7,7 @@ It has the following features:
  4. Depth of field effect
  5. OBJ model rendering support  
 
-**Recording of execution: http://www.youtube.com/watch?v=noNKCQpq5iA&feature=youtu.be**  
+**Recording of interactive control: http://www.youtube.com/watch?v=noNKCQpq5iA&feature=youtu.be**  
 Result after 2000 iterations:  
 
 ![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot4.png "Result after 2000 iterations")  
