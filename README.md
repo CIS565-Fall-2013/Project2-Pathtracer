@@ -89,23 +89,18 @@ Working increamentally to transfer all functionalities from pixel-parallel to ra
 * Stream compaction
 
 
+* Anti-aliasing
+
+* Motion blur
+
+* Depth of Field
 
 
--------------------------------------------------------------------------------
-SCREEN SHOTS AND VIDEOS
--------------------------------------------------------------------------------
-* Project running
-  ![ScreenShot](https://raw.github.com/wuhao1117/Project1-RayTracer/master/renders/project running.jpg)
-	
-* Final renders
-  ![ScreenShot](https://raw.github.com/wuhao1117/Project1-RayTracer/master/renders/MyRender.jpg)
 
-* Video
-  https://raw.github.com/wuhao1117/Project1-RayTracer/master/renders/GPU_raytracer.mp4
 -------------------------------------------------------------------------------
 HOW TO BUILD
 -------------------------------------------------------------------------------
-* Project tested in Visual Studio 2012 in Release(5.5) configuration with 
+* Project tested in Visual Studio 2010 in Release(5.5) configuration with 
   compute_30,sm_30
 
 -------------------------------------------------------------------------------
