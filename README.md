@@ -8,7 +8,7 @@ It has the following features:
  5. OBJ model rendering support  
  
 ![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot4.png "Result after 2000 iterations")
-
+![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot6_120iteration.png "Result after 120 iterations")
 ##Implementation Details:
  **This work was extended from my previous project, which is a CUDA-based ray tracer.** 
  To make it have a better interactivity, the tracing of an eye ray is broken into 
@@ -34,6 +34,16 @@ It has the following features:
  
 ##Performance evaluation:
   **Coupled with Russian Roulette, stream compaction can greatly reduce path traversing time, as shown in the following chart:
- ![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot4.png "Result after 2000 iterations")
-Stream compaction ensures that 
+ ![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot6.png "chart")
+Stream compaction ensures that kernel invocations work on valid rays, reducing the chances of branch divergences.
+
+##Development environment
+* Visual Studio 2012 on Windows 7
+* How to build
+Make sure the project has correct INCLUDE and LIBRARY Pathes of the above libraries.
+Make sure the CUDA 5.5 is selected in the [Build Customization] Setting.
+Make sure the compute_10/sm_10 compute version is remvoed from the Code Generation setting under the [0CUDA C/C++] setting
+Place the needed DLL inside the execution folder.
+Place testScene.scene and model venusv.obj & box.obj in the execution folder.
+You are good to go.
   
