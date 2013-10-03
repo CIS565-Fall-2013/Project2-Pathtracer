@@ -116,9 +116,20 @@ Note how the global light in this scene behaves just as any other pathtraced emi
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
-I will have some figures here tomorrow morning on the effectiveness of my stream compaction versus trace depth, but I don't have access to my desktop tonight and my laptop is too slow to get decent performance metrics from.
-The short form of it (minus data) is stream compaction is extremely effective for high trace depths and very open scenes. Depending on the scene I've seen 2x to 10x speedups.
-However, for very low trace depths in closed environments, the additional overhead can actually degrade performance slightly.
+I ran a sweep of maximum trace depth and compared the render time of each frame with and without stream compaction.
+I also found it informative to plot the average number of bounces for each ray on the same plot. The test was run on both the hall of mirrors with glass ceiling and the sundial image listed above.
+
+Data contains an anomaly where after about a trace depth of 70-80 my random number generator started to fail resulting in an increase in average bounces but less branch divergence, affecting performance of both kernels.
+![Rendering](/testdata/island.png "Open Environment Sundial") 
+![Rendering](/testdata/HallOfMirrors.png "Closed Environment") 
+
+Note that in both test cases, the average runtime of the stream compaction added a good deal of overhead that grew faster with the trace depth than the uncompacted ray pool.
+However, once the trace depth exceeds the average number of bounces, stream compaction imediately levels out while the no compaction runtime continues to increase.
+
+Depending on the environment, the crossover point varies considerably.
+
+Another interesting effect is for the Hall of Mirrors data, the kernel without stream compaction started running FASTER after a trace depth of 65.
+This is likely because at that point branch divergence is minimized because nearly every ray has been retired, so entire warps can simply retire themselves in 3 instructions.
 
 
 -------------------------------------------------------------------------------
