@@ -133,11 +133,17 @@ Here are a few things that I added to the existing TAKUAscene format.
 Different types of maps are supported, and they have the following common attributes (though for some maps, the meanings of the attributes are not self-explanatory).
 
 MAP (int)  	 // Map header
+
 type        	 //Type of map
+
 COL1 (vec3)      // Primary color 
+
 COL2 (vec3)      // Secondary color
+
 WIDTH1 (float)   // Width of the primary color
+
 WIDTH2  (float)  // Width of the secondary color
+
 SMOOTH  (int)    // Smooth interpolation between the two colors
 
 Types of maps:
@@ -159,6 +165,20 @@ For marble looking patterns. The colors are expected, but the width1 and width2 
 
 6.perlin
 A generic perlin function.
+
+-------------------------------------------------------------------------------
+KEYBOARD CONTROLS
+-------------------------------------------------------------------------------
+   + x : move in positive x-direction
+   + X : move in negative x-direction
+   + y : move in positive y-direction
+   + Y : move in negative y-direction
+   + z : move in positive z-direction
+   + Z : move in negative z-direction
+   + h : increase width1 of selected object's map
+   + j : decrease width1 of selected object's map
+   + k : increase width2 of selected object's map
+   + l : decrease width2 of selected object's map
 
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
