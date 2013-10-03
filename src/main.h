@@ -12,7 +12,7 @@
 #include <GL/glew.h>
 
 #include <stdlib.h>
-#include <cuda_runtime.h>
+
 #include <string>
 #include <iostream>
 #include <sstream>

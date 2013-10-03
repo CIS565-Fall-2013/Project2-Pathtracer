@@ -1,6 +1,9 @@
 
 #include "main_initializer.h"
 #include <GL/glew.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <cuda_gl_interop.h>
 #if CUDA_VERSION >= 5000
 	#include <helper_cuda.h>
 	#include <helper_cuda_gl.h>

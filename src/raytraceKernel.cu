@@ -14,7 +14,13 @@
 #include "intersections.h"
 #include "interactions.h"
 #include <vector>
+#include <cuda_runtime_api.h>
 #include "glm/glm.hpp"
+#include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/scan.h>
+#include <thrust/copy.h>
+#include <iostream>
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -276,7 +282,7 @@ __host__ __device__ glm::vec3 GetRayDirectionFromCamera(const cameraData& cam, i
 
 // Initialize all rays using camera data.
 // # of rays = # of pixels
-__global__ void InitRay(cameraData cam, int random_seed, ray* d_rays, glm::vec3* d_lights, bool* d_is_ray_dead, int* d_num_rays)
+__global__ void InitRay(cameraData cam, int random_seed, ray* d_rays, glm::vec3* d_lights, bool* d_is_ray_alive, int* d_ray_idx)
 {
 	int width = cam.resolution.x;
 	int height = cam.resolution.y;
@@ -289,8 +295,8 @@ __global__ void InitRay(cameraData cam, int random_seed, ray* d_rays, glm::vec3*
 	d_rays[idx].origin	  = cam.position;
 	d_rays[idx].direction = GetRayDirectionFromCamera(cam, x, y, random_seed);
 	d_lights[idx]		  = glm::vec3(1.0f);
-	d_is_ray_dead[idx]	  = false;
-	*d_num_rays			  = width * height;
+	d_is_ray_alive[idx]	  = true;
+	d_ray_idx[idx]		  = idx;
 }
 
 
@@ -344,13 +350,10 @@ __device__ void SetAverageColor(glm::vec3* colors, int idx, glm::vec3& new_color
 }
 
 
-__global__ void TraceRay(int iterations, int depth, int max_depth, ray* d_rays, glm::vec3* d_lights, bool* d_is_ray_dead,
-		glm::vec3* colors, glm::vec2 resolution, staticGeom* geoms, int num_geoms, material* materials, int num_materials)
+__global__ void TraceRay(int iterations, int depth, int max_depth, int num_pixels, ray* d_rays, int num_rays, glm::vec3* d_lights, bool* d_is_ray_alive, int* d_ray_idx,
+		glm::vec3* colors, staticGeom* geoms, int num_geoms, material* materials, int num_materials)
 {
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int idx = x + (y * resolution.x);
-	int num_pixels = resolution.x * resolution.y;
+	int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
 
 	/*
 	int debug_i = 0;
@@ -361,9 +364,9 @@ __global__ void TraceRay(int iterations, int depth, int max_depth, ray* d_rays, 
 	debug_i ++;
 	*/
 
-	if ( d_is_ray_dead[idx] ) return;
-	if ( idx >= num_pixels ) return;
-
+	if ( idx >= num_rays ) return;
+	if ( !d_is_ray_alive[idx] ) return;
+	
 	// Copy global memory to register.
 	ray ray_in = d_rays[idx];
 	glm::vec3 light = d_lights[idx];
@@ -381,31 +384,47 @@ __global__ void TraceRay(int iterations, int depth, int max_depth, ray* d_rays, 
 		glm::vec3 bg_color(0.2f);
 		glm::vec3 new_color = light * bg_color;
 
-		d_is_ray_dead[idx] = true;
-		SetAverageColor(colors, idx, new_color, iterations);
+		d_is_ray_alive[idx] = false;
+		SetAverageColor(colors, d_ray_idx[idx], new_color, iterations);
 		return;
 	}
-
+	
 	// Hit emitter, return (light * emitter).
 	if ( IsEmitter(material_id, materials) )
 	{
 		glm::vec3 new_color = light * materials[material_id].color * materials[material_id].emittance;
 
-		d_is_ray_dead[idx] = true;
-		SetAverageColor(colors, idx, new_color, iterations);
+		d_is_ray_alive[idx] = false;
+		SetAverageColor(colors, d_ray_idx[idx], new_color, iterations);
 		return;
 	}
 
 	// Make ray_out in random direction.
 	ray ray_out;
-	ray_out.direction = UniformRandomHemisphereDirection(n, (float) (iterations-1) * max_depth * num_pixels + depth * num_pixels + idx);
+	//ray_out.direction = UniformRandomHemisphereDirection(n, (float) (iterations-1) * max_depth * num_pixels + depth * num_pixels + idx);
+	float xi1, xi2;
+	{
+		thrust::default_random_engine rng(hash((float) iterations * (depth+1) * idx));
+		thrust::uniform_real_distribution<float> u01(0,1);
+		xi1 = u01(rng);
+		xi2 = u01(rng);
+	}
+	if ( materials[material_id].hasReflective )
+	{
+		ray_out.direction = reflect(ray_in.direction, glm::normalize(n));
+	}
+	else
+	{
+		ray_out.direction = calculateRandomDirectionInHemisphere(glm::normalize(n), xi1, xi2);
+	}
 	ray_out.origin = p + 0.001f * ray_out.direction;
 
-	// Update light *= material color * dot(n, ray_out).
-	d_lights[idx] = light * materials[material_id].color * glm::dot(n, ray_out.direction);
-
-	// Update ray.
+	// Update light & ray.
+	d_lights[idx] = light * materials[material_id].color;
 	d_rays[idx] = ray_out;
+	
+
+
 
 	// Kill rays with negligible throughput.
 	
@@ -441,6 +460,23 @@ __global__ void TraceRay(int iterations, int depth, int max_depth, ray* d_rays, 
 	SetAverageColor(colors, idx, new_color, iterations);
 	*/
 }
+
+
+__global__ void CompactRays(int* td_v, ray* d_rays, glm::vec3* d_lights, bool* d_is_ray_alive, int* d_ray_idx, int num_rays,
+	                                   ray* d_rays_copy, glm::vec3* d_lights_copy, bool* d_is_ray_alive_copy, int* d_ray_idx_copy)
+{
+	int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+	if ( idx >= num_rays ) return;
+	if ( !d_is_ray_alive[idx] ) return;
+	
+	int copy_idx = td_v[idx];
+	d_rays_copy[copy_idx] = d_rays[idx];
+	d_lights_copy[copy_idx] = d_lights[idx];
+	d_is_ray_alive_copy[copy_idx] = true;
+	d_ray_idx_copy[copy_idx] = d_ray_idx[idx];
+}
+
 
 
 // Wrapper for the __global__ call that sets up the kernel calls and does memory management
@@ -494,29 +530,53 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* cam, int frame, int iterations, ma
 	cam_data.fov = cam->fov;
 
 	// Allocate GPU memory for rays & initialize them.
-	int* d_num_rays		= NULL;
-	ray* d_rays			= NULL;
-	glm::vec3* d_lights	= NULL;
-	bool* d_is_ray_dead	= NULL;
-	cudaMalloc((void**)&d_num_rays,			sizeof(int));
+	ray* d_rays			 = NULL;
+	glm::vec3* d_lights	 = NULL;
+	bool* d_is_ray_alive = NULL;
+	int* d_ray_idx		 = NULL;
 	cudaMalloc((void**)&d_rays,			num_pixels*sizeof(ray));
 	cudaMalloc((void**)&d_lights,		num_pixels*sizeof(glm::vec3));
-	cudaMalloc((void**)&d_is_ray_dead,	num_pixels*sizeof(bool));
-	InitRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cam_data, iterations, d_rays, d_lights, d_is_ray_dead, d_num_rays);
+	cudaMalloc((void**)&d_is_ray_alive,	num_pixels*sizeof(bool));
+	cudaMalloc((void**)&d_ray_idx,		num_pixels*sizeof(int));
+	InitRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cam_data, iterations, d_rays, d_lights, d_is_ray_alive, d_ray_idx);
 
-	// Launch raytracer kernel.
-	int max_depth = 3; // # of bounces when raytracing.
+	// Start raytracer kernel.
+	int num_rays = num_pixels;
+	int max_depth = 10; // # of bounces when raytracing.
 	for ( int depth = 0; depth < max_depth; ++depth )
 	{
-		// Get number of rays from GPU.
-		int num_rays;
-		cudaMemcpy( num_rays, d_num_rays, sizeof(int), cudaMemcpyDeviceToHost);
+		// Determine # of kernels to launch based on # of rays.
+		int num_threads_per_block = 128;
+		int num_blocks_per_grid = ceil((float)num_rays / num_threads_per_block);
 
-		// Calculate blocks
-		int num_blocks = ceil(num_rays);
-		TraceRay<<<fullBlocksPerGrid, 512>>>(iterations, depth, max_depth, d_rays, d_lights, d_is_ray_dead, cudaimage, cam->resolution, cudageoms, num_geoms, cudamaterials, num_materials);
-		StreamCompaction<<<fullBlocksPerGrid, threadsPerBlock>>>
-		//raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cam->resolution, iterations, (float)depth, cam_data, max_depth, cudaimage, cudageoms, num_geoms, cudamaterials, num_materials, d_rays);
+		// Update d_rays & d_lights based on intersected object.
+		TraceRay<<<num_blocks_per_grid, num_threads_per_block>>>(iterations, depth, max_depth, num_pixels, d_rays, num_rays, d_lights, d_is_ray_alive, d_ray_idx, cudaimage, cudageoms, num_geoms, cudamaterials, num_materials);
+		
+		// Update d_rays by removing dead rays (stream compaction).
+		thrust::device_ptr<bool> td_is_ray_alive = thrust::device_pointer_cast(d_is_ray_alive);
+		thrust::device_vector<int> td_v(num_rays);
+		thrust::exclusive_scan(td_is_ray_alive, td_is_ray_alive + num_rays, td_v.begin());
+		
+		int num_copy_rays = td_v[num_rays-1] + (int) td_is_ray_alive[num_rays-1];
+		ray* d_rays_copy		  = NULL;
+		glm::vec3* d_lights_copy  = NULL;
+		bool* d_is_ray_alive_copy = NULL;
+		int* d_ray_idx_copy		  = NULL;
+		cudaMalloc((void**)&d_rays_copy,		 num_copy_rays*sizeof(ray));
+		cudaMalloc((void**)&d_lights_copy,		 num_copy_rays*sizeof(glm::vec3));
+		cudaMalloc((void**)&d_is_ray_alive_copy, num_copy_rays*sizeof(bool));
+		cudaMalloc((void**)&d_ray_idx_copy,		 num_copy_rays*sizeof(int));
+		CompactRays<<<num_blocks_per_grid, num_threads_per_block>>>(thrust::raw_pointer_cast(td_v.data()), d_rays, d_lights, d_is_ray_alive, d_ray_idx, num_rays, d_rays_copy, d_lights_copy, d_is_ray_alive_copy, d_ray_idx_copy);
+		cudaDeviceSynchronize();
+		cudaFree(d_rays);
+		cudaFree(d_lights);
+		cudaFree(d_is_ray_alive);
+		cudaFree(d_ray_idx);
+		num_rays = num_copy_rays;
+		d_rays = d_rays_copy;
+		d_lights = d_lights_copy;
+		d_is_ray_alive = d_is_ray_alive_copy;
+		d_ray_idx = d_ray_idx_copy;
 	}
 
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, cam->resolution, cudaimage);
@@ -530,11 +590,12 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* cam, int frame, int iterations, ma
 	cudaFree( cudamaterials );
 	cudaFree( d_rays );
 	cudaFree( d_lights );
-	cudaFree( d_is_ray_dead );
+	cudaFree( d_is_ray_alive );
+	cudaFree( d_ray_idx );
 	delete [] geomList;
 
 	// Make sure the kernel has completed.
-	cudaThreadSynchronize();
+	cudaDeviceSynchronize();
 
 	checkCUDAError("Kernel failed!");
 }
