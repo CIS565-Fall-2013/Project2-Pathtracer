@@ -73,15 +73,27 @@ The idea is to jitter the rays in such a manner that the jittering is least at t
 
 * Procedural textures
 I cannot be more fascinated by the beauty of procedural textures (two things that amazed me the most during this assignment are Monte Carlo sampling and Perlin Noise. 
-So beautiful!). I have implemented a few basic procedural textures for the path tracer.
-- Vertical stripes texture
-- Horizontal stripes texture
-- Checkerboard texture
-- Marble texture
-- A more general Perlin texture
+So beautiful!). I have implemented a few basic procedural textures for the path tracer -Vertical stripes texture,Horizontal stripes texture, Checkerboard texture ,Marble texture , and a generic Perlin texture
 And then, it was time to play with these parameters and just appreciate mathematics.
 ![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/perlin_texture.bmp)
 As you can see, this was too much fun. So here is an image with everything textured using perlin textures.
+![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/perlin_earth.bmp)
+
+* User interaction with the path tracer
+According to me, this was the coolest part of the assignment. User interaction with photorealistic rendering algorithms are best avoided, but hey, we have the GPU! And we have inherently formulated the path tracing algorithm in a parallel and iterative fashion. This makes it idea for user interaction.
+There are three types of user interactions supported.
+
+1. Interactive "look-at" depth of field: The user can focus on any part of the image by using the right mouse button. Just click and let it be in focus! 
+2. Interactive positioning of objects on screen: LMB on any object in the scene, and use the following keys to move the object
+   + x : move in positive x-direction
+   + X : move in negative x-direction
+   + y : move in positive y-direction
+   + Y : move in negative y-direction
+   + z : move in positive z-direction
+   + Z : move in negative z-direction
+3. Interacitve editing of procedural textures : Press "t" on the keyboard to enter/exit the world of procedural textures. This feature grew out of necessity. It was taking me quite a while to come up with good settings for the "attempted" earth procedural texture above. So, I thought it might be covenient to do this visually.
+Finally, I ended up implementing this feature as an integral part of path tracer. We can think of it like this. If you don't like the way, your procedural textures are rendering in your path tracer, you can hit 't' and set your textures as per your liking, and then hit 't' again to path trace with these textures.
+
 
 -------------------------------------------------------------------------------
 README
