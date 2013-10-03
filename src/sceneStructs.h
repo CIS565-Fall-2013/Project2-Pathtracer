@@ -16,6 +16,9 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	int index;
+	glm::vec3 baseColor;
+	bool active;
 };
 
 struct geom {
@@ -68,6 +71,7 @@ struct material {
 	glm::vec3 color;
 	float specularExponent;
 	glm::vec3 specularColor;
+	float hasDiffuse; // diffuse contribution
 	float hasReflective;
 	float hasRefractive;
 	float indexOfRefraction;

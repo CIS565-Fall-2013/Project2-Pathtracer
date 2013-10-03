@@ -259,7 +259,7 @@ int scene::loadMaterial(string materialid){
 		material newMaterial;
 	
 		//load static properties
-		for(int i=0; i<10; i++){
+		for(int i=0; i<11; i++){
 			string line;
             utilityCore::safeGetline(fp_in,line);
 			vector<string> tokens = utilityCore::tokenizeString(line);
@@ -271,12 +271,14 @@ int scene::loadMaterial(string materialid){
 			}else if(strcmp(tokens[0].c_str(), "SPECRGB")==0){
 				glm::vec3 specColor( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
 				newMaterial.specularColor = specColor;
+			}else if(strcmp(tokens[0].c_str(), "DIFFUSE")==0){
+				newMaterial.hasDiffuse = atof(tokens[1].c_str());
 			}else if(strcmp(tokens[0].c_str(), "REFL")==0){
 				newMaterial.hasReflective = atof(tokens[1].c_str());
 			}else if(strcmp(tokens[0].c_str(), "REFR")==0){
 				newMaterial.hasRefractive = atof(tokens[1].c_str());
 			}else if(strcmp(tokens[0].c_str(), "REFRIOR")==0){
-				newMaterial.indexOfRefraction = atof(tokens[1].c_str());					  
+				newMaterial.indexOfRefraction = atof(tokens[1].c_str());
 			}else if(strcmp(tokens[0].c_str(), "SCATTER")==0){
 				newMaterial.hasScatter = atof(tokens[1].c_str());
 			}else if(strcmp(tokens[0].c_str(), "ABSCOEFF")==0){

@@ -208,7 +208,7 @@ void clearImage() {
 
 	void display(){
 		//// Keep track of time
-    //theFpsTracker.timestamp();
+  //  theFpsTracker.timestamp();
 
 		runCuda();
 

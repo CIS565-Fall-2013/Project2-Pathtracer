@@ -4,48 +4,35 @@ CIS565: Project 1: CUDA Raytracer
 Yingting Xiao
 -------------------------------------------------------------------------------
 
-
-![alt tag](https://raw.github.com/YingtingXiao/Project1-RayTracer/master/screenshots/final.PNG)
-
 -------------------------------------------------------------------------------
 Features implemented:
 -------------------------------------------------------------------------------
 
 • All required features
 
-• Reflection
+• Stream compaction from scratch
 
-• Specular highlights
-
-• Soft shadows and area lights
-
-• Anti-aliasing
-
-• Depth of field
-
-• Interactive camera (A-left, D-right, W-up, S-down, Z-forward, X-backward)
-
-• Refraction (not Fresnel so doesn’t look that good…)
+• Fresnel refraction
 
 
-Additional screenshots:
+Screenshots:
 -------------------------------------------------------------------------------
 
-1) Reflection + refraction
+1) Reflection
 
-![alt tag](https://raw.github.com/YingtingXiao/Project1-RayTracer/master/screenshots/reflection_refraction.PNG)
+![alt tag](https://raw.github.com/YingtingXiao/Project2-PathTracer/master/screenshots/reflection.PNG)
 
 2) Refraction
 
-![alt tag](https://raw.github.com/YingtingXiao/Project1-RayTracer/master/screenshots/refraction.PNG)
+![alt tag](https://raw.github.com/YingtingXiao/Project2-PathTracer/master/screenshots/refraction.PNG)
+
+3) Reflection and refraction
+
+![alt tag](https://raw.github.com/YingtingXiao/Project2-PathTracer/master/screenshots/reflection_refraction.PNG)
        
-3) Multiple lights
+4) Diffuse
 
-![alt tag](https://raw.github.com/YingtingXiao/Project1-RayTracer/master/screenshots/multi_lights.PNG)
-
-4) Specular highlights
-
-![alt tag](https://raw.github.com/YingtingXiao/Project1-RayTracer/master/screenshots/specular.PNG)
+![alt tag](https://raw.github.com/YingtingXiao/Project2-PathTracer/master/screenshots/diffuse.PNG)
 
 
 Screen recording:
@@ -54,9 +41,10 @@ Screen recording:
 https://vimeo.com/75074121
 
 
-Performance evaluation:
+Performance analysis:
 -------------------------------------------------------------------------------
 
-(I used 3rd-party code: fps.h, fps.cpp, clock.h, timer.h for Fps tracking)
+Fps with stream compaction: 3.08
+Fps without stream compaction: 1.67
 
-![alt tag](https://raw.github.com/YingtingXiao/Project1-RayTracer/master/screenshots/performance.PNG)
+There is a 2x speed enhancement with my stream compaction. I think the reason that it is still pretty slow is that I used too many cudaMalloc's in my stream compaction. In the future I will try to use less cudaMalloc's and do a performance analysis with that. I also want to do a performance comparison with thrust.

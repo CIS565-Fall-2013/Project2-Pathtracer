@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <cuda.h>
+#include <math.h> // log2
 #include <cmath>
 #include "sceneStructs.h"
 #include "glm/glm.hpp"
@@ -23,7 +24,7 @@
     #include <cutil_math.h>
 #endif
 
-#define MAXDEPTH 10 // max raytrace depth
+#define MAXDEPTH 50 // max raytrace depth
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -44,7 +45,7 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
 }
 
 //Kernel that writes the image to the OpenGL PBO directly.
-__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image){
+__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image, float iterations){
   
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -53,9 +54,9 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   if(x<=resolution.x && y<=resolution.y){
 
       glm::vec3 color;
-      color.x = image[index].x*255.0;
-      color.y = image[index].y*255.0;
-      color.z = image[index].z*255.0;
+			color.x = image[index].x*255.0/iterations;
+      color.y = image[index].y*255.0/iterations;
+      color.z = image[index].z*255.0/iterations;
 
       if(color.x>255){
         color.x = 255;
@@ -103,6 +104,7 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 																								glm::vec3 view, glm::vec3 up, glm::vec2 fov, float focal, float aperture){
   ray r;
   r.origin = eye;
+	r.active = true;
 
 	// values for computing ray direction
   float phi = glm::radians(fov.y);
@@ -166,6 +168,19 @@ __host__ __device__ glm::vec3 getRefractedRay(glm::vec3 d, glm::vec3 n, float IO
 	return VT;
 }
 
+// Determine if the reflected ray is a diffuse ray or not
+__host__ __device__ bool isDiffuseRay(float randomSeed, float hasDiffuse) {
+	// determine if ray is reflected according to the proportion
+	thrust::default_random_engine rng(hash(randomSeed));
+	thrust::uniform_real_distribution<float> u01(0,1);
+	if (u01(rng) <= hasDiffuse) {
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
 // Determine if the randomly generated ray is a refracted ray or a reflected ray
 __host__ __device__  bool isRefractedRay(float randomSeed, float IOR, glm::vec3 d, glm::vec3 n, glm::vec3 t) {
 	float rpar = (IOR * glm::dot(n, d) - glm::dot(n, t)) / (IOR * glm::dot(n, d) + glm::dot(n, t));
@@ -211,6 +226,84 @@ __host__ __device__ bool isInShadow(staticGeom* geoms, int numberOfGeoms, int li
 	return shadow;
 }
 
+// Kernel that populates the pool of rays with rays from camera to pixels
+__global__ void generateRay(cameraData cam, float time, ray* raypool) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+  int index = x + (y * cam.resolution.x);
+
+	if((x<=cam.resolution.x && y<=cam.resolution.y)){
+		raypool[index] = raycastFromCameraKernel(cam.resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov, cam.focal, cam.aperture);
+		raypool[index].index = index;
+		raypool[index].baseColor = glm::vec3(1, 1, 1);
+	}
+}
+
+__global__ void pathtraceRay(cameraData cam, float time, int rayDepth, ray* rays, int numberOfRays, glm::vec3* colors,
+														 staticGeom* geoms, int numberOfGeoms, material* materials, int* lightIds, int numberOfLights){
+	int rayIdx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (rayIdx < numberOfRays) {
+		int pixelIdx = rays[rayIdx].index;
+		float seed = time * rayIdx * (rayDepth+1);
+
+		if (rays[rayIdx].active) {
+			glm::vec3 minIntersection, minNormal; // closest intersection point and the normal at that point
+			int minIdx = getClosestIntersection(geoms, numberOfGeoms, rays[rayIdx], minIntersection, minNormal);
+
+			if (minIdx != -1) {
+				material mtl = materials[geoms[minIdx].materialid]; // does caching make it faster?
+				if (mtl.emittance > THRESHOLD) { // light
+					glm::vec3 color = rays[rayIdx].baseColor * mtl.color * mtl.emittance;
+					colors[pixelIdx] += color;
+					rays[rayIdx].active = false;
+				}
+				else {
+					if (mtl.hasReflective > THRESHOLD || mtl.hasRefractive > THRESHOLD) {
+						if (!isDiffuseRay(seed, mtl.hasDiffuse)) {
+							float IOR = mtl.indexOfRefraction;
+							if (glm::dot(rays[rayIdx].direction, minNormal) > 0) { // reverse normal and index of refraction if we are inside the object
+								minNormal *= -1;
+								IOR = 1/(IOR + THRESHOLD);
+							}
+							if (mtl.hasRefractive > THRESHOLD) { // if the surface has refraction
+								glm::vec3 VT = getRefractedRay(rays[rayIdx].direction, minNormal, IOR);
+								if (glm::length(VT) > THRESHOLD && (mtl.hasReflective < THRESHOLD || isRefractedRay(seed, IOR, rays[rayIdx].direction, minNormal, VT))) {
+									rays[rayIdx].direction = VT;
+									rays[rayIdx].origin = minIntersection + VT * (float)THRESHOLD;
+									rays[rayIdx].baseColor *= mtl.color;
+									return;
+								}
+							}
+							// if the surface only has reflection
+							glm::vec3 VR = getReflectedRay(rays[rayIdx].direction, minNormal);
+							rays[rayIdx].origin = minIntersection + VR * (float)THRESHOLD;
+							rays[rayIdx].direction = VR;
+							rays[rayIdx].baseColor *= mtl.color;
+							return;
+						}
+					}
+					
+					// use diffuse shading model
+					if (glm::dot(rays[rayIdx].direction, minNormal) > 0) { // reverse normal if we are inside the object
+						minNormal *= -1;
+					}
+					
+					// shoot diffuse reflected ray
+					thrust::default_random_engine rng(hash(seed)); // include rayDepth in this since we don't want
+																																									// the direction in every bounce to be the same
+					thrust::uniform_real_distribution<float> u01(0, 1);
+					rays[rayIdx].direction = calculateRandomDirectionInHemisphere(minNormal, (float)u01(rng), (float)u01(rng));
+					rays[rayIdx].origin = minIntersection + rays[rayIdx].direction * (float)THRESHOLD;
+					rays[rayIdx].baseColor = rays[rayIdx].baseColor * mtl.color;
+				}
+			}
+			else {
+				rays[rayIdx].active = false;
+			}
+		}
+	}
+}
+
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, globalAttributes globalAttr, int rayDepth, glm::vec3* colors,
@@ -220,9 +313,9 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, gl
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
 
-	glm::vec3 color;
-
   if((x<=resolution.x && y<=resolution.y)){
+		glm::vec3 color;
+
 		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov, cam.focal, cam.aperture);
 		glm::vec3 baseColor(1, 1, 1);
 
@@ -232,7 +325,6 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, gl
 
 			if (minIdx != -1) {
 				material mtl = materials[geoms[minIdx].materialid]; // does caching make it faster?
-				//TODO: MAKE THIS BRANCH MORE EFFICIENT
 				if (mtl.emittance > THRESHOLD) { // light
 					color = glm::clamp(mtl.color * mtl.emittance, glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
 				}
@@ -275,7 +367,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, gl
 						color = color * baseColor;
 						break;
 					}
-					else {
+					else { // reflection/refraction
 						float IOR = mtl.indexOfRefraction;
 						if (glm::dot(r.direction, minNormal) > 0) { // reverse normal and index of refraction if we are inside the object
 							minNormal *= -1;
@@ -302,8 +394,40 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, gl
 				color = glm::vec3(0, 0, 0);
 			}
 		}
+		colors[index] = (colors[index] * (time-1) + color)/time;
   }
-	colors[index] = (colors[index] * (time-1) + color)/time;
+}
+
+// Copy ray active data to scanArray
+__global__ void copy(ray* raypool, int* scanArray, int numberOfRays) {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index < numberOfRays) {
+		scanArray[index] = (int)(raypool[index].active);
+	}
+}
+
+// Scan kernel for stream compaction, scanArray1 is the source array, scanArray2 is the destination array
+__global__ void scan(int* scanArray1, int* scanArray2, int d, int numberOfRays) {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index < numberOfRays) {
+		if (index >= ceil(pow((float)2, (float)(d-1)))) {
+			int prevIndex = index - (int)ceil(pow((float)2, (float)(d-1)));
+			scanArray2[index] = scanArray1[index] + scanArray1[prevIndex];
+		}
+		else {
+			scanArray2[index] = scanArray1[index];
+		}
+	}
+}
+
+// Scatter kernel for stream compaction
+__global__ void scatter(ray* raypool, int* scanArray, ray* newraypool, int numberOfRays) {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index < numberOfRays) {
+		if (raypool[index].active) {
+			newraypool[scanArray[index]-1] = raypool[index];
+		}
+	}
 }
 
 //TODO: FINISH THIS FUNCTION
@@ -376,22 +500,110 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, globalAttributes global
 	cam.focal = renderCam->focal;
 	cam.aperture = renderCam->aperture;
 
-  //kernel launches
-	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, globalAttr, traceDepth, cudaimage,
-		cudageoms, numberOfGeoms, cudamtls, cudalights, lightIds.size());
+	// create a pool of rays on CUDA
+	ray* raypool1 = NULL;
+	int numberOfRays = (int)cam.resolution.x * (int)cam.resolution.y;
+	cudaMalloc((void**)&raypool1, (int)cam.resolution.x * (int)cam.resolution.y * sizeof(ray));
+	generateRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cam, (float)iterations, raypool1);
 
-  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
+	ray* raypool2 = NULL;
+	cudaMalloc((void**)&raypool2, (int)cam.resolution.x * (int)cam.resolution.y * sizeof(ray));
+	generateRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cam, (float)iterations, raypool2);
+
+	int* scanArray1 = NULL;
+	int* scanArray2 = NULL;
+	cudaMalloc((void**)&scanArray1, numberOfRays * sizeof(int));
+	cudaMalloc((void**)&scanArray2, numberOfRays * sizeof(int));
+
+	for (int i=0; i<MAXDEPTH; ++i) {
+		int rayBlocksPerGrid = max((int)ceil((float)numberOfRays/(float)64), 24); // 24 is the number of SMs on my GPU
+		int rayThreadsPerBlock = ceil((float)numberOfRays/(float)rayBlocksPerGrid);
+
+		//// for no stream compaction
+		//pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool1,
+		//		numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudamtls, cudalights, lightIds.size());
+
+		if (i % 2 == 0) {
+			pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool1,
+				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudamtls, cudalights, lightIds.size());
+
+			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray1, numberOfRays);
+		}
+		else {
+			pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool2,
+				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudamtls, cudalights, lightIds.size());
+
+			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray1, numberOfRays);
+		}
+
+		int d = 1;
+		for (; d<=ceil(log(numberOfRays)/log(2)); ++d) {
+			// use double buffer
+			if (d % 2 == 1) {
+				scan<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(scanArray1, scanArray2, d, numberOfRays);
+			}
+			else {
+				scan<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(scanArray2, scanArray1, d, numberOfRays);
+			}
+		}
+
+		// get number of active rays
+		int* numberOfActiveRays = new int[1];
+		if (d % 2 == 0) {
+			cudaMemcpy(numberOfActiveRays, scanArray2 + numberOfRays -1, sizeof(int), cudaMemcpyDeviceToHost);
+		}
+		else {
+			cudaMemcpy(numberOfActiveRays, scanArray1 + numberOfRays -1, sizeof(int), cudaMemcpyDeviceToHost);
+		}
+
+		if (numberOfActiveRays[0] <= 0) {
+			break;
+		}
+
+		// scatter
+		if (i % 2 == 0) {
+			if (d % 2 == 0) {
+				scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray2, raypool2, numberOfRays);
+			}
+			else {
+				scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray1, raypool2, numberOfRays);
+			}
+		}
+		else {
+			if (d % 2 == 0) {
+				scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray2, raypool1, numberOfRays);
+			}
+			else {
+				scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray1, raypool1, numberOfRays);
+			}
+		}
+
+		numberOfRays = numberOfActiveRays[0];
+		
+		delete [] numberOfActiveRays;
+	}
+
+	cudaFree(scanArray1);
+	cudaFree(scanArray2);
+	cudaFree(raypool1);
+	cudaFree(raypool2);
+
+ // //kernel launches
+	//raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, globalAttr, traceDepth, cudaimage,
+	//	cudageoms, numberOfGeoms, cudamtls, cudalights, lightIds.size());
+
+	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);
 
   //retrieve image from GPU
-  cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+  cudaMemcpy(renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
   //free up stuff, or else we'll leak memory like a madman
-  cudaFree( cudaimage );
-  cudaFree( cudageoms );
-	cudaFree( cudamtls );
-	cudaFree( cudalights );
-  delete geomList;
-	delete lightIdList;
+  cudaFree(cudaimage);
+  cudaFree(cudageoms);
+	cudaFree(cudamtls);
+	cudaFree(cudalights);
+  delete [] geomList;
+	delete [] lightIdList;
 
   // make certain the kernel has completed
   cudaThreadSynchronize();
