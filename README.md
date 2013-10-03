@@ -53,33 +53,34 @@ Features that I implemented additionally
 FEATURES (in a bit more detail)
 -------------------------------------------------------------------------------
 
-* BRDF model : Here is an example of results from a scene having surfaces that are both diffuse and specular at the same time.
+* **BRDF model:** : Here is an example of results from a scene having surfaces that are both diffuse and specular at the same time.
 The way the BRDF deals with it is a russian roulette based on probabilities. Simply put, if a material is 70% diffuse, at every iteration, draw a random number from 0 to 1, and if its less than 0.7, then calculate diffuse reflection, else specular reflection.
 ![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/pool.0.bmp)
 
-* Fresnel reflection and refractions
+* **Fresnel reflection and refractions:**
 This physically based model tells you the amount of reflection or transmittance that takes place at given incoming directions of rays on the material.
 Notice that the sphere at the bottom refracts and reflects based on angles. If we do not use fresnel, then we will see either of those phenomena on the sphere but not both.
 ![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/refr_refl_fresnel.bmp)
 
-* Translational motion blur
+* **Translational motion blur:**
 The idea is to do temporal sampling in addition to spatial sampling. Given a frame, go back in time, and linearly (could be cubic or higher order) interpolate between the positions of geometry now and then.
 ![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/motion_blurred.bmp)
 
-* Depth of field
+* **Depth of field:**
 Based on the aperture and focal plane specified as camera attributes in the config file.
 The idea is to jitter the rays in such a manner that the jittering is least at the focal plane region.
 ![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/refr_refl_diff_DOF.bmp)
 
-* Procedural textures
+* **Procedural textures:**
 I cannot be more fascinated by the beauty of procedural textures (two things that amazed me the most during this assignment are Monte Carlo sampling and Perlin Noise. 
 So beautiful!). I have implemented a few basic procedural textures for the path tracer -Vertical stripes texture,Horizontal stripes texture, Checkerboard texture ,Marble texture , and a generic Perlin texture
 And then, it was time to play with these parameters and just appreciate mathematics.
 ![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/perlin_texture.bmp)
+
 As you can see, this was too much fun. So here is an image with everything textured using perlin textures.
 ![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/perlin_earth.bmp)
 
-* User interaction with the path tracer
+* **User interaction with the path tracer:**
 According to me, this was the coolest part of the assignment. User interaction with photorealistic rendering algorithms are best avoided, but hey, we have the GPU! And we have inherently formulated the path tracing algorithm in a parallel and iterative fashion. This makes it idea for user interaction.
 There are three types of user interactions supported.
 
@@ -93,7 +94,12 @@ There are three types of user interactions supported.
    + Z : move in negative z-direction
 3. Interacitve editing of procedural textures : Press "t" on the keyboard to enter/exit the world of procedural textures. This feature grew out of necessity. It was taking me quite a while to come up with good settings for the "attempted" earth procedural texture above. So, I thought it might be covenient to do this visually.
 Finally, I ended up implementing this feature as an integral part of path tracer. We can think of it like this. If you don't like the way, your procedural textures are rendering in your path tracer, you can hit 't' and set your textures as per your liking, and then hit 't' again to path trace with these textures.
+A "Texture session"  basically shows a flat color render without any lighting.  The user can tweak values (see the keyboard controls given below) and interactively see if he likes any of the textures. Right now, the interface doesn't cover "all" the parameters, so you will be basically see derivations or variations from an existing configuration. For example, you can't change the colors, but can change the pattern.
 
+
+Last but not the least, since these are interactive features, images will not be able to describe completely. Please see the **video of these features**at this link,
+
+https://vimeo.com/76013561
 
 -------------------------------------------------------------------------------
 README
