@@ -89,12 +89,67 @@ Working increamentally to transfer all functionalities from pixel-parallel to ra
 
 * Stream compaction
 
+Because we are using ray-parallelization here, the rays that are terminated should no longer take a thread and do nothing. So instead of calculating 
+each bounce for resolution.x * resolution.y rays, we only calculate the "alive" rays to better utilize hardware resources. For each bounce, scan the
+ray pool and remove dead rays with thrust::remove_if, then recalculate the number of blocks for the grid, launch kernel for next bounce. The performance
+improvement was well visible. I will talk more about this in Performance Analysis section.
+
+* Color accumulation
+
+While doing this, I encountered the color accumulation issue. Before then, I just use a naive approach to adding each iteration's contribution
+multiplied by 1/numberOfIterations. However, I have to wait a long time before the scene is bright enough for me to see anything, and I cannot 
+let the image get better indefinitely because the number of iteration is fixed.
+
+Another way I tried is to make the contribution of each iteration decrease exponentially, i.e., first image has contribution of 1/2, second has 1/4, 
+and so on. Mathematically, the contribution of color from iteration 0 to infinity equals to 1 so it is theoretically viable. But then the color of 
+the image almost stuck with the color of first iteration.
+
+Yet another way is to add the color of current iteration with previous iteration, then divide the result by 2. But then the result color will
+be unstable and very noisy because the contribution of later iterations is more significant than previous iterations.
+
+Collin Boots and Liam both provided me with some extremely helpful insights. Basicly Collin would multiply the color with iterations before adding 
+contribution of current iteration, and after the addition, divide the result color by (iteration+1), very clever method to avoid knowing the total
+number of iterations beforehand while making the contribution of each iteration equivalent. Below shows color accumulation using Collin's method:
+
+ ![Alt text](renders/Collin's accumulation.jpg?raw=true "This was only 800 iteration, so noise was expected")
+
+With Liam's method, nothing has to be done inside the kernel, but rather, add full colors up each iteration, and before displaying, divide by iteration.
+I think this is cleaner and does less computation so this is how I do in my implementation:
+
+ ![Alt text](renders/Liam's accumulation.jpg?raw=true)
+
+The light too dark, I consulted Liam again and multiplied emittance of the light source this time. The image looks much nicer now.
+
+ ![Alt text](renders/Multiplying with emittance.jpg?raw=true)
+
+Tune up iteration to 5000, it finally looks like an path-traced image like I often saw!
+
+ ![Alt text](renders/5000 iterations.jpg?raw=true)
 
 * Anti-aliasing
 
+With path-tracing, Anti-aliasing is infinitely simple. Just perturbe the direction of the ray within the pixel for every iteration, and you get very nice AA!
+
+ ![Alt text](renders/5000 iterations with AA.jpg?raw=true)
+
 * Motion blur
 
+Motion blur is easy too, simply translate the object a bit every iteration. This is the effect I was able to achieve in an modified Cornell Box
+
+ ![Alt text](renders/Motion Blur.jpg?raw=true)
+
 * Depth of Field
+
+Browsing Internet for knowlegde of Depth of Field, I found some great sites:
+	- For theory: http://http.developer.nvidia.com/GPUGems/gpugems_ch23.html
+	- For implementation: 
+	http://www.codermind.com/articles/Raytracer-in-C++-Depth-of-field-Fresnel-blobs.html
+	http://www.keithlantz.net/2013/03/path-tracer-depth-of-field/
+	http://www.colorseffectscode.com/Projects/GPUPathTracer.html (Shehzan's personel website)
+
+Having understood the theory, I followed the algorithm described by Shehzan and wrote my own code. Here is what it looks like:
+
+ ![Alt text](renders/Depth of Field.jpg?raw=true)
 
 
 -------------------------------------------------------------------------------
