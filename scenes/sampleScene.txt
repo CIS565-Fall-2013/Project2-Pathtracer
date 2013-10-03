@@ -1,8 +1,8 @@
 MATERIAL 0				//white diffuse
-RGB         0.9 0.9 0.9       
+RGB         1 1 1       
 SPECEX      0      
 SPECRGB     1 1 1      
-REFL        0       
+REFL        0      
 REFR        0        
 REFRIOR     0       
 SCATTER     0        
@@ -35,24 +35,24 @@ RSCTCOEFF   0
 EMITTANCE   0
 
 MATERIAL 3 				//red glossy
-RGB         .63 .26 .24      
-SPECEX      0      
+RGB         0 1 0      
+SPECEX      0     
 SPECRGB     1 1 1       
 REFL        0       
 REFR        0        
-REFRIOR     2       
+REFRIOR     0       
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
 EMITTANCE   0
 
 MATERIAL 4 				//white glossy
-RGB         1 1 1     
+RGB         0 1 1     
 SPECEX      0      
 SPECRGB     1 1 1      
-REFL        0       
+REFL        0      
 REFR        0        
-REFRIOR     2      
+REFRIOR     0      
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
@@ -70,13 +70,13 @@ ABSCOEFF    .02 5.1 5.7
 RSCTCOEFF   13
 EMITTANCE   0
 
-MATERIAL 6 				//green glossy
-RGB         .35 .48 .29      
-SPECEX      0      
+MATERIAL 6 				//blue glossy
+RGB         0.1 0.1 0.8      
+SPECEX      0    
 SPECRGB     1 1 1     
-REFL        0       
-REFR        0        
-REFRIOR     2.6       
+REFL        0      
+REFR        0.6        
+REFRIOR     1.6      
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
@@ -92,7 +92,7 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   1
+EMITTANCE   5
 
 MATERIAL 8				//light
 RGB         1 1 1       
@@ -104,21 +104,42 @@ REFRIOR     0
 SCATTER     0        
 ABSCOEFF    0 0 0      
 RSCTCOEFF   0
-EMITTANCE   15
+EMITTANCE   5
+
+MATERIAL 9				//mirror
+RGB         1 1 1       
+SPECEX      0      
+SPECRGB     0 0 0       
+REFL        1.0       
+REFR        0        
+REFRIOR     0       
+SCATTER     0        
+ABSCOEFF    0 0 0      
+RSCTCOEFF   0
+EMITTANCE   0
+
+MATERIAL 10				//mirror
+RGB         0 1 1       
+SPECEX      0      
+SPECRGB     0 0 0       
+REFL        1.0       
+REFR        0        
+REFRIOR     0       
+SCATTER     0        
+ABSCOEFF    0 0 0      
+RSCTCOEFF   0
+EMITTANCE   0
 
 CAMERA
 RES         800 800
 FOVY        25
-ITERATIONS  5000
-FILE        test.bmp
+ITERATIONS  8000
+FILE        pathTracer1.bmp
 frame 0
 EYE         0 4.5 12
 VIEW        0 0 -1
 UP          0 1 0
-frame 1
-EYE         0 4.5 12
-VIEW        0 0 -1
-UP          0 1 0
+
 
 OBJECT 0
 cube
@@ -127,31 +148,19 @@ frame 0
 TRANS       0 0 0
 ROTAT       0 0 90
 SCALE       .01 10 10 
-frame 1
-TRANS       0 0 0
-ROTAT       0 0 90
-SCALE       .01 10 10 
 
 OBJECT 1
 cube
-material 0
+material 9
 frame 0
 TRANS       0 5 -5
 ROTAT       0 90 0
-SCALE       .01 10 10 
-frame 1
-TRANS       0 5 -5
-ROTAT       0 90 0
-SCALE       .01 10 10 
+SCALE       .01 10 10
 
 OBJECT 2
 cube
 material 0
 frame 0
-TRANS       0 10 0
-ROTAT       0 0 90
-SCALE       .01 10 10
-frame 1
 TRANS       0 10 0
 ROTAT       0 0 90
 SCALE       .01 10 10
@@ -163,10 +172,7 @@ frame 0
 TRANS       -5 5 0
 ROTAT       0 0 0
 SCALE       .01 10 10
-frame 1
-TRANS       -5 5 0
-ROTAT       0 0 0
-SCALE       .01 10 10
+
 
 OBJECT 4
 cube
@@ -175,32 +181,20 @@ frame 0
 TRANS       5 5 0
 ROTAT       0 0 0
 SCALE       .01 10 10
-frame 1
-TRANS       5 5 0
-ROTAT       0 0 0
-SCALE       .01 10 10
 
 OBJECT 5
 sphere
 material 4
 frame 0
-TRANS       0 2 0
-ROTAT       0 180 0
-SCALE       3 3 3
-frame 1
-TRANS       0 2 0
+TRANS       1 2 -.5
 ROTAT       0 180 0
 SCALE       3 3 3
 
 OBJECT 6
 sphere
-material 3
+material 5
 frame 0
-TRANS       2 5 2
-ROTAT       0 180 0
-SCALE       2.5 2.5 2.5
-frame 1
-TRANS       2 5 2
+TRANS       2 6 2
 ROTAT       0 180 0
 SCALE       2.5 2.5 2.5
 
@@ -208,22 +202,31 @@ OBJECT 7
 sphere
 material 6
 frame 0
-TRANS       -2 5 -2
-ROTAT       0 180 0
-SCALE       3 3 3
-frame 1
-TRANS       -2 5 -2
+TRANS       -2 4 -3
 ROTAT       0 180 0
 SCALE       3 3 3
 
 OBJECT 8
 cube
-material 8 
+material 10
 frame 0
-TRANS       0 10 0
-ROTAT       0 0 90
-SCALE       .3 3 3
-frame 1
+TRANS       -3 0 2
+ROTAT       0 55 0
+SCALE       1 2 1
+
+
+OBJECT 9
+sphere
+material 10
+frame 0
+TRANS       -1 0.5 2
+ROTAT       0 0 0
+SCALE       1 1 1
+
+OBJECT 10
+cube
+material 7
+frame 0
 TRANS       0 10 0
 ROTAT       0 0 90
 SCALE       .3 3 3

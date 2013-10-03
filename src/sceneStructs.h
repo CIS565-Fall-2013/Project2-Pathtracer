@@ -10,15 +10,45 @@
 #include "cudaMat4.h"
 #include <cuda_runtime.h>
 #include <string>
-
+#include "utilities.h"
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
+
 struct ray {
+	__host__ __device__ ray()
+	{
+		m_index = 1.0;
+		tag = 1.0;
+		color_fraction = 1.0;//keep track of how much this ray contribute the final color
+	}
 	glm::vec3 origin;
 	glm::vec3 direction;
+	int tag; // -1 if dead, 1 if alive
+	int pixelId; //each ray stores the pixelId when been initialized
+	float m_index;
+	float color_fraction;
 };
-
+struct mesh{
+	mesh()
+	{
+		triangleNum = 0;
+		faceNum = 0;
+	}
+	int triangleNum;
+	int faceNum;
+	glm::vec3* boundingBox_min;
+	glm::vec3* boundingBox_max;
+	glm::vec3* pbo;
+	glm::vec3* ibo;
+	glm::vec3* nbo;
+	//thrust::device_vector<glm::vec3> pbo;
+};
 struct geom {
+	geom(){
+		numberOfTriangle = 0;
+	}
 	enum GEOMTYPE type;
 	int materialid;
 	int frames;
@@ -27,6 +57,12 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+	int pboIndexOffset;
+	int iboIndexOffset;
+	int nboIndexOffset;
+	int numberOfTriangle;
+	glm::vec3* boundingBox_min;
+	glm::vec3* boundingBox_max;
 };
 
 struct staticGeom {
@@ -37,6 +73,13 @@ struct staticGeom {
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
+	int pboIndexOffset;
+	int iboIndexOffset;
+	int nboIndexOffset;
+	int numberOfTriangle;
+	glm::vec3 boundingBox_min;
+	glm::vec3 boundingBox_max;
+
 };
 
 struct cameraData {

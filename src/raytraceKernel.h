@@ -8,6 +8,7 @@
 #ifndef RAYTRACEKERNEL_H
 #define PATHTRACEKERNEL_H
 
+
 #include <stdio.h>
 #include <thrust/random.h>
 #include <cuda.h>
@@ -20,6 +21,17 @@
     #include <cutil_math.h>
 #endif
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+//refer to http://wiki.thrust.googlecode.com/hg-history/312700376feeadec0b1a679a259d66ff8512d5b3/html/group__stream__compaction.html#ga517b17ceafe31a9fc70ac5127bd626de
+
+struct isDead{
+	__host__ __device__ 
+	bool operator()(const ray r)
+	{
+		return r.tag == -1;
+	}
+};
+
+void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms,int numberOfGeoms);
+	//,int numberOfGeoms, std::vector<glm::vec3> pbo,std::vector<unsigned short> ibo, std::vector<glm::vec3>nbo);
 
 #endif

@@ -21,10 +21,23 @@
 #define TWO_PI                      6.2831853071795864769252867665590057683943
 #define SQRT_OF_ONE_THIRD           0.5773502691896257645091487805019574556476
 #define NATURAL_E                   2.7182818284590452353602874713526624977572
-#define EPSILON                     .000000001
+#define EPSILON                     .00000001
 #define ZERO_ABSORPTION_EPSILON     0.00001
 #define RAY_BIAS_AMOUNT             0.0002
-
+#define bgColorR					0.25
+#define bgColorG					0.18
+#define bgColorB					0.1
+#define ambientColorR				1.0
+#define ambientColorG				1.0
+#define	ambientColorB				1.0
+#define Kambient					0.3
+#define Kspecular					0.3
+#define Kdiffuse					0.1
+#define softShadow					0
+#define sampleNum					100
+#define BOUNCE_DEPTH				10
+#define INTEROFFSET					0.01f
+#define DOFLENGTH					11
 namespace utilityCore {
     extern float clamp(float f, float min, float max);
     extern bool replaceString(std::string& str, const std::string& from, const std::string& to);
@@ -36,6 +49,7 @@ namespace utilityCore {
     extern glm::mat4 buildTransformationMatrix(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale);
     extern void printCudaMat4(cudaMat4 m);
     extern std::string convertIntToString(int number);
+	extern std::string convertFloatToString(float number);
     extern std::istream& safeGetline(std::istream& is, std::string& t); //Thanks to http://stackoverflow.com/a/6089413
 
     //-----------------------------

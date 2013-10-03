@@ -8,7 +8,7 @@
 #include "scene.h"
 #include <cstring>
 
-scene::scene(string filename){
+scene::scene(string filename){	
 	cout << "Reading scene from " << filename << " ..." << endl;
 	cout << " " << endl;
 	char* fname = (char*)filename.c_str();
@@ -33,7 +33,108 @@ scene::scene(string filename){
 		}
 	}
 }
+int scene::loadMesh(string fileName,geom& newobj)
+{
+	fileName = "../../scenes/"+fileName;
+	cout<<"Read mesh.obj from"<<fileName<<"...."<<endl;
+	cout<<" "<<endl;
+	char* fname = (char*)fileName.c_str();
+	std::fstream file;
+	file.open(fname);
 
+	int pboCurrSize = pbo.size();
+	int iboCurrSize = ibo.size();
+	int nboCurrSize = nbo.size();
+
+	newobj.pboIndexOffset = pboCurrSize;
+	newobj.iboIndexOffset = iboCurrSize;
+	newobj.nboIndexOffset = nboCurrSize;
+
+	int pboIndex, iboIndex, nboIndex;
+	pboIndex = iboIndex = nboIndex = 0;
+	glm::vec3 v_pos;
+	glm::vec3 v_nor;
+	glm::vec3 v_inc;
+	glm::vec3 boundingBoxMin;
+	glm::vec3 boundingBoxMax;
+	if(file.is_open()){
+		/*while(fp_in.good()){*/
+			string line;
+			glm::vec3 v_pos;
+			while(line!="v")
+			{
+				file>>line;
+			}
+			while(line == "v")
+			{
+				file>>v_pos[0]>>v_pos[1]>>v_pos[2];
+				if(pboIndex == 0)
+				{
+					boundingBoxMin = v_pos;
+					boundingBoxMax = v_pos;
+				}
+				else
+				{
+					if(v_pos[0]<boundingBoxMin[0])
+						boundingBoxMin[0] = v_pos[0];
+					if(v_pos[1]<boundingBoxMin[1])
+						boundingBoxMin[1] = v_pos[1];
+					if(v_pos[2]<boundingBoxMin[2])
+						boundingBoxMin[2] = v_pos[2];
+					if(v_pos[0]>boundingBoxMax[0])
+						boundingBoxMax[0] = v_pos[0];
+					if(v_pos[1]>boundingBoxMax[1])
+						boundingBoxMax[1] = v_pos[1];
+					if(v_pos[2]>boundingBoxMax[2])
+						boundingBoxMax[2] = v_pos[2];
+				}
+				pbo.push_back(v_pos);
+				pboIndex ++;
+				file>>line;
+			}//while(line == "v")
+			newobj.boundingBox_min = new glm::vec3(boundingBoxMin);
+			newobj.boundingBox_max = new glm::vec3(boundingBoxMax);
+			
+			while(line!="f")
+			{
+				file>>line;
+			}
+			std::string faces[3];
+			while(line == "f"&&!file.eof())
+			{
+
+				file>>faces[0];
+				file>>faces[1];
+				file>>faces[2];
+
+				char* verInd = new char[100];
+				for(int i = 0;i<3;i++)
+				{
+					strcpy(verInd,faces[i].c_str());
+					faces[i] = strtok(verInd,"/");
+					v_inc[i] = atoi(faces[i].c_str());					
+					ibo.push_back(v_inc[i]-1);
+					iboIndex ++;
+				}
+				file>>line;	
+				newobj.numberOfTriangle ++;
+			}
+			
+			glm::vec3 edge1(0,0,0); glm::vec3 edge2(0,0,0);
+			for(int i = 0;i<ibo.size();i+=3)
+			{
+				edge1 = pbo[ibo[i+1]] - pbo[ibo[i]];
+				edge2 = pbo[ibo[i+2]] - pbo[ibo[i]];
+				v_nor = glm::normalize(glm::cross(edge1,edge2));
+				nboIndex++;
+				nbo.push_back(v_nor);
+			}
+			
+
+		//}//while(fp_in.good())
+	}
+	return 1;
+}
 int scene::loadObject(string objectid){
     int id = atoi(objectid.c_str());
     if(id!=objects.size()){
@@ -55,22 +156,36 @@ int scene::loadObject(string objectid){
 				newObject.type = CUBE;
             }else{
 				string objline = line;
-                string name;
-                string extension;
-                istringstream liness(objline);
-                getline(liness, name, '.');
-                getline(liness, extension, '.');
-                if(strcmp(extension.c_str(), "obj")==0){
+				/*  string name;
+				string extension;
+				istringstream liness(objline);
+				getline(liness, name, '.');
+				getline(liness, extension, '.');*/
+                if(strcmp(line.c_str(), "mesh")==0){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
 		    		newObject.type = MESH;
+					//numOfMesh ++;
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;
                 }
             }
         }
-       
+    //if newobj is mesh type, get mesh file and read
+		//if(newObject.type == MESH)
+		//{
+		//	utilityCore::safeGetline(fp_in,line);
+		//	string fileName = line;
+		//	//if(!line.empty() && fp_in.good())
+		//	//{
+		//	//	vector<string> tokens = utilityCore::tokenizeString(line);
+		//	//	fileName = atoi(tokens[0].c_str());
+		//	//}
+		//	////load mesh infor if the object is of type MESH
+		//	loadMesh(fileName,newObject);
+		//}
+	
 	//link material
     utilityCore::safeGetline(fp_in,line);
 	if(!line.empty() && fp_in.good()){
@@ -112,6 +227,7 @@ int scene::loadObject(string objectid){
         utilityCore::safeGetline(fp_in,line);
 	}
 	
+
 	//move frames into CUDA readable arrays
 	newObject.translations = new glm::vec3[frameCount];
 	newObject.rotations = new glm::vec3[frameCount];
