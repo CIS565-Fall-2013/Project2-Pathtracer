@@ -29,20 +29,36 @@ the dead rays.
 Was achieved by reflecting the rays when they hit the reflective surface 
 
 
+The extra features that were implemented are : 
+
+* Translational motion blur
+* Snell-based Refraction, i.e. glass
+* OBJ Mesh loading and rendering with Bounding boxes
+* Interactive camera
+* Depth of field
+
 -------------------------------------------------------------------------------
 ScreenShots :
 -------------------------------------------------------------------------------
-![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/2.png)
+Here is the first image with the basic diffuse applied on all the materials 
 
 ![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/3.png)
 
+
+With Reflections applied 
 ![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/4.png)
 
+With refractions applied 
 ![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/5.png)
 
+With Depth of Field 
 ![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/6.png)
 
+With Motion Blur 
 ![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/7.png)
+
+With OBJ loader and bounding boxes 
+![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/2.png)
 
 
 
@@ -128,27 +144,4 @@ Each student should provide no more than a one page summary of their
 optimizations along with tables and or graphs to visually explain any
 performance differences.
 
--------------------------------------------------------------------------------
-THIRD PARTY CODE POLICY
--------------------------------------------------------------------------------
-* Use of any third-party code must be approved by asking on the Google group.  If it is approved, all students are welcome to use it.  Generally, we approve use of third-party code that is not a core part of the project.  For example, for the ray tracer, we would approve using a third-party library for loading models, but would not approve copying and pasting a CUDA function for doing refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another student's code, is an academic integrity violation, and will result in you receiving an F for the semester.
 
--------------------------------------------------------------------------------
-SELF-GRADING
--------------------------------------------------------------------------------
-* On the submission date, email your grade, on a scale of 0 to 100, to Liam, liamboone+cis565@gmail.com, with a one paragraph explanation.  Be concise and realistic.  Recall that we reserve 30 points as a sanity check to adjust your grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We hope to only use this in extreme cases when your grade does not realistically reflect your work - it is either too high or too low.  In most cases, we plan to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as the path tracer.  We will determine the weighting at the end of the semester based on the size of each project.
-
--------------------------------------------------------------------------------
-SUBMISSION
--------------------------------------------------------------------------------
-As with the previous project, you should fork this project and work inside of your fork. Upon completion, commit your finished project back to your fork, and make a pull request to the master repository.
-You should include a README.md file in the root directory detailing the following
-
-* A brief description of the project and specific features you implemented
-* At least one screenshot of your project running, and at least one screenshot of the final rendered output of your pathtracer
-* Instructions for building and running your project if they differ from the base code
-* A link to your blog post detailing the project
-* A list of all third-party code used
