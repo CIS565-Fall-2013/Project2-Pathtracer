@@ -9,13 +9,33 @@
 #include "glm/glm.hpp"
 #include "cudaMat4.h"
 #include <cuda_runtime.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
 #include <string>
+#include <vector>
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	glm::vec3 attenuation;		// starting at vec3(1,1,1), this factor is updated with attenuation *= intersected geometry's material color
+	bool isTerminated;			// whether the ray should be removed during the stream compaction step
+	int pixelID;				// store the pixel that this ray is responsible for computing the color of
+};
+
+// constructed in scene
+struct mesh {
+	std::vector<glm::vec3> vertices;
+	std::vector<unsigned int> indices; // iterate through these indices to access vertices and normals.
+	int indicesCount;
+};
+
+// used to pass to cuda
+struct staticMesh {
+	glm::vec3* vertices;
+	unsigned int* indices;
+	int indicesCount;
 };
 
 struct geom {
@@ -27,6 +47,7 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+	mesh triMesh; // TODO: Make this a pointer so that it supports multiple frames as well
 };
 
 struct staticGeom {
@@ -37,6 +58,7 @@ struct staticGeom {
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
+	staticMesh triMesh;
 };
 
 struct cameraData {

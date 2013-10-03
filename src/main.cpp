@@ -99,14 +99,22 @@ int main(int argc, char** argv){
 //-------------------------------
 //---------RUNTIME STUFF---------
 //-------------------------------
+void resetCameraImage(camera* cam)
+{
+	for (int i = 0 ; i < cam->resolution.x * cam->resolution.y ; ++i)
+	{
+		cam->image[i] = glm::vec3(0,0,0);
+	}
+}
 
 void runCuda(){
 
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  
+
   if(iterations<renderCam->iterations){
     uchar4 *dptr=NULL;
+	
     iterations++;
     cudaGLMapBufferObject((void**)&dptr, pbo);
   
@@ -123,7 +131,7 @@ void runCuda(){
     
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size());
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -142,8 +150,9 @@ void runCuda(){
       
       gammaSettings gamma;
       gamma.applyGamma = true;
-      gamma.gamma = 1.0;
-      gamma.divisor = 1.0; //renderCam->iterations;
+      gamma.gamma = 1.0/2.2;
+      //gamma.divisor = renderCam->iterations;
+	  gamma.divisor = 1;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -201,7 +210,7 @@ void runCuda(){
 	void display(){
 		runCuda();
 
-		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
+		string title = "565PathTracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
 		glutSetWindowTitle(title.c_str());
 
 		glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);
@@ -220,12 +229,51 @@ void runCuda(){
 
 	void keyboard(unsigned char key, int x, int y)
 	{
-		std::cout << key << std::endl;
+		float camSpeed = 0.1f;
+
+		//std::cout << key << std::endl;
 		switch (key) 
 		{
-		   case(27):
-			   exit(1);
-			   break;
+			case(27):
+				exit(1);
+				break;
+			case 'a':
+			case 'A':
+				//TODO: reset iteration
+				renderCam->positions[targetFrame] += vec3(camSpeed, 0, 0);
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
+			case 'd':
+			case 'D':
+				renderCam->positions[targetFrame] += vec3(-camSpeed, 0, 0);
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
+			case 'w':
+			case 'W':
+				renderCam->positions[targetFrame] += vec3(0, -camSpeed, 0);
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
+			case 's':
+			case 'S':
+				renderCam->positions[targetFrame] += vec3(0, camSpeed,0);
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
+			case 'q':
+			case 'Q':
+				renderCam->positions[targetFrame] += vec3(0, 0, -camSpeed);
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
+			case 'e':
+			case 'E':
+				renderCam->positions[targetFrame] += vec3(0, 0, camSpeed);
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
 		}
 	}
 

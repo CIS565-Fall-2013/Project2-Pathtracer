@@ -24,6 +24,14 @@
 #define EPSILON                     .000000001
 #define ZERO_ABSORPTION_EPSILON     0.00001
 #define RAY_BIAS_AMOUNT             0.0002
+#define MAX_DEPTH					3
+#define SHADOWRAY_NUM				2												// controls how many shadow rays to send. Set to 1 for hard shadows
+#define ANTIALIASING_SWITCH		    0												// 0 for no anti-aliasing
+#define PATHTRACING_SWITCH			1												// 0 for ray tracing 1 for path tracing
+#define MOTION_BLUR_SWITCH			1												// 0 for no motion blur.
+#define SAMPLES_PER_PIXEL			1												// Number of samples to use per pixel. Min 1.
+#define USE_STREAM_COMPACTION		0
+#define MAX_BOUNCE					10												// maximum number of times a path tracing ray can bounce
 
 namespace utilityCore {
     extern float clamp(float f, float min, float max);

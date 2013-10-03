@@ -8,11 +8,13 @@
 
 #include "glm/glm.hpp"
 #include "utilities.h"
-#include <vector>
 #include "sceneStructs.h"
+#include "tiny_obj_loader.h"
+#include <vector>
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 
 using namespace std;
 
@@ -22,6 +24,8 @@ private:
     int loadMaterial(string materialid);
     int loadObject(string objectid);
     int loadCamera();
+	void loadObjFile(geom &newObject, const char* filePath);
+
 public:
     scene(string filename);
     ~scene();

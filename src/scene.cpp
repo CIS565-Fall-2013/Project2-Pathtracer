@@ -34,6 +34,25 @@ scene::scene(string filename){
 	}
 }
 
+scene::~scene()
+{
+	for (int i = 0 ; i < objects.size() ; ++i)
+	{
+		geom g = objects[i];
+
+		if (g.type == MESH)
+		{
+			// todo delete vertices, normals, and indices
+		}
+
+		delete[] g.translations;
+		delete[] g.rotations;
+		delete[] g.scales;
+		delete[] g.transforms;
+		delete[] g.inverseTransforms;
+	}
+}
+
 int scene::loadObject(string objectid){
     int id = atoi(objectid.c_str());
     if(id!=objects.size()){
@@ -62,7 +81,9 @@ int scene::loadObject(string objectid){
                 getline(liness, extension, '.');
                 if(strcmp(extension.c_str(), "obj")==0){
                     cout << "Creating new mesh..." << endl;
+					utilityCore::safeGetline(fp_in, line);
                     cout << "Reading mesh from " << line << "... " << endl;
+					loadObjFile(newObject, line.c_str());
 		    		newObject.type = MESH;
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
@@ -261,5 +282,41 @@ int scene::loadMaterial(string materialid){
 		}
 		materials.push_back(newMaterial);
 		return 1;
+	}
+}
+
+void scene::loadObjFile(geom &newObject, const char* filePath)
+{
+	vector<tinyobj::shape_t> shapes;
+	string err = tinyobj::LoadObj(shapes, filePath, NULL);
+
+	if (!err.empty()) {
+		std::cerr << err << std::endl;
+		return;
+	}
+
+	std::cout << "# of shapes : " << shapes.size() << std::endl;
+	
+	// looping through all shapes (if obj file contains multiple shapes)
+	for (size_t i = 0 ; i < shapes.size() ; ++i)
+	{
+		int numIndices = shapes[i].mesh.indices.size();
+		for (size_t f = 0 ; f < numIndices ; ++f)
+		{
+			newObject.triMesh.indices.push_back(shapes[i].mesh.indices[f]);
+		}
+
+		assert(shapes[i].mesh.positions.size() % 3 == 0);
+		int numVerts = shapes[i].mesh.positions.size() / 3;
+		for (size_t v = 0 ; v < numVerts ; ++v)
+		{
+			glm::vec3 pos = glm::vec3(shapes[i].mesh.positions[3*v+0],
+									  shapes[i].mesh.positions[3*v+1],
+		             				  shapes[i].mesh.positions[3*v+2]);
+
+			newObject.triMesh.vertices.push_back(pos);
+		}
+
+		newObject.triMesh.indicesCount = shapes[i].mesh.indices.size();
 	}
 }
