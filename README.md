@@ -183,27 +183,71 @@ KEYBOARD CONTROLS
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
-The performance evaluation is where you will investigate how to make your CUDA
-programs more efficient using the skills you've learned in class. You must have
-performed at least one experiment on your code to investigate the positive or
-negative effects on performance. 
+For performance tests, I started with testing my code with tiles of different sizes.
+Tested this with two image sizes  - 800 X 800 and 1280 X 720 on a machine equipped with 
+Nvidia GT 650M.
 
-One such experiment would be to investigate the performance increase involved 
-with adding a spatial data-structure to your scene data.
+For resolution 800 X 800, (sampleScene.txt)
 
-Another idea could be looking at the change in timing between various block
-sizes.
+Tile Size | Average time per iteration (ms)
+--- | --- 
+4|447
+8|208
+16|224
+32|245
 
-A good metric to track would be number of rays per second, or frames per 
-second, or number of objects displayable at 60fps.
+For resolution 1280 X 720, (sampleScene.txt)
+Tile Size | Average time per iteration (ms)
+--- | --- 
+4|522
+8|243
+16|264
+32|292
 
-We encourage you to get creative with your tweaks. Consider places in your code
-that could be considered bottlenecks and try to improve them. 
+So it looked like the tile size of 8 was the most optimum.
 
-Each student should provide no more than a one page summary of their
-optimizations along with tables and or graphs to visually explain any
-performance differences.
+Next I went on to see the impact of stream compaction. Got quite a mixed set of results here.
 
+At first, my code without stream compaction ran faster than with stream compaction. This made me think that the 
+cost of compacting the array was more than having idle threads lying around. This was done on the provided example file
+sampleScene.txt.
+
+Stream Compaction | Average time per iteration (ms)
+--- | --- 
+ON|208
+OFF|184
+
+This made me believe that the benefits of stream compaction are seen when we have a lot of rays without any intersections.
+So I removed the left wall from the scene
+
+Stream Compaction | Average time per iteration (ms)
+--- | --- 
+ON|143
+OFF|134
+
+Then I removed the right wall as well,
+
+Stream Compaction | Average time per iteration (ms)
+--- | --- 
+ON| 91
+OFF|101
+
+Final tests were done with different types of memory. My implementation has an array of 512 random integers that must be passed to the gpu for perlin computations.
+
+So, I first moved them to constant memory on gpu, using __constant__declaration and cudaMemcpyToSymbol
+
+Type of memory for perlin array | Average time per iteration (ms)
+--- | --- 
+Global| 309
+Constant|342
+Shared|224
+
+Though shared memory implementation was crashing for me after a few iterations. 
+But on my slow machine ( 8600m gt), constant memory showed a dramatic improvement for the same scene.
+From 5600 ms to 4400 ms.
+
+Apart from these, in the implementation, I still feel there are places where I can avoid normalizing operations if I am sure the input vectors are normalized.
+Also, for texture mode implementatoin, I thought it was best to duplicate and trim down the ray tracing code so to avoid branching in gpu and to run only as much as needed.
 -------------------------------------------------------------------------------
 THIRD PARTY CODE CREDITS
 -------------------------------------------------------------------------------
