@@ -141,7 +141,7 @@ WIDTH2  (float)  // Width of the secondary color
 SMOOTH  (int)    // Smooth interpolation between the two colors
 
 Types of maps:
-1. base 
+1.base 
 For base maps, the options are more or less non-functional. Base maps are a special kind of map which the materials use to specify that all the properties come from the material, and none from the map.
 This is in effect a dummy map
 
@@ -151,10 +151,10 @@ For horizontal stripes. The attributes perform expected actions. Width2 is ignor
 3.vstripe:
 For vertical stripes. The attributes perform expected actions. Width2 is ignored.
 
-4. checkerboard:
+4.checkerboard:
 For 2D grid textures. All the attributes are useful.
 
-5. marble
+5.marble
 For marble looking patterns. The colors are expected, but the width1 and width2 settings have an effect on the turbulence and the amplitude of noise functions
 
 6.perlin
