@@ -127,17 +127,6 @@ __host__ __device__ int calculateBSDF(ray& r, const glm::vec3& intersect, const 
 		glm::vec3 reflectedRay = calculateReflectionDirection(normal, r.direction);		
 		r.direction = reflectedRay;
 		r.origin = intersect + normal * eps;
-		
-		//if (m.hasReflective == 1)
-		//{
-		//	color = glm::vec3(1,1,1); // no color contribution
-		//}
-		//else
-		//{
-		//	// partially refletive: use reflected ray but use diffuse color
-		//	color = (1-m.hasReflective) * m.color;
-		//}
-		
 		color = glm::vec3(1,1,1);
 
 		return BSDFRET::REFLECTED;

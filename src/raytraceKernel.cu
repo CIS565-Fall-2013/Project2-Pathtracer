@@ -158,7 +158,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
 
 	  if(color.z < 0)
 		  color.z = 0;
-      
+
       // Each thread writes one pixel location in the texture (textel)
       PBOpos[index].w = 0;
       PBOpos[index].x = color.x;
@@ -439,10 +439,6 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 	//}
 }
 
-
-
-
-//TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
 __device__ void raytraceRay(ray r, float ssratio, int index, int rayDepth, glm::vec3* colors, cameraData cam,
                             staticGeom* geoms, int numberOfGeoms, material* cudamat, int numberOfMat, int* cudalightIndex, int numberOfLights, float iter)
@@ -614,9 +610,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		translateObject(geoms, 6, frame, iterations, 20, vec3(0, -0.01, 0));
 	}
 
-
-
-
 	// set up crucial magic
 	int tileSize = 8;
 	dim3 threadsPerBlock(tileSize, tileSize);
@@ -718,7 +711,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		for(int bounce = 0; bounce <= MAX_BOUNCE; ++bounce)
 		{
 			// Update blockSize based on the number of rays.
-			float sqrtNumRays = ceil(sqrtf((float)numRays));
+			float sqrtNumRays = ceil(sqrt((float)numRays));
 			int blockSize = (int)ceil(sqrtNumRays/(float)tileSize);
 			dim3 rayBlockPerGrid(blockSize, blockSize);
 
