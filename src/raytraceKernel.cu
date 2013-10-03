@@ -242,7 +242,7 @@ __global__ void raycastFromCameraKernel( glm::vec2 resolution, float time, camer
   float yf = float(y) + scl*px_size_y*xi2(rng);
 
   // Not-as-nice-as-I-would-like DOF
-  float focal_point = 4.0f;
+  float focal_point = 10.0f;
   float depth_of_field_scale = 0.02f*focal_point;
   ray r;
   r.origin = cam.position + depth_of_field_scale*glm::vec3( xv(rng), yv(rng), zv(rng) ); 
