@@ -25,7 +25,7 @@ I implementing the requred features:
 * Properly accumulating emittance and colors to generate a final image
 * Supersampled antialiasing
 * Parallelization by ray instead of by pixel via stream compaction
-** I used thrust for the scan step and implented my own parallel scatter
+ * I used thrust for the scan step and implented my own parallel scatter
 * Perfect specular reflection
 
 And:
@@ -54,7 +54,7 @@ For comparison here is the fixed pure-refraction
 -------------------------------------------------------------------------------
 Performance Evalutation:
 -------------------------------------------------------------------------------
-TileSize vs. Average Time-per-frame ( milli-seconds ) for a 400 by 400 Image
+TileSize vs. Average Time-per-frame ( milli-seconds ) for a 400 by 400 Image on a GEFORCE 610M 1GB. 
 * 2, 0.81
 * 4, 0.33
 * 8, 0.18
