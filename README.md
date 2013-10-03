@@ -11,8 +11,11 @@ Screenshot showing all features implemented.
 ![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/dof_refl_refr.bmp)
 
 
-
-
+-------------------------------------------------------------------------------
+Video:
+-------------------------------------------------------------------------------
+This is pretty low-res. High-res to come soon!!!
+http://youtu.be/hzeRzmRnIo0
 
 -------------------------------------------------------------------------------
 Features:
