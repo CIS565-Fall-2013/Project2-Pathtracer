@@ -176,18 +176,18 @@ __global__ void initializeray(glm::vec2 resolution, float time,cameraData cam, r
   if((x<=resolution.x && y<=resolution.y)){
   ray rnew = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
   
-  //Depth of Field 
-  glm::vec3 dofRayPoint = rnew.origin + 14.0f * glm::normalize(rnew.direction) ;	
-  thrust::default_random_engine rng (hash (time ));
-  thrust::uniform_real_distribution<float> xi6(-1,1);
-  thrust::uniform_real_distribution<float> xi7(-1,1);
-  thrust::uniform_real_distribution<float> r1(-1.0,1.0);
-//	srand(time);		
-			float dx =  r1(rng) ;//* cos(xi6(rng));   //((int)xi6(rng) % 100 + 1 )/1000;//
-			float dy =  r1(rng) ;//* sin(xi7(rng));    //((int)xi7(rng)  % 100 + 1 )/1000; //
-			
-			rnew.origin    =  rnew.origin  + glm::vec3(dx,dy,0.0f);	
-			rnew.direction =  glm::normalize(dofRayPoint - rnew.origin );
+ // Depth of Field 
+//  glm::vec3 dofRayPoint = rnew.origin + 14.0f * glm::normalize(rnew.direction) ;	
+//  thrust::default_random_engine rng (hash (time ));
+//  thrust::uniform_real_distribution<float> xi6(-1,1);
+//  thrust::uniform_real_distribution<float> xi7(-1,1);
+//  thrust::uniform_real_distribution<float> r1(-1.0,1.0);
+////	srand(time);		
+//			float dx =  r1(rng) ;//* cos(xi6(rng));   //((int)xi6(rng) % 100 + 1 )/1000;//
+//			float dy =  r1(rng) ;//* sin(xi7(rng));    //((int)xi7(rng)  % 100 + 1 )/1000; //
+//			
+//			rnew.origin    =  rnew.origin  + glm::vec3(dx,dy,0.0f);	
+//			rnew.direction =  glm::normalize(dofRayPoint - rnew.origin );
 			
 			
 		
@@ -216,13 +216,6 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, float bounce, came
 if ( index < num )
 {
  
-	//if(bounce < 1.5f)
-	//{
-	//geoms[4].translation[0]+=0.1;
-	//glm::mat4 buildTransformationMatrix(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale);
-	//geoms[4].transform = utilityCore::glmMat4ToCudaMat4(utilityCore::buildTransformationMatrix(geoms[4].translation,geoms[4].rotation,geoms[4].scale));
-	//geoms[4].inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(utilityCore::cudaMat4ToGlmMat4(geoms[4].transform)));
-	//}
   //ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
   ray r = newr[index];
 
@@ -410,13 +403,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     //Send maxmins of the mesh to GPU
   float* mami = NULL;
   cudaMalloc((void**)&mami,6 * sizeof(float));
-   if(maxmin != NULL)
-  {
+ /*  if(maxmin != NULL)
+  {*/
   for(int i=0; i < 6; i++){
 	   
 	   cudaMemcpy( &mami[i] , &maxmin[i], sizeof(float), cudaMemcpyHostToDevice);
   }
-   }
+ //  }
 
   //package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
@@ -487,13 +480,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   }
 
   // Motion blur
-  int mID = 5;
-  float raa = (rand() % 10 + 1 )/ 10.0f ;
-  float xtrans =  (2.0f * (1.0f - raa)) + (3.0f * raa) ;
-  geoms[mID].translations[0][0] = xtrans;
-  glm::mat4 buildTransformationMatrix(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale);
-  geoms[mID].transforms[0] = utilityCore::glmMat4ToCudaMat4(utilityCore::buildTransformationMatrix(geoms[mID].translations[0],geoms[mID].rotations[0],geoms[mID].scales[0]));
-  geoms[mID].inverseTransforms[0] = utilityCore::glmMat4ToCudaMat4(glm::inverse(utilityCore::cudaMat4ToGlmMat4(geoms[mID].transforms[0])));
+  //int mID = 5;   // this gives the object id that should be moved 
+  //float raa = (rand() % 10 + 1 )/ 10.0f ;
+  //float xtrans =  (2.0f * (1.0f - raa)) + (3.0f * raa) ;
+  //geoms[mID].translations[0][0] = xtrans;    // comment this line for motion blur on and off 
+  //glm::mat4 buildTransformationMatrix(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale);
+  //geoms[mID].transforms[0] = utilityCore::glmMat4ToCudaMat4(utilityCore::buildTransformationMatrix(geoms[mID].translations[0],geoms[mID].rotations[0],geoms[mID].scales[0]));
+  //geoms[mID].inverseTransforms[0] = utilityCore::glmMat4ToCudaMat4(glm::inverse(utilityCore::cudaMat4ToGlmMat4(geoms[mID].transforms[0])));
 
 
   int N  = ((int)renderCam->resolution.x*(int)renderCam->resolution.y);

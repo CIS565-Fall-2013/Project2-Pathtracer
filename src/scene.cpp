@@ -43,7 +43,7 @@ int scene::loadObject(string objectid){
         cout << "Loading Object " << id << "..." << endl;
         geom newObject;
         string line;
-        maxmin = NULL; 
+       // maxmin = NULL; 
         //load object type 
         utilityCore::safeGetline(fp_in,line);
         if (!line.empty() && fp_in.good()){
