@@ -8,8 +8,6 @@ Due Wednesday, 10/02/13
 Qiong Wang
 -------------------------------------------------------------------------------
 
--------------------------------------------------------------------------------
-
 
 -------------------------------------------------------------------------------
 INTRODUCTION
@@ -45,30 +43,46 @@ Optional features:
 * Depth of field
 * Fresnel-based Refraction, i.e. glass (Still tuning)
 
+
 -------------------------------------------------------------------------------
 SCREENSHOTS OF THE FEATURES IMPLEMENTED
 -------------------------------------------------------------------------------
 * Global illumination
-![ScreenShot]()
+
+![ScreenShot](https://raw.github.com/GabriellaQiong/Project2-Pathtracer/master/10021534.PNG)
 
 * Properly accumulating emittance and colors to generate a final image
-![ScreenShot]()
 
-* Supersampled antialiasing
-![ScreenShot]()
+![ScreenShot](https://raw.github.com/GabriellaQiong/Project2-Pathtracer/master/10021636.PNG)
+
+* Antialiasing (Stochastic method)
+
+![ScreenShot](https://raw.github.com/GabriellaQiong/Project2-Pathtracer/master/anti-aliasing.PNG)
 
 * Perfect specular reflection
-![ScreenShot]()
+
+![ScreenShot](https://raw.github.com/GabriellaQiong/Project2-Pathtracer/master/10021740.PNG)
 
 * Translational motion blur
+
 ![ScreenShot]()
 
 * Depth of field
-![ScreenShot]()
+
+With small radius for the circle of confusion
+
+![ScreenShot](https://raw.github.com/GabriellaQiong/Project2-Pathtracer/master/10022047.PNG)
+
+With big radius for the circle of confusion
+
+![ScreenShot](https://raw.github.com/GabriellaQiong/Project2-Pathtracer/master/10022141.PNG)
+
 
 -------------------------------------------------------------------------------
-SCREENSHOTS OF THE FEATURES IMPLEMENTED
+VIDEOS OF IMPLEMENTATION
 -------------------------------------------------------------------------------
+
+
 
 
 -------------------------------------------------------------------------------
