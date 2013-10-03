@@ -39,11 +39,16 @@ Stream compaction and Number of bounces comparison (800x800):
 -------------------------------------------------------------------------------
 THIRD PARTY CODE & LINKS
 -------------------------------------------------------------------------------
-Tiny Obj Loader: https://github.com/syoyo/tinyobjloader
-Thrust Stream Compaction: http://thrust.github.io/doc/group__stream__compaction.html#gaf01d45b30fecba794afae065d625f94f
-Thrust Device Pointers: http://docs.thrust.googlecode.com/hg/classthrust_1_1device__ptr.html
-CUDA Parallel Prefix Sum: http://http.developer.nvidia.com/GPUGems3/gpugems3_ch39.html
-Project Demo Video: https://github.com/mchen15/Project2-Pathtracer/blob/master/renders/Path%20Tracer%20Demo.mp4
+	Tiny Obj Loader: 
+		https://github.com/syoyo/tinyobjloader
+	Thrust Stream Compaction: 
+		http://thrust.github.io/doc/group__stream__compaction.html#gaf01d45b30fecba794afae065d625f94f
+	Thrust Device Pointers: 
+		http://docs.thrust.googlecode.com/hg/classthrust_1_1device__ptr.html
+	CUDA Parallel Prefix Sum: 
+		http://http.developer.nvidia.com/GPUGems3/gpugems3_ch39.html
+	Project Demo Video: 
+		https://github.com/mchen15/Project2-Pathtracer/blob/master/renders/Path%20Tracer%20Demo.mp4
 
 -------------------------------------------------------------------------------
 TODO
