@@ -1,3 +1,14 @@
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/all_features.bmp)
+
+Screenshot showing all features implemented.
+
+-------------------------------------------------------------------------------
+Pathtracer:
+-------------------------------------------------------------------------------
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/dof_nice.bmp)
+
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/dof_refl_refr.bmp)
+
 
 
 
@@ -17,7 +28,7 @@ And:
 * Fresnel-based Refraction, i.e. glass
 * Depth of field
 
-The following screenshot shows a comparison between anti-aliased and non-anti-aliased edges
+The following screenshot shows a comparison between anti-aliased and non-anti-aliased edges, its a bit hard to see because the render isn't fully converged. 
 ![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/anti_aliasing.png)
 
 -------------------------------------------------------------------------------
@@ -31,7 +42,7 @@ I can recreate it :).
 ![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/artsy_bug.png)
 
 While implementing refraction a missing sqrt and refractive index flip lead to this one. 
-![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/refraction_bug.png)
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/refraction_bug.bmp)
 
 For comparison here is the fixed pure-refraction
 ![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/refraction_pure.png)
