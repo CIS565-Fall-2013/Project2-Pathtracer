@@ -25,22 +25,16 @@ the third party software linked below), and camera controls via keyboard.
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
-*Stream compaction comparison:
-
-**Ray Parallelization with Stream Compaction:
-
-**Ray Parallelization without Stream Compaction:
-
-
-*Number of bounces comparison:
-
-**Bounce 5:
-
-**Bounce 10:
-
-**Bounce 20:
-
-
+Stream compaction and Number of bounces comparison (800x800):
+	
+	Ray Parallelization with Stream Compaction: 
+			Bounce 5:  8fps
+			Bounce 10: 7fps
+			Bounce 20: 5fps
+	Ray Parallelization without Stream Compaction: 
+			Bounce 5:  9fps
+			Bounce 10: 5fps
+			Bounce 20: 3fps
 
 -------------------------------------------------------------------------------
 THIRD PARTY CODE & LINKS
@@ -49,8 +43,8 @@ Tiny Obj Loader: https://github.com/syoyo/tinyobjloader
 Thrust Stream Compaction: http://thrust.github.io/doc/group__stream__compaction.html#gaf01d45b30fecba794afae065d625f94f
 Thrust Device Pointers: http://docs.thrust.googlecode.com/hg/classthrust_1_1device__ptr.html
 CUDA Parallel Prefix Sum: http://http.developer.nvidia.com/GPUGems3/gpugems3_ch39.html
-
 Project Demo Video: https://github.com/mchen15/Project2-Pathtracer/blob/master/renders/Path%20Tracer%20Demo.mp4
+
 -------------------------------------------------------------------------------
 SELF-GRADING
 -------------------------------------------------------------------------------
@@ -61,6 +55,7 @@ SELF-GRADING
 TODO
 -------------------------------------------------------------------------------
 * Squash bugs!
-* Additional BDSF such as refraction
-* Additional BRDF models
-* Bounding boxes for triangle meshes
+* Find ways to achieve convergence faster.
+* Additional BDSF such as refraction.
+* Additional BRDF models.
+* Bounding boxes for triangle meshes.
