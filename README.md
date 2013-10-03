@@ -79,7 +79,7 @@ In terms of numbers, ray parallelization allowed the FPS to increase from around
 
 Working increamentally to transfer all functionalities from pixel-parallel to ray-parallel implementation, the following images were generated:
 
- ![Alt text](renders/Ray parallel working (sort of).jpg?raw=true)
+ ![Alt text](renders/Ray parallel working.jpg?raw=true)
 
  ![Alt text](renders/Reflective added.jpg?raw=true)
 
@@ -96,7 +96,10 @@ Working increamentally to transfer all functionalities from pixel-parallel to ra
 * Depth of Field
 
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7773f511d1f2028faf90491b765c20e388785174
 -------------------------------------------------------------------------------
 HOW TO BUILD
 -------------------------------------------------------------------------------
@@ -141,7 +144,7 @@ It seemes to me that program executes fastest when image size (800*800) is divis
 -------------------------------------------------------------------------------
 THIRD PARTY CODE USED
 -------------------------------------------------------------------------------
-* An Efficient and Robust Ray¨CBox Intersection Algorithm, A. Williams, et al.  
+* An Efficient and Robust Rayï¿½CBox Intersection Algorithm, A. Williams, et al.  
   http://people.csail.mit.edu/amy/papers/box-jgt.pdf
 * Thrust library for stream compaction
 

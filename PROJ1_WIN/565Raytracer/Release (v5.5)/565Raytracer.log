@@ -1,4 +1,4 @@
-﻿Build started 10/2/2013 1:20:59 PM.
+﻿Build started 10/2/2013 5:58:24 PM.
      1>Project "G:\GitHub\Project2-Pathtracer\PROJ1_WIN\565Raytracer\565Raytracer.vcxproj" on node 2 (build target(s)).
      1>InitializeBuildStatus:
          Creating "Release (v5.5)\565Raytracer.unsuccessfulbuild" because "AlwaysCreate" was specified.
@@ -8,7 +8,7 @@
        Skipping target "AddCudaCompilePropsDeps" because all output files are up-to-date with respect to the input files.
        CudaBuild:
          Compiling CUDA source file ..\..\src\raytraceKernel.cu...
-         cmd.exe /C "C:\Users\Nemo\AppData\Local\Temp\tmp6d762206e09749bd99bc6f4e9ab9bae0.cmd"
+         cmd.exe /C "C:\Users\Nemo\AppData\Local\Temp\tmpf2e8d919a6594ff1a9b04616d4e37775.cmd"
          "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin\nvcc.exe" -gencode=arch=compute_30,code=\"sm_30,compute_30\" --use-local-env --cl-version 2010 -ccbin "D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin"  -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc" -I../shared/glew/includes -I../shared/freeglut/includes -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I../shared/glew/include -I../shared/freeglut/include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include"     --keep-dir "Release (v5.5)" -maxrregcount=0  --machine 32 --compile -cudart static    -use_fast_math -DWIN32 -DNDEBUG -D_CONSOLE -D_UNICODE -DUNICODE -Xcompiler "/EHsc /W3 /nologo /O2 /Zi  /MD  " -o "G:\GitHub\Project2-Pathtracer\PROJ1_WIN\565Raytracer\Win32/Release (v5.5)/raytraceKernel.cu.obj" "G:\GitHub\Project2-Pathtracer\src\raytraceKernel.cu"
          
          G:\GitHub\Project2-Pathtracer\PROJ1_WIN\565Raytracer>"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin\nvcc.exe" -gencode=arch=compute_30,code=\"sm_30,compute_30\" --use-local-env --cl-version 2010 -ccbin "D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin"  -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc" -I../shared/glew/includes -I../shared/freeglut/includes -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I../shared/glew/include -I../shared/freeglut/include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include"     --keep-dir "Release (v5.5)" -maxrregcount=0  --machine 32 --compile -cudart static    -use_fast_math -DWIN32 -DNDEBUG -D_CONSOLE -D_UNICODE -DUNICODE -Xcompiler "/EHsc /W3 /nologo /O2 /Zi  /MD  " -o "G:\GitHub\Project2-Pathtracer\PROJ1_WIN\565Raytracer\Win32/Release (v5.5)/raytraceKernel.cu.obj" "G:\GitHub\Project2-Pathtracer\src\raytraceKernel.cu" 
@@ -570,7 +570,6 @@
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\sm_13_double_functions.h : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>g:\github\project2-pathtracer\src\glm\core\_swizzle.hpp(194): warning : missing return statement at end of non-void function "glm::detail::_swizzle_base2<ValueType, VecType, N, E0, E1, E2, E3, 1>::operator=(const glm::detail::_swizzle_base2<ValueType, VecType, N, E0, E1, E2, E3, 1>::Stub &)"
          
-     1>ptxas : warning : Stack size for entry function '_Z15raytracePrimaryN3glm6detail5tvec2IfEEi10cameraDataiPNS0_5tvec3IfEEP10staticGeomiP8materialiPii' cannot be statically determined
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(870): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(1846): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
@@ -598,13 +597,12 @@
      1>g:\github\project2-pathtracer\src\intersections.h(262): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
      1>g:\github\project2-pathtracer\src\intersections.h(268): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
      1>g:\github\project2-pathtracer\src\interactions.h(103): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(53): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(55): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(62): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(64): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(143): warning C4482: nonstandard extension used: enum 'GEOMTYPE' used in qualified name
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(146): warning C4482: nonstandard extension used: enum 'GEOMTYPE' used in qualified name
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(233): warning C4305: '=' : truncation from 'double' to 'float'
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(49): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(51): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(58): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(60): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(138): warning C4482: nonstandard extension used: enum 'GEOMTYPE' used in qualified name
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(141): warning C4482: nonstandard extension used: enum 'GEOMTYPE' used in qualified name
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(2747): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(3698): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(4610): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
@@ -635,4 +633,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:13.44
+Time Elapsed 00:00:13.06
