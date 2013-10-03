@@ -248,6 +248,7 @@ From 5600 ms to 4400 ms.
 
 Apart from these, in the implementation, I still feel there are places where I can avoid normalizing operations if I am sure the input vectors are normalized.
 Also, for texture mode implementatoin, I thought it was best to duplicate and trim down the ray tracing code so to avoid branching in gpu and to run only as much as needed.
+
 -------------------------------------------------------------------------------
 THIRD PARTY CODE CREDITS
 -------------------------------------------------------------------------------
