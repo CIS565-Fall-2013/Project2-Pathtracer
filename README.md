@@ -6,22 +6,31 @@ Fall 2013
 Due Wednesday, 10/02/13
 -------------------------------------------------------------------------------
 
--------------------------------------------------------------------------------
-NOTE:
--------------------------------------------------------------------------------
-This project requires an NVIDIA graphics card with CUDA capability! Any card after the Geforce 8xxx series will work. If you do not have an NVIDIA graphics card in the machine you are working on, feel free to use any machine in the SIG Lab or in Moore100 labs. All machines in the SIG Lab and Moore100 are equipped with CUDA capable NVIDIA graphics cards. If this too proves to be a problem, please contact Patrick or Liam as soon as possible.
 
 -------------------------------------------------------------------------------
-INTRODUCTION:
+DESCRIPTION :
 -------------------------------------------------------------------------------
-In this project, you will extend your raytracer from Project 1 into a full CUDA based global illumination pathtracer. 
+In this Project a Path tracer is created by using the concept of GLobal Illumination. In thsi technique a bunch
+of rays are shooted into the scene and each ray is tracked until they hit the light, the color at every bounce 
+is calculated and multiplied with the previous color. This process is repeated for every iteration ,and the color 
+obtained at each iteration is averaged and added to the previous value. 
 
-For this project, you may either choose to continue working off of your codebase from Project 1, or you may choose to use the included basecode in this repository. The basecode for Project 2 is the same as the basecode for Project 1, but with some missing components you will need filled in, such as the intersection testing and camera raycasting methods. 
+All the basic requirements such as 
+* Full global illumination 
+* Properly accumulating emittance and colors to generate a final image
+* Supersampled antialiasing
+Have been implemented 
 
-How you choose to extend your raytracer into a pathtracer is a fairly open-ended problem; the supplied basecode is meant to serve as one possible set of guidelines for doing so, but you may choose any approach you want in your actual implementation, including completely scrapping the provided basecode in favor of your own from-scratch solution.
+* Parallelization by ray instead of by pixel via stream compaction 
+This was done using Thrust library and the function if_remove was used to compress the ray pool by removing 
+the dead rays.
+
+* Perfect specular reflection
+Was achieved by reflecting the rays when they hit the reflective surface 
+
 
 -------------------------------------------------------------------------------
-CONTENTS:
+ScreenShots :
 -------------------------------------------------------------------------------
 The Project2 root directory contains the following subdirectories:
 	
