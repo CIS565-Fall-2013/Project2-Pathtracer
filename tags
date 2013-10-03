@@ -18,8 +18,8 @@ APIENTRY	PROJ1_WIN/shared/glew/include/GL/glew.h	15286;"	d	language:C++
 APIENTRY	PROJ1_WIN/shared/glew/include/GL/glew.h	210;"	d	language:C++
 AbsorptionAndScatteringProperties	src/interactions.h	/^struct AbsorptionAndScatteringProperties{$/;"	s	language:C++
 B	src/glm/core/_swizzle.hpp	/^		B = 2,$/;"	e	language:C++	enum:glm::comp
-BlueBits	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int RedBits, BlueBits, GreenBits;$/;"	m	language:C++	struct:__anon51
-BytesPerPixel	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int BytesPerPixel;$/;"	m	language:C++	struct:__anon52
+BlueBits	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int RedBits, BlueBits, GreenBits;$/;"	m	language:C++	struct:__anon52
+BytesPerPixel	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int BytesPerPixel;$/;"	m	language:C++	struct:__anon53
 CALLBACK	PROJ1_MAC/glfw/include/GL/glfw.h	107;"	d	language:C++
 CALLBACK	PROJ1_MAC/glfw/include/GL/glfw.h	109;"	d	language:C++
 CALLBACK	PROJ1_MAC/glfw/include/GL/glfw.h	113;"	d	language:C++
@@ -36,20 +36,19 @@ CASE	src/stb_image/stb_image.c	2502;"	d	language:C	file:
 CASE	src/stb_image/stb_image.c	2515;"	d	language:C	file:
 CASE	src/stb_image/stb_image.c	854;"	d	language:C	file:
 CASE	src/stb_image/stb_image.c	872;"	d	language:C	file:
-CC	PROJ1_MAC/makefile	/^CC       = \/usr\/bin\/gcc -m64$/;"	m	language:Make
-CC	PROJ2_NIX/makefile	/^CC       = gcc -m64$/;"	m	language:Make
 COMBO	src/stb_image/stb_image.c	853;"	d	language:C	file:
-CPPC	PROJ2_NIX/makefile	/^CPPC     = g++ -m64$/;"	m	language:Make
 CUBE	src/sceneStructs.h	/^enum GEOMTYPE{ SPHERE, CUBE, MESH };$/;"	e	language:C++	enum:GEOMTYPE
-CUDA	PROJ1_MAC/makefile	/^CUDA = $(CUDA_INCLUDE) $(CUDASDK_C_LIB_PATH) $(CUDASDK_C_INCLUDE_PATH) $/;"	m	language:Make
 CUDAMAT4_H	src/cudaMat4.h	7;"	d	language:C++
-CUDASDK_C_INCLUDE_PATH	PROJ1_MAC/makefile	/^CUDASDK_C_INCLUDE_PATH = -I\/Developer\/GPU\\ Computing\/C\/common\/inc$/;"	m	language:Make
-CUDASDK_C_LIB_PATH	PROJ1_MAC/makefile	/^CUDASDK_C_LIB_PATH = -L\/Developer\/GPU\\ Computing\/C\/lib$/;"	m	language:Make
 CUDASTRUCTS_H	src/sceneStructs.h	7;"	d	language:C++
-CUDA_FLAGS	PROJ2_NIX/makefile	/^CUDA_FLAGS = -I\/usr\/local\/cuda\/samples\/common\/inc -I\/usr\/local\/cuda\/include$/;"	m	language:Make
-CUDA_INCLUDE	PROJ1_MAC/makefile	/^CUDA_INCLUDE = -I\/usr\/local\/cuda\/include  $/;"	m	language:Make
+DEBUG_ALL	src/raytraceKernel.cu	/^enum { DEBUG_COLLISIONS, DEBUG_DIRECTIONS, DEBUG_BRDF, DEBUG_DIFFUSE, DEBUG_NORMALS, DEBUG_DISTANCE, DEBUG_ALL }; $/;"	e	language:C++	enum:__anon50	file:
+DEBUG_BRDF	src/raytraceKernel.cu	/^enum { DEBUG_COLLISIONS, DEBUG_DIRECTIONS, DEBUG_BRDF, DEBUG_DIFFUSE, DEBUG_NORMALS, DEBUG_DISTANCE, DEBUG_ALL }; $/;"	e	language:C++	enum:__anon50	file:
+DEBUG_COLLISIONS	src/raytraceKernel.cu	/^enum { DEBUG_COLLISIONS, DEBUG_DIRECTIONS, DEBUG_BRDF, DEBUG_DIFFUSE, DEBUG_NORMALS, DEBUG_DISTANCE, DEBUG_ALL }; $/;"	e	language:C++	enum:__anon50	file:
+DEBUG_DIFFUSE	src/raytraceKernel.cu	/^enum { DEBUG_COLLISIONS, DEBUG_DIRECTIONS, DEBUG_BRDF, DEBUG_DIFFUSE, DEBUG_NORMALS, DEBUG_DISTANCE, DEBUG_ALL }; $/;"	e	language:C++	enum:__anon50	file:
+DEBUG_DIRECTIONS	src/raytraceKernel.cu	/^enum { DEBUG_COLLISIONS, DEBUG_DIRECTIONS, DEBUG_BRDF, DEBUG_DIFFUSE, DEBUG_NORMALS, DEBUG_DISTANCE, DEBUG_ALL }; $/;"	e	language:C++	enum:__anon50	file:
+DEBUG_DISTANCE	src/raytraceKernel.cu	/^enum { DEBUG_COLLISIONS, DEBUG_DIRECTIONS, DEBUG_BRDF, DEBUG_DIFFUSE, DEBUG_NORMALS, DEBUG_DISTANCE, DEBUG_ALL }; $/;"	e	language:C++	enum:__anon50	file:
+DEBUG_NORMALS	src/raytraceKernel.cu	/^enum { DEBUG_COLLISIONS, DEBUG_DIRECTIONS, DEBUG_BRDF, DEBUG_DIFFUSE, DEBUG_NORMALS, DEBUG_DISTANCE, DEBUG_ALL }; $/;"	e	language:C++	enum:__anon50	file:
 DNL	src/stb_image/stb_image.c	1595;"	d	language:C	file:
-Data	PROJ1_MAC/glfw/include/GL/glfw.h	/^    unsigned char *Data;$/;"	m	language:C++	struct:__anon52
+Data	PROJ1_MAC/glfw/include/GL/glfw.h	/^    unsigned char *Data;$/;"	m	language:C++	struct:__anon53
 DeviceName	PROJ1_WIN/shared/glew/include/GL/wglew.h	/^  CHAR DeviceName[32]; $/;"	m	language:C++	struct:_GPU_DEVICE
 DeviceString	PROJ1_WIN/shared/glew/include/GL/wglew.h	/^  CHAR DeviceString[128]; $/;"	m	language:C++	struct:_GPU_DEVICE
 DirectoryOfThisScript	.ycm_extra_conf.py	/^def DirectoryOfThisScript():$/;"	f	language:Python
@@ -81,7 +80,7 @@ F_sub	src/stb_image/stb_image.c	/^   F_none=0, F_sub=1, F_up=2, F_avg=3, F_paeth
 F_up	src/stb_image/stb_image.c	/^   F_none=0, F_sub=1, F_up=2, F_avg=3, F_paeth=4,$/;"	e	language:C	enum:__anon13	file:
 Flags	PROJ1_WIN/shared/glew/include/GL/wglew.h	/^  DWORD Flags; $/;"	m	language:C++	struct:_GPU_DEVICE
 FlagsForFile	.ycm_extra_conf.py	/^def FlagsForFile( filename ):$/;"	f	language:Python
-Format	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int Format;$/;"	m	language:C++	struct:__anon52
+Format	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int Format;$/;"	m	language:C++	struct:__anon53
 Fresnel	src/interactions.h	/^struct Fresnel {$/;"	s	language:C++
 G	src/glm/core/_swizzle.hpp	/^		G = 1,$/;"	e	language:C++	enum:glm::comp
 GEOMTYPE	src/sceneStructs.h	/^enum GEOMTYPE{ SPHERE, CUBE, MESH };$/;"	g	language:C++
@@ -543,7 +542,6 @@ GLEW_WINGDIAPI_DEFINED	PROJ1_WIN/shared/glew/include/GL/glew.h	15297;"	d	languag
 GLEW_WIN_phong_shading	PROJ1_WIN/shared/glew/include/GL/glew.h	12649;"	d	language:C++
 GLEW_WIN_specular_fog	PROJ1_WIN/shared/glew/include/GL/glew.h	12660;"	d	language:C++
 GLEW_WIN_swap_hint	PROJ1_WIN/shared/glew/include/GL/glew.h	12673;"	d	language:C++
-GLFW	PROJ1_MAC/makefile	/^GLFW = $(GLFW_INCLUDE_PATH) $(GLFW_LIB_PATH)$/;"	m	language:Make
 GLFWAPI	PROJ1_MAC/glfw/include/GL/glfw.h	130;"	d	language:C++
 GLFWAPI	PROJ1_MAC/glfw/include/GL/glfw.h	138;"	d	language:C++
 GLFWAPI	PROJ1_MAC/glfw/include/GL/glfw.h	140;"	d	language:C++
@@ -573,7 +571,6 @@ GLFW_FSAA_SAMPLES	PROJ1_MAC/glfw/include/GL/glfw.h	347;"	d	language:C++
 GLFW_FULLSCREEN	PROJ1_MAC/glfw/include/GL/glfw.h	322;"	d	language:C++
 GLFW_GREEN_BITS	PROJ1_MAC/glfw/include/GL/glfw.h	330;"	d	language:C++
 GLFW_ICONIFIED	PROJ1_MAC/glfw/include/GL/glfw.h	327;"	d	language:C++
-GLFW_INCLUDE_PATH	PROJ1_MAC/makefile	/^GLFW_INCLUDE_PATH = -Iglfw\/include\/ $/;"	m	language:Make
 GLFW_INFINITY	PROJ1_MAC/glfw/include/GL/glfw.h	382;"	d	language:C++
 GLFW_JOYSTICK_1	PROJ1_MAC/glfw/include/GL/glfw.h	297;"	d	language:C++
 GLFW_JOYSTICK_10	PROJ1_MAC/glfw/include/GL/glfw.h	306;"	d	language:C++
@@ -666,7 +663,6 @@ GLFW_KEY_SPECIAL	PROJ1_MAC/glfw/include/GL/glfw.h	207;"	d	language:C++
 GLFW_KEY_TAB	PROJ1_MAC/glfw/include/GL/glfw.h	244;"	d	language:C++
 GLFW_KEY_UNKNOWN	PROJ1_MAC/glfw/include/GL/glfw.h	205;"	d	language:C++
 GLFW_KEY_UP	PROJ1_MAC/glfw/include/GL/glfw.h	234;"	d	language:C++
-GLFW_LIB_PATH	PROJ1_MAC/makefile	/^GLFW_LIB_PATH = -Lglfw\/lib\/$/;"	m	language:Make
 GLFW_MOUSE_BUTTON_1	PROJ1_MAC/glfw/include/GL/glfw.h	280;"	d	language:C++
 GLFW_MOUSE_BUTTON_2	PROJ1_MAC/glfw/include/GL/glfw.h	281;"	d	language:C++
 GLFW_MOUSE_BUTTON_3	PROJ1_MAC/glfw/include/GL/glfw.h	282;"	d	language:C++
@@ -709,7 +705,7 @@ GLFW_WINDOW	PROJ1_MAC/glfw/include/GL/glfw.h	321;"	d	language:C++
 GLFW_WINDOW_NO_RESIZE	PROJ1_MAC/glfw/include/GL/glfw.h	346;"	d	language:C++
 GLFWcharfun	PROJ1_MAC/glfw/include/GL/glfw.h	/^typedef void (GLFWCALL * GLFWcharfun)(int,int);$/;"	t	language:C++
 GLFWcond	PROJ1_MAC/glfw/include/GL/glfw.h	/^typedef void * GLFWcond;$/;"	t	language:C++
-GLFWimage	PROJ1_MAC/glfw/include/GL/glfw.h	/^} GLFWimage;$/;"	t	language:C++	typeref:struct:__anon52
+GLFWimage	PROJ1_MAC/glfw/include/GL/glfw.h	/^} GLFWimage;$/;"	t	language:C++	typeref:struct:__anon53
 GLFWkeyfun	PROJ1_MAC/glfw/include/GL/glfw.h	/^typedef void (GLFWCALL * GLFWkeyfun)(int,int);$/;"	t	language:C++
 GLFWmousebuttonfun	PROJ1_MAC/glfw/include/GL/glfw.h	/^typedef void (GLFWCALL * GLFWmousebuttonfun)(int,int);$/;"	t	language:C++
 GLFWmouseposfun	PROJ1_MAC/glfw/include/GL/glfw.h	/^typedef void (GLFWCALL * GLFWmouseposfun)(int,int);$/;"	t	language:C++
@@ -717,7 +713,7 @@ GLFWmousewheelfun	PROJ1_MAC/glfw/include/GL/glfw.h	/^typedef void (GLFWCALL * GL
 GLFWmutex	PROJ1_MAC/glfw/include/GL/glfw.h	/^typedef void * GLFWmutex;$/;"	t	language:C++
 GLFWthread	PROJ1_MAC/glfw/include/GL/glfw.h	/^typedef int GLFWthread;$/;"	t	language:C++
 GLFWthreadfun	PROJ1_MAC/glfw/include/GL/glfw.h	/^typedef void (GLFWCALL * GLFWthreadfun)(void *);$/;"	t	language:C++
-GLFWvidmode	PROJ1_MAC/glfw/include/GL/glfw.h	/^} GLFWvidmode;$/;"	t	language:C++	typeref:struct:__anon51
+GLFWvidmode	PROJ1_MAC/glfw/include/GL/glfw.h	/^} GLFWvidmode;$/;"	t	language:C++	typeref:struct:__anon52
 GLFWwindowclosefun	PROJ1_MAC/glfw/include/GL/glfw.h	/^typedef int  (GLFWCALL * GLFWwindowclosefun)(void);$/;"	t	language:C++
 GLFWwindowrefreshfun	PROJ1_MAC/glfw/include/GL/glfw.h	/^typedef void (GLFWCALL * GLFWwindowrefreshfun)(void);$/;"	t	language:C++
 GLFWwindowsizefun	PROJ1_MAC/glfw/include/GL/glfw.h	/^typedef void (GLFWCALL * GLFWwindowsizefun)(int,int);$/;"	t	language:C++
@@ -1490,7 +1486,7 @@ GLUT_XLIB_IMPLEMENTATION	PROJ1_WIN/shared/freeglut/include/GL/freeglut_std.h	115
 GLUT_XLIB_IMPLEMENTATION	PROJ1_WIN/shared/freeglut/include/GL/glut.h	223;"	d	language:C++
 GLUTproc	PROJ1_WIN/shared/freeglut/include/GL/freeglut_ext.h	/^typedef void (*GLUTproc)();$/;"	t	language:C++
 GLU_CALLBACK_DEFINED	PROJ1_MAC/glfw/include/GL/glfw.h	115;"	d	language:C++
-GLXBufferClobberEventSGIX	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	t	language:C++	typeref:struct:__anon58
+GLXBufferClobberEventSGIX	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	t	language:C++	typeref:struct:__anon59
 GLXContext	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct __GLXcontextRec *GLXContext;$/;"	t	language:C++	typeref:struct:__GLXcontextRec
 GLXContext	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct __glXContextRec *GLXContext;$/;"	t	language:C++	typeref:struct:__glXContextRec
 GLXContextID	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef XID GLXContextID;$/;"	t	language:C++
@@ -1566,13 +1562,13 @@ GLXFBConfig	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct __GLXFBCon
 GLXFBConfigID	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef XID GLXFBConfigID;$/;"	t	language:C++
 GLXFBConfigIDSGIX	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef XID GLXFBConfigIDSGIX;$/;"	t	language:C++
 GLXFBConfigSGIX	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct __GLXFBConfigRec *GLXFBConfigSGIX;$/;"	t	language:C++	typeref:struct:__GLXFBConfigRec
-GLXHyperpipeConfigSGIX	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^} GLXHyperpipeConfigSGIX;$/;"	t	language:C++	typeref:struct:__anon56
-GLXHyperpipeNetworkSGIX	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^} GLXHyperpipeNetworkSGIX;$/;"	t	language:C++	typeref:struct:__anon54
+GLXHyperpipeConfigSGIX	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^} GLXHyperpipeConfigSGIX;$/;"	t	language:C++	typeref:struct:__anon57
+GLXHyperpipeNetworkSGIX	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^} GLXHyperpipeNetworkSGIX;$/;"	t	language:C++	typeref:struct:__anon55
 GLXPbuffer	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef XID GLXPbuffer;$/;"	t	language:C++
-GLXPbufferClobberEvent	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^} GLXPbufferClobberEvent;$/;"	t	language:C++	typeref:struct:__anon53
+GLXPbufferClobberEvent	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^} GLXPbufferClobberEvent;$/;"	t	language:C++	typeref:struct:__anon54
 GLXPbufferSGIX	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef XID GLXPbufferSGIX;$/;"	t	language:C++
-GLXPipeRect	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^} GLXPipeRect;$/;"	t	language:C++	typeref:struct:__anon57
-GLXPipeRectLimits	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^} GLXPipeRectLimits;$/;"	t	language:C++	typeref:struct:__anon55
+GLXPipeRect	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^} GLXPipeRect;$/;"	t	language:C++	typeref:struct:__anon58
+GLXPipeRectLimits	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^} GLXPipeRectLimits;$/;"	t	language:C++	typeref:struct:__anon56
 GLXPixmap	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef XID GLXPixmap;$/;"	t	language:C++
 GLXVideoDeviceNV	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef unsigned int GLXVideoDeviceNV; $/;"	t	language:C++
 GLXWindow	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef XID GLXWindow;$/;"	t	language:C++
@@ -6169,15 +6165,15 @@ GLushort	PROJ1_WIN/shared/glew/include/GL/glew.h	/^typedef unsigned short GLusho
 GLvdpauSurfaceNV	PROJ1_WIN/shared/glew/include/GL/glew.h	/^typedef GLintptr GLvdpauSurfaceNV;$/;"	t	language:C++
 GLvoid	PROJ1_WIN/shared/glew/include/GL/glew.h	/^typedef void GLvoid;$/;"	t	language:C++
 GPU_DEVICE	PROJ1_WIN/shared/glew/include/GL/wglew.h	/^} GPU_DEVICE, *PGPU_DEVICE;$/;"	t	language:C++	typeref:struct:_GPU_DEVICE
-GreenBits	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int RedBits, BlueBits, GreenBits;$/;"	m	language:C++	struct:__anon51
+GreenBits	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int RedBits, BlueBits, GreenBits;$/;"	m	language:C++	struct:__anon52
 HDR_BUFLEN	src/stb_image/stb_image.c	4216;"	d	language:C	file:
 HGPUNV	PROJ1_WIN/shared/glew/include/GL/wglew.h	/^DECLARE_HANDLE(HGPUNV);$/;"	v	language:C++
 HPBUFFERARB	PROJ1_WIN/shared/glew/include/GL/wglew.h	/^DECLARE_HANDLE(HPBUFFERARB);$/;"	v	language:C++
 HPBUFFEREXT	PROJ1_WIN/shared/glew/include/GL/wglew.h	/^DECLARE_HANDLE(HPBUFFEREXT);$/;"	v	language:C++
 HPVIDEODEV	PROJ1_WIN/shared/glew/include/GL/wglew.h	/^DECLARE_HANDLE(HPVIDEODEV);$/;"	v	language:C++
 HVIDEOOUTPUTDEVICENV	PROJ1_WIN/shared/glew/include/GL/wglew.h	/^DECLARE_HANDLE(HVIDEOOUTPUTDEVICENV);$/;"	v	language:C++
-Height	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int Width, Height;$/;"	m	language:C++	struct:__anon51
 Height	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int Width, Height;$/;"	m	language:C++	struct:__anon52
+Height	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int Width, Height;$/;"	m	language:C++	struct:__anon53
 ID	src/glm/core/_detail.hpp	/^		enum{ID = float_or_int_value::GLM_ERROR};$/;"	e	language:C++	enum:glm::detail::float_or_int_trait::__anon30
 ID	src/glm/core/_detail.hpp	/^		enum{ID = float_or_int_value::GLM_FLOAT};$/;"	e	language:C++	enum:glm::detail::float_or_int_trait::__anon39
 ID	src/glm/core/_detail.hpp	/^		enum{ID = float_or_int_value::GLM_FLOAT};$/;"	e	language:C++	enum:glm::detail::float_or_int_trait::__anon40
@@ -6196,20 +6192,17 @@ INTERACTIONS_H	src/interactions.h	7;"	d	language:C++
 INTERSECTIONS_H	src/intersections.h	7;"	d	language:C++
 If	src/glm/core/_detail.hpp	/^	struct If$/;"	s	language:C++	namespace:glm::detail
 If	src/glm/core/_detail.hpp	/^	struct If<false>$/;"	s	language:C++	namespace:glm::detail
-LFLAGS	PROJ1_MAC/makefile	/^LFLAGS = $(GLFW) $(CUDA) $(XLINKER) -lglfw $/;"	m	language:Make
-LFLAGS	PROJ2_NIX/makefile	/^LFLAGS = -lglut -lGL -lGLEW $/;"	m	language:Make
 MAIN_H	src/main.h	9;"	d	language:C++
 MARKER_none	src/stb_image/stb_image.c	1323;"	d	language:C	file:
 MAX_VERTEX_TEXTURE_IMAGE_UNITS_ARB	PROJ1_WIN/shared/glew/include/GL/glew.h	11454;"	d	language:C++
 MESH	src/sceneStructs.h	/^enum GEOMTYPE{ SPHERE, CUBE, MESH };$/;"	e	language:C++	enum:GEOMTYPE
 M_PI	src/intersections.h	16;"	d	language:C++
+M_PI	src/raytraceKernel.cu	25;"	d	language:C++	file:
 MakeRelativePathsInFlagsAbsolute	.ycm_extra_conf.py	/^def MakeRelativePathsInFlagsAbsolute( flags, working_directory ):$/;"	f	language:Python
 NATURAL_E	src/utilities.h	23;"	d	language:C++
 NOMINMAX	PROJ1_WIN/shared/freeglut/include/GL/freeglut_std.h	60;"	d	language:C++
 NULL	PROJ1_MAC/glfw/include/GL/glfw.h	45;"	d	language:C++
 NULL	PROJ1_MAC/glfw/include/GL/glfw.h	47;"	d	language:C++
-NVCC	PROJ1_MAC/makefile	/^NVCC     = \/usr\/local\/cuda\/bin\/nvcc -m64$/;"	m	language:Make
-NVCC	PROJ2_NIX/makefile	/^NVCC     = nvcc -m64$/;"	m	language:Make
 P	src/glm/core/_swizzle.hpp	/^		P = 2,$/;"	e	language:C++	enum:glm::comp
 PATHTRACEKERNEL_H	src/raytraceKernel.h	9;"	d	language:C++
 PFNGLACTIVEPROGRAMEXTPROC	PROJ1_WIN/shared/glew/include/GL/glew.h	/^typedef void (GLAPIENTRY * PFNGLACTIVEPROGRAMEXTPROC) (GLuint program);$/;"	t	language:C++
@@ -8333,7 +8326,7 @@ R	src/glm/core/_swizzle.hpp	/^		R = 0,$/;"	e	language:C++	enum:glm::comp
 RAY_BIAS_AMOUNT	src/utilities.h	26;"	d	language:C++
 RESTART	src/stb_image/stb_image.c	1340;"	d	language:C	file:
 Raytracer_image_h	src/image.h	7;"	d	language:C++
-RedBits	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int RedBits, BlueBits, GreenBits;$/;"	m	language:C++	struct:__anon51
+RedBits	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int RedBits, BlueBits, GreenBits;$/;"	m	language:C++	struct:__anon52
 S	src/glm/core/_swizzle.hpp	/^		S = 0,$/;"	e	language:C++	enum:glm::comp
 SCAN_header	src/stb_image/stb_image.c	/^   SCAN_header$/;"	e	language:C	enum:__anon4	file:
 SCAN_load	src/stb_image/stb_image.c	/^   SCAN_load=0,$/;"	e	language:C	enum:__anon4	file:
@@ -8725,14 +8718,13 @@ WINGDIAPI	PROJ1_WIN/shared/freeglut/include/GL/glut.h	45;"	d	language:C++
 WINGDIAPI	PROJ1_WIN/shared/freeglut/include/GL/glut.h	703;"	d	language:C++
 WINGDIAPI	PROJ1_WIN/shared/glew/include/GL/glew.h	137;"	d	language:C++
 WINGDIAPI	PROJ1_WIN/shared/glew/include/GL/glew.h	15298;"	d	language:C++
-Width	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int Width, Height;$/;"	m	language:C++	struct:__anon51
 Width	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int Width, Height;$/;"	m	language:C++	struct:__anon52
+Width	PROJ1_MAC/glfw/include/GL/glfw.h	/^    int Width, Height;$/;"	m	language:C++	struct:__anon53
 X	src/glm/core/_swizzle.hpp	/^		X = 0,$/;"	e	language:C++	enum:glm::comp
-XLINKER	PROJ1_MAC/makefile	/^XLINKER = -Xlinker -framework,OpenGL,-framework,GLUT$/;"	m	language:Make
-XOrigin	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int XOrigin; $/;"	m	language:C++	struct:__anon55
+XOrigin	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int XOrigin; $/;"	m	language:C++	struct:__anon56
 Y	src/glm/core/_swizzle.hpp	/^		Y = 1,$/;"	e	language:C++	enum:glm::comp
 YCbCr_to_RGB_row	src/stb_image/stb_image.c	/^static void YCbCr_to_RGB_row(uint8 *out, const uint8 *y, const uint8 *pcb, const uint8 *pcr, int count, int step)$/;"	f	language:C	file:
-YOrigin	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int YOrigin; $/;"	m	language:C++	struct:__anon55
+YOrigin	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int YOrigin; $/;"	m	language:C++	struct:__anon56
 Z	src/glm/core/_swizzle.hpp	/^		Z = 2,$/;"	e	language:C++	enum:glm::comp
 ZERO_ABSORPTION_EPSILON	src/utilities.h	25;"	d	language:C++
 ZFAST_BITS	src/stb_image/stb_image.c	1953;"	d	language:C	file:
@@ -11368,7 +11360,7 @@ atan2	src/glm/gtx/compatibility.hpp	/^	template <typename T> GLM_FUNC_QUALIFIER 
 atan2	src/glm/gtx/compatibility.hpp	/^	template <typename T> GLM_FUNC_QUALIFIER detail::tvec4<T> atan2(const detail::tvec4<T>& x, const detail::tvec4<T>& y){return atan(x, y);}	\/\/!< \\brief Arc tangent. Returns an angle whose tangent is y\/x. The signs of x and y are used to determine what quadrant the angle is in. The range of values returned by this function is [-PI, PI]. Results are undefined if x and y are both 0. (From GLM_GTX_compatibility)$/;"	f	language:C++	namespace:glm
 attachAndLinkProgram	src/glslUtility.cpp	/^	void attachAndLinkProgram( GLuint program, shaders_t shaders) {$/;"	f	language:C++	namespace:glslUtility
 attributeLocations	src/main.h	/^const char *attributeLocations[] = { "Position", "Tex" };$/;"	v	language:C++
-aux_buffer	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  unsigned int aux_buffer; $/;"	m	language:C++	struct:__anon53
+aux_buffer	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  unsigned int aux_buffer; $/;"	m	language:C++	struct:__anon54
 b	src/glm/core/type_vec3.hpp	/^			struct{value_type r, g, b;};$/;"	m	language:C++	struct:glm::detail::tvec3::__anon43::__anon44
 b	src/glm/core/type_vec3.hpp	/^		union {value_type z, b, p;};$/;"	m	language:C++	union:glm::detail::tvec3::__anon49
 b	src/glm/core/type_vec4.hpp	/^			struct{value_type r, g, b, a;};$/;"	m	language:C++	struct:glm::detail::tvec4::__anon21::__anon22
@@ -11406,7 +11398,7 @@ bool_type	src/glm/gtc/half_float.hpp	/^		typedef tvec3<bool> bool_type;$/;"	t	la
 bool_type	src/glm/gtc/half_float.hpp	/^		typedef tvec4<bool> bool_type;$/;"	t	language:C++	struct:glm::detail::tvec4
 boxIntersectionTest	src/intersections.h	/^__host__ __device__  float boxIntersectionTest(glm::vec3 boxMin, glm::vec3 boxMax, staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){$/;"	f	language:C++
 boxIntersectionTest	src/intersections.h	/^__host__ __device__  float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){$/;"	f	language:C++
-buffer_mask	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  unsigned int buffer_mask; $/;"	m	language:C++	struct:__anon53
+buffer_mask	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  unsigned int buffer_mask; $/;"	m	language:C++	struct:__anon54
 buffer_start	src/stb_image/stb_image.c	/^   uint8 buffer_start[128];$/;"	m	language:C	struct:__anon3	file:
 buflen	src/stb_image/stb_image.c	/^   int buflen;$/;"	m	language:C	struct:__anon3	file:
 buildTransformationMatrix	src/utilities.cpp	/^glm::mat4 utilityCore::buildTransformationMatrix(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale){$/;"	f	language:C++	class:utilityCore
@@ -11427,9 +11419,9 @@ calculateTransmissionDirection	src/interactions.h	/^__host__ __device__ glm::vec
 camera	src/sceneStructs.h	/^struct camera {$/;"	s	language:C++
 cameraData	src/sceneStructs.h	/^struct cameraData {$/;"	s	language:C++
 cb	PROJ1_WIN/shared/glew/include/GL/wglew.h	/^  DWORD cb; $/;"	m	language:C++	struct:_GPU_DEVICE
-cene	PROJ2_NIX/makefile	/^	.\/565Pathtracer scene=..\/scenes\/sampleScene.txt$/;"	m	language:Make
-channel	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int channel; $/;"	m	language:C++	struct:__anon56
+channel	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int channel; $/;"	m	language:C++	struct:__anon57
 channel	src/stb_image/stb_image.c	/^   stbi_uc size,type,channel;$/;"	m	language:C	struct:__anon14	file:
+checkCUDAError	src/raytraceKernel.cu	/^void checkCUDAError(const char *msg) {$/;"	f	language:C++
 check_png_header	src/stb_image/stb_image.c	/^static int check_png_header(stbi *s)$/;"	f	language:C	file:
 chunk	src/stb_image/stb_image.c	/^} chunk;$/;"	t	language:C	typeref:struct:__anon11	file:
 cl_char	src/glm/gtx/ocl_type.hpp	/^	typedef detail::int8						cl_char;		\/\/!< \\brief 8bit signed integer. (from GLM_GTX_ocl_type extension)$/;"	t	language:C++	namespace:glm::gtx
@@ -11485,6 +11477,8 @@ clamp	src/utilities.cpp	/^float utilityCore::clamp(float f, float min, float max
 clampRGB	src/utilities.cpp	/^glm::vec3 utilityCore::clampRGB(glm::vec3 color){$/;"	f	language:C++	class:utilityCore
 cleanupCuda	src/main.cpp	/^void cleanupCuda(){$/;"	f	language:C++
 cleanup_jpeg	src/stb_image/stb_image.c	/^static void cleanup_jpeg(jpeg *j)$/;"	f	language:C	file:
+clearImage	src/raytraceKernel.cu	/^__global__ void clearImage(glm::vec2 resolution, glm::vec3* image){$/;"	f	language:C++
+closestIntersection	src/raytraceKernel.cu	/^__host__ __device__ int closestIntersection( ray r, staticGeom* geoms, int numberOfGeoms, float& intersection_dist, glm::vec3& intersection_normal, glm::vec3& intersection_point ) {$/;"	f	language:C++
 code	src/stb_image/stb_image.c	/^   uint16 code[256];$/;"	m	language:C	struct:__anon5	file:
 code_bits	src/stb_image/stb_image.c	/^   int            code_bits;   \/\/ number of valid bits$/;"	m	language:C	struct:__anon6	file:
 code_buffer	src/stb_image/stb_image.c	/^   uint32         code_buffer; \/\/ jpeg entropy-coded buffer$/;"	m	language:C	struct:__anon6	file:
@@ -11505,6 +11499,9 @@ comp	src/glm/core/_swizzle.hpp	/^	enum comp$/;"	g	language:C++	namespace:glm
 compat_getMaxGflopsDeviceId	src/main.h	36;"	d	language:C++
 compat_getMaxGflopsDeviceId	src/main.h	40;"	d	language:C++
 compilation_database_folder	.ycm_extra_conf.py	/^compilation_database_folder = ''$/;"	v	language:Python
+computeLightContribution	src/raytraceKernel.cu	/^__host__ __device__ glm::vec3 computeLightContribution( float shadowContribution, material mat, ray current_ray, ray light_ray, glm::vec3 intersection_normal, glm::vec3 intersection_point ) {$/;"	f	language:C++
+computeLightRay	src/raytraceKernel.cu	/^__host__ __device__ ray computeLightRay( glm::vec3 light, glm::vec3 intersection_point ) {$/;"	f	language:C++
+computeReflectedRay	src/raytraceKernel.cu	/^__host__ __device__ ray computeReflectedRay( ray currentRay, glm::vec3 intersection_normal, glm::vec3 intersection_point ) {$/;"	f	language:C++
 compute_huffman_codes	src/stb_image/stb_image.c	/^static int compute_huffman_codes(zbuf *a)$/;"	f	language:C	file:
 compute_transparency	src/stb_image/stb_image.c	/^static int compute_transparency(png *z, uint8 tc[3], int out_n)$/;"	f	language:C	file:
 compute_y	src/stb_image/stb_image.c	/^static uint8 compute_y(int r, int g, int b)$/;"	f	language:C	file:
@@ -11513,8 +11510,8 @@ const_pointer_const	src/glm/core/type_gentype.hpp	/^		typedef TYPE<VALTYPE> cons
 const_reference	src/glm/core/type_gentype.hpp	/^		typedef TYPE<VALTYPE> const & const_reference;$/;"	t	language:C++	struct:glm::detail::genType
 convertIntToString	src/utilities.cpp	/^std::string utilityCore::convertIntToString(int number){$/;"	f	language:C++	class:utilityCore
 convert_format	src/stb_image/stb_image.c	/^static unsigned char *convert_format(unsigned char *data, int img_n, int req_comp, uint x, uint y)$/;"	f	language:C	file:
-count	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int count; $/;"	m	language:C++	struct:__anon53
-count	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
+count	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int count; $/;"	m	language:C++	struct:__anon54
+count	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
 createProgram	src/glslUtility.cpp	/^    GLuint createProgram(const char *vertexShaderPath, const char *fragmentShaderPath, const char *attributeLocations[], GLuint numberOfLocations)$/;"	f	language:C++	namespace:glslUtility
 create_png_image	src/stb_image/stb_image.c	/^static int create_png_image(png *a, uint8 *raw, uint32 raw_len, int out_n, int interlaced)$/;"	f	language:C	file:
 create_png_image_raw	src/stb_image/stb_image.c	/^static int create_png_image_raw(png *a, uint8 *raw, uint32 raw_len, int out_n, uint32 x, uint32 y)$/;"	f	language:C	file:
@@ -11539,6 +11536,7 @@ ctor	src/glm/gtc/quaternion.hpp	/^        enum ctor{null};$/;"	g	language:C++	st
 cudaMat3	src/cudaMat4.h	/^struct cudaMat3{$/;"	s	language:C++
 cudaMat4	src/cudaMat4.h	/^struct cudaMat4{$/;"	s	language:C++
 cudaMat4ToGlmMat4	src/utilities.cpp	/^glm::mat4 utilityCore::cudaMat4ToGlmMat4(cudaMat4 a){$/;"	f	language:C++	class:utilityCore
+cudaRaytraceCore	src/raytraceKernel.cu	/^void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){$/;"	f	language:C++
 cur_x	src/stb_image/stb_image.c	/^   int cur_x, cur_y;$/;"	m	language:C	struct:stbi_gif_struct	file:
 cur_y	src/stb_image/stb_image.c	/^   int cur_x, cur_y;$/;"	m	language:C	struct:stbi_gif_struct	file:
 data	src/glm/core/type_half.hpp	/^		hdata data;$/;"	m	language:C++	class:glm::detail::half
@@ -11557,10 +11555,10 @@ deleteTexture	src/main.cpp	/^void deleteTexture(GLuint* tex){$/;"	f	language:C++
 delta	src/stb_image/stb_image.c	/^   int    delta[17];   \/\/ old 'firstsymbol' - old 'firstcode'$/;"	m	language:C	struct:__anon5	file:
 dequant	src/stb_image/stb_image.c	/^   uint8 dequant[4][64];$/;"	m	language:C	struct:__anon6	file:
 dequant2	src/stb_image/stb_image.c	/^   unsigned short dequant2[4][64];$/;"	m	language:C	struct:__anon6	file:
-destHeight	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int destHeight; $/;"	m	language:C++	struct:__anon57
-destWidth	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int destWidth; $/;"	m	language:C++	struct:__anon57
-destXOrigin	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int destXOrigin; $/;"	m	language:C++	struct:__anon57
-destYOrigin	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int destYOrigin; $/;"	m	language:C++	struct:__anon57
+destHeight	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int destHeight; $/;"	m	language:C++	struct:__anon58
+destWidth	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int destWidth; $/;"	m	language:C++	struct:__anon58
+destXOrigin	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int destXOrigin; $/;"	m	language:C++	struct:__anon58
+destYOrigin	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int destYOrigin; $/;"	m	language:C++	struct:__anon58
 detail	src/glm/core/_detail.hpp	/^namespace detail$/;"	n	language:C++	namespace:glm
 detail	src/glm/core/_swizzle.hpp	/^	namespace detail$/;"	n	language:C++	namespace:glm
 detail	src/glm/core/_swizzle.hpp	/^namespace detail$/;"	n	language:C++	namespace:glm
@@ -11595,8 +11593,8 @@ detail	src/glm/gtx/simd_mat4.hpp	/^namespace detail$/;"	n	language:C++	namespace
 detail	src/glm/gtx/simd_vec4.hpp	/^namespace detail$/;"	n	language:C++	namespace:glm
 dezigzag	src/stb_image/stb_image.c	/^static uint8 dezigzag[64+15] =$/;"	v	language:C	file:
 direction	src/sceneStructs.h	/^	glm::vec3 direction;$/;"	m	language:C++	struct:ray
-display	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  Display *display; $/;"	m	language:C++	struct:__anon53
-display	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
+display	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  Display *display; $/;"	m	language:C++	struct:__anon54
+display	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
 display	src/main.cpp	/^	void display(){$/;"	f	language:C++
 displayImage	src/main.h	/^GLuint displayImage;$/;"	v	language:C++
 dist_base	src/stb_image/stb_image.c	/^static int dist_base[32] = { 1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,$/;"	v	language:C	file:
@@ -11634,10 +11632,10 @@ double4x2	src/glm/gtx/compatibility.hpp	/^	typedef detail::tmat4x2<double>		doub
 double4x3	src/glm/gtx/compatibility.hpp	/^	typedef detail::tmat4x3<double>		double4x3;		\/\/!< \\brief double-precision floating-point matrix with 4 x 3 components. (From GLM_GTX_compatibility extension)$/;"	t	language:C++	namespace:glm
 double4x4	src/glm/gtx/compatibility.hpp	/^	typedef detail::tmat4x4<double>		double4x4;		\/\/!< \\brief double-precision floating-point matrix with 4 x 4 components. (From GLM_GTX_compatibility extension)$/;"	t	language:C++	namespace:glm
 dquat	src/glm/gtc/quaternion.hpp	/^	typedef detail::tquat<double>	dquat;$/;"	t	language:C++	namespace:glm
-draw_type	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int draw_type; $/;"	m	language:C++	struct:__anon53
-draw_type	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
-drawable	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  GLXDrawable drawable; $/;"	m	language:C++	struct:__anon53
-drawable	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
+draw_type	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int draw_type; $/;"	m	language:C++	struct:__anon54
+draw_type	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
+drawable	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  GLXDrawable drawable; $/;"	m	language:C++	struct:__anon54
+drawable	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
 dvec2	src/glm/core/type.hpp	/^	typedef detail::tvec2<double>	dvec2;$/;"	t	language:C++	namespace:glm
 dvec3	src/glm/core/type.hpp	/^	typedef detail::tvec3<double>	dvec3;$/;"	t	language:C++	namespace:glm
 dvec4	src/glm/core/type.hpp	/^	typedef detail::tvec4<double>	dvec4;$/;"	t	language:C++	namespace:glm
@@ -11656,8 +11654,8 @@ epf	src/stb_image/stb_image.c	522;"	d	language:C	file:
 epsilonCheck	src/intersections.h	/^__host__ __device__ bool epsilonCheck(float a, float b){$/;"	f	language:C++
 epsilonCheck	src/utilities.cpp	/^bool utilityCore::epsilonCheck(float a, float b){$/;"	f	language:C++	class:utilityCore
 epuc	src/stb_image/stb_image.c	523;"	d	language:C	file:
-event_type	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int event_type; $/;"	m	language:C++	struct:__anon53
-event_type	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
+event_type	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int event_type; $/;"	m	language:C++	struct:__anon54
+event_type	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
 expand	src/stb_image/stb_image.c	/^static int expand(zbuf *z, int n)  \/\/ need to make room for n bytes$/;"	f	language:C	file:
 expand_palette	src/stb_image/stb_image.c	/^static int expand_palette(png *a, uint8 *palette, int len, int pal_img_n)$/;"	f	language:C	file:
 expanded	src/stb_image/stb_image.c	/^   uint8 *idata, *expanded, *out;$/;"	m	language:C	struct:__anon12	file:
@@ -11794,11 +11792,12 @@ fmat4	src/glm/gtc/type_precision.hpp	/^	typedef detail::tmat4x4<f32> fmat4;$/;"	
 fmat4x2	src/glm/gtc/type_precision.hpp	/^	typedef detail::tmat4x2<f32> fmat4x2;$/;"	t	language:C++	namespace:glm
 fmat4x3	src/glm/gtc/type_precision.hpp	/^	typedef detail::tmat4x3<f32> fmat4x3;$/;"	t	language:C++	namespace:glm
 fmat4x4	src/glm/gtc/type_precision.hpp	/^	typedef detail::tmat4x4<f32> fmat4x4;$/;"	t	language:C++	namespace:glm
+format	tags	/^!_TAG_FILE_FORMAT	2	\/extended format; --format=1 will not append ;" to lines\/$/;"	v	language:C++
 fov	src/sceneStructs.h	/^	glm::vec2 fov;$/;"	m	language:C++	struct:camera
 fov	src/sceneStructs.h	/^	glm::vec2 fov;$/;"	m	language:C++	struct:cameraData
 fp_in	src/scene.h	/^    ifstream fp_in;$/;"	m	language:C++	class:scene
 fquat	src/glm/gtc/quaternion.hpp	/^	typedef detail::tquat<float>	fquat;$/;"	t	language:C++	namespace:glm
-fragment	src/glslUtility.cpp	/^		GLuint fragment;$/;"	m	language:C++	struct:glslUtility::__anon50	file:
+fragment	src/glslUtility.cpp	/^		GLuint fragment;$/;"	m	language:C++	struct:glslUtility::__anon51	file:
 frames	src/sceneStructs.h	/^	int frames;$/;"	m	language:C++	struct:camera
 frames	src/sceneStructs.h	/^	int frames;$/;"	m	language:C++	struct:geom
 fsh	src/stb_image/stb_image.c	1206;"	d	language:C	file:
@@ -11816,6 +11815,7 @@ gamma	src/image.h	/^    float gamma;$/;"	m	language:C++	struct:gammaSettings
 gamma	src/image.h	/^    gammaSettings gamma;$/;"	m	language:C++	class:image
 gammaSettings	src/image.h	/^struct gammaSettings{$/;"	s	language:C++
 genType	src/glm/core/type_gentype.hpp	/^	struct genType$/;"	s	language:C++	namespace:glm::detail
+generateRandomNumberFromThread	src/raytraceKernel.cu	/^__host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolution, float time, int x, int y){$/;"	f	language:C++
 geom	src/sceneStructs.h	/^struct geom {$/;"	s	language:C++
 get16	src/stb_image/stb_image.c	/^static int get16(stbi *s)$/;"	f	language:C	file:
 get16le	src/stb_image/stb_image.c	/^static int get16le(stbi *s)$/;"	f	language:C	file:
@@ -14079,8 +14079,8 @@ hdr_gettoken	src/stb_image/stb_image.c	/^static char *hdr_gettoken(stbi *z, char
 hdr_load	src/stb_image/stb_image.c	/^static float *hdr_load(stbi *s, int *x, int *y, int *comp, int req_comp)$/;"	f	language:C	file:
 hdr_test	src/stb_image/stb_image.c	/^static int hdr_test(stbi *s)$/;"	f	language:C	file:
 hdr_to_ldr	src/stb_image/stb_image.c	/^static stbi_uc *hdr_to_ldr(float   *data, int x, int y, int comp)$/;"	f	language:C	file:
-height	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int width, height; $/;"	m	language:C++	struct:__anon53
-height	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
+height	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int width, height; $/;"	m	language:C++	struct:__anon54
+height	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
 height	src/main.h	/^int width=800; int height=800;$/;"	v	language:C++
 high_bit	src/stb_image/stb_image.c	/^static int high_bit(unsigned int z)$/;"	f	language:C	file:
 highp_float	src/glm/core/type_float.hpp	/^    typedef highp_float_t		highp_float;$/;"	t	language:C++	namespace:glm
@@ -14284,6 +14284,7 @@ inverseTransform	src/sceneStructs.h	/^	cudaMat4 inverseTransform;$/;"	m	language
 inverseTransforms	src/sceneStructs.h	/^	cudaMat4* inverseTransforms;$/;"	m	language:C++	struct:geom
 io	src/stb_image/stb_image.c	/^   stbi_io_callbacks io;$/;"	m	language:C	struct:__anon3	file:
 io_user_data	src/stb_image/stb_image.c	/^   void *io_user_data;$/;"	m	language:C	struct:__anon3	file:
+isShadowRay	src/raytraceKernel.cu	/^__host__ __device__ float isShadowRay(  ray light_ray, int intersection_geom_ind, staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials ) {$/;"	f	language:C++
 is_bool	src/glm/core/_detail.hpp	/^			is_bool = is_bool<T>::_YES$/;"	e	language:C++	enum:glm::detail::type::type_enum
 is_bool	src/glm/core/_detail.hpp	/^	struct is_bool$/;"	s	language:C++	namespace:glm::detail
 is_bool	src/glm/core/_detail.hpp	/^	struct is_bool<bool>$/;"	s	language:C++	namespace:glm::detail
@@ -14408,7 +14409,7 @@ lpal	src/stb_image/stb_image.c	/^   uint8 lpal[256][4];$/;"	m	language:C	struct:
 main	src/glm/core/dummy.cpp	/^int main()$/;"	f	language:C++
 main	src/main.cpp	/^int main(int argc, char** argv){$/;"	f	language:C++
 marker	src/stb_image/stb_image.c	/^   unsigned char  marker;      \/\/ marker seen while filling entropy buffer$/;"	m	language:C	struct:__anon6	file:
-mask	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
+mask	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
 mat2	src/glm/core/type.hpp	/^	typedef mat2x2							mat2;$/;"	t	language:C++	namespace:glm
 mat2x2	src/glm/core/type.hpp	/^	typedef highp_mat2x2		mat2x2;$/;"	t	language:C++	namespace:glm
 mat2x3	src/glm/core/type.hpp	/^	typedef highp_mat2x3		mat2x3;$/;"	t	language:C++	namespace:glm
@@ -14426,8 +14427,8 @@ materialid	src/sceneStructs.h	/^	int materialid;$/;"	m	language:C++	struct:geom
 materialid	src/sceneStructs.h	/^	int materialid;$/;"	m	language:C++	struct:staticGeom
 materials	src/scene.h	/^    vector<material> materials;$/;"	m	language:C++	class:scene
 max	src/glm/core/_fixes.hpp	33;"	d	language:C++
-maxHeight	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int maxHeight; $/;"	m	language:C++	struct:__anon55
-maxWidth	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int maxWidth; $/;"	m	language:C++	struct:__anon55
+maxHeight	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int maxHeight; $/;"	m	language:C++	struct:__anon56
+maxWidth	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int maxWidth; $/;"	m	language:C++	struct:__anon56
 max_x	src/stb_image/stb_image.c	/^   int max_x, max_y;$/;"	m	language:C	struct:stbi_gif_struct	file:
 max_y	src/stb_image/stb_image.c	/^   int max_x, max_y;$/;"	m	language:C	struct:stbi_gif_struct	file:
 maxcode	src/stb_image/stb_image.c	/^   int maxcode[17];$/;"	m	language:C	struct:__anon9	file:
@@ -14492,7 +14493,7 @@ mediump_vec3	src/glm/core/type_vec3.hpp	/^	typedef detail::tvec3<mediump_float>	
 mediump_vec4	src/glm/core/type_vec4.hpp	/^	typedef detail::tvec4<mediump_float>	mediump_vec4;$/;"	t	language:C++	namespace:glm
 min	src/glm/core/_fixes.hpp	38;"	d	language:C++
 multiplyMV	src/intersections.h	/^__host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){$/;"	f	language:C++
-networkId	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int  networkId; $/;"	m	language:C++	struct:__anon54
+networkId	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int  networkId; $/;"	m	language:C++	struct:__anon55
 nice	src/glm/core/type_gentype.hpp	/^		nice,$/;"	e	language:C++	enum:glm::profile
 nicest	src/glm/core/hint.hpp	/^	class nicest {};$/;"	c	language:C++	namespace:glm
 nomore	src/stb_image/stb_image.c	/^   int            nomore;      \/\/ flag if we saw a marker so must stop$/;"	m	language:C	struct:__anon6	file:
@@ -14549,7 +14550,7 @@ parse_png_file	src/stb_image/stb_image.c	/^static int parse_png_file(png *z, int
 parse_uncompressed_block	src/stb_image/stb_image.c	/^static int parse_uncompressed_block(zbuf *a)$/;"	f	language:C	file:
 parse_zlib	src/stb_image/stb_image.c	/^static int parse_zlib(zbuf *a, int parse_header)$/;"	f	language:C	file:
 parse_zlib_header	src/stb_image/stb_image.c	/^static int parse_zlib_header(zbuf *a)$/;"	f	language:C	file:
-participationType	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  unsigned int participationType; $/;"	m	language:C++	struct:__anon56
+participationType	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  unsigned int participationType; $/;"	m	language:C++	struct:__anon57
 pbo	src/main.h	/^GLuint pbo = (GLuint)NULL;$/;"	v	language:C++
 pic_copyval	src/stb_image/stb_image.c	/^static void pic_copyval(int channel,stbi_uc *dest,const stbi_uc *src)$/;"	f	language:C	file:
 pic_is4	src/stb_image/stb_image.c	/^static int pic_is4(stbi *s,const char *str)$/;"	f	language:C	file:
@@ -14558,10 +14559,10 @@ pic_load2	src/stb_image/stb_image.c	/^static stbi_uc *pic_load2(stbi *s,int widt
 pic_packet_t	src/stb_image/stb_image.c	/^} pic_packet_t;$/;"	t	language:C	typeref:struct:__anon14	file:
 pic_readval	src/stb_image/stb_image.c	/^static stbi_uc *pic_readval(stbi *s, int channel, stbi_uc *dest)$/;"	f	language:C	file:
 pic_test	src/stb_image/stb_image.c	/^static int pic_test(stbi *s)$/;"	f	language:C	file:
-pipeName	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  char pipeName[GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX]; $/;"	m	language:C++	struct:__anon54
 pipeName	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  char pipeName[GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX]; $/;"	m	language:C++	struct:__anon55
 pipeName	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  char pipeName[GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX]; $/;"	m	language:C++	struct:__anon56
 pipeName	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  char pipeName[GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX]; $/;"	m	language:C++	struct:__anon57
+pipeName	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  char pipeName[GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX]; $/;"	m	language:C++	struct:__anon58
 png	src/stb_image/stb_image.c	/^} png;$/;"	t	language:C	typeref:struct:__anon12	file:
 pointer	src/glm/core/type_gentype.hpp	/^		typedef TYPE<VALTYPE> * pointer;$/;"	t	language:C++	struct:glm::detail::genType
 pointer_const	src/glm/core/type_gentype.hpp	/^		typedef TYPE<VALTYPE> * const pointer_const;$/;"	t	language:C++	struct:glm::detail::genType
@@ -14599,6 +14600,8 @@ ratio	src/stb_image/stb_image.c	/^   int flags, bgindex, ratio, transparent, efl
 raw_data	src/stb_image/stb_image.c	/^      void *raw_data;$/;"	m	language:C	struct:__anon6::__anon7	file:
 ray	src/sceneStructs.h	/^struct ray {$/;"	s	language:C++
 rayList	src/sceneStructs.h	/^	ray* rayList;$/;"	m	language:C++	struct:camera
+raycastFromCameraKernel	src/raytraceKernel.cu	/^__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){$/;"	f	language:C++
+raytraceRay	src/raytraceKernel.cu	/^__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,$/;"	f	language:C++
 rcVirtualScreen	PROJ1_WIN/shared/glew/include/GL/wglew.h	/^  RECT rcVirtualScreen; $/;"	m	language:C++	struct:_GPU_DEVICE
 read	src/stb_image/stb_image.c	/^   int      (*read)  (void *user,char *data,int size);   \/\/ fill 'data' with 'size' bytes.  return number of bytes actually read$/;"	m	language:C	struct:__anon2	file:
 readPixelA	src/image.cpp	/^float image::readPixelA(int x, int y){$/;"	f	language:C++	class:image
@@ -14661,12 +14664,13 @@ scales	src/sceneStructs.h	/^	glm::vec3* scales;$/;"	m	language:C++	struct:geom
 scan_n	src/stb_image/stb_image.c	/^   int scan_n, order[4];$/;"	m	language:C	struct:__anon6	file:
 scene	src/scene.cpp	/^scene::scene(string filename){$/;"	f	language:C++	class:scene
 scene	src/scene.h	/^class scene{$/;"	c	language:C++
-send_event	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  Bool send_event; $/;"	m	language:C++	struct:__anon53
-send_event	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
-serial	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  unsigned long serial; $/;"	m	language:C++	struct:__anon53
-serial	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
+sendImageToPBO	src/raytraceKernel.cu	/^__global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* image, int iterations){$/;"	f	language:C++
+send_event	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  Bool send_event; $/;"	m	language:C++	struct:__anon54
+send_event	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
+serial	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  unsigned long serial; $/;"	m	language:C++	struct:__anon54
+serial	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
 setGammaSettings	src/image.cpp	/^void image::setGammaSettings(gammaSettings newGamma){$/;"	f	language:C++	class:image
-shaders_t	src/glslUtility.cpp	/^	} shaders_t;$/;"	t	language:C++	namespace:glslUtility	typeref:struct:glslUtility::__anon50	file:
+shaders_t	src/glslUtility.cpp	/^	} shaders_t;$/;"	t	language:C++	namespace:glslUtility	typeref:struct:glslUtility::__anon51	file:
 shiftsigned	src/stb_image/stb_image.c	/^static int shiftsigned(int v, int shift, int bits)$/;"	f	language:C	file:
 shut_down	src/main.cpp	/^void shut_down(int return_code){$/;"	f	language:C++
 simd	src/glm/core/type_gentype.hpp	/^		simd$/;"	e	language:C++	enum:glm::profile
@@ -14715,10 +14719,10 @@ specularExponent	src/sceneStructs.h	/^	float specularExponent;$/;"	m	language:C+
 sphereIntersectionTest	src/intersections.h	/^__host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){$/;"	f	language:C++
 spline	src/glm/gtx/simplex (1).hpp	/^namespace spline \/\/\/< GLM_GTX_simplex extension: Spline functions$/;"	n	language:C++	namespace:glm::gtx
 spline	src/glm/gtx/simplex.hpp	/^namespace spline \/\/\/< GLM_GTX_simplex extension: Spline functions$/;"	n	language:C++	namespace:glm::gtx
-srcHeight	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int srcHeight; $/;"	m	language:C++	struct:__anon57
-srcWidth	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int srcWidth; $/;"	m	language:C++	struct:__anon57
-srcXOrigin	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int srcXOrigin; $/;"	m	language:C++	struct:__anon57
-srcYOrigin	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int srcYOrigin; $/;"	m	language:C++	struct:__anon57
+srcHeight	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int srcHeight; $/;"	m	language:C++	struct:__anon58
+srcWidth	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int srcWidth; $/;"	m	language:C++	struct:__anon58
+srcXOrigin	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int srcXOrigin; $/;"	m	language:C++	struct:__anon58
+srcYOrigin	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int srcYOrigin; $/;"	m	language:C++	struct:__anon58
 start_callbacks	src/stb_image/stb_image.c	/^static void start_callbacks(stbi *s, stbi_io_callbacks *c, void *user)$/;"	f	language:C	file:
 start_file	src/stb_image/stb_image.c	/^static void start_file(stbi *s, FILE *f)$/;"	f	language:C	file:
 start_mem	src/stb_image/stb_image.c	/^static void start_mem(stbi *s, uint8 const *buffer, int len)$/;"	f	language:C	file:
@@ -14880,7 +14884,7 @@ texcoordsLocation	src/main.h	/^GLuint texcoordsLocation = 1;$/;"	v	language:C++
 tga_info	src/stb_image/stb_image.c	/^static int tga_info(stbi *s, int *x, int *y, int *comp)$/;"	f	language:C	file:
 tga_load	src/stb_image/stb_image.c	/^static stbi_uc *tga_load(stbi *s, int *x, int *y, int *comp, int req_comp)$/;"	f	language:C	file:
 tga_test	src/stb_image/stb_image.c	/^static int tga_test(stbi *s)$/;"	f	language:C	file:
-timeSlice	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int timeSlice; $/;"	m	language:C++	struct:__anon56
+timeSlice	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int timeSlice; $/;"	m	language:C++	struct:__anon57
 tmat2x2	src/glm/core/type_mat2x2.hpp	/^	struct tmat2x2$/;"	s	language:C++	namespace:glm::detail
 tmat2x3	src/glm/core/type_mat2x3.hpp	/^	struct tmat2x3$/;"	s	language:C++	namespace:glm::detail
 tmat2x4	src/glm/core/type_mat2x4.hpp	/^	struct tmat2x4$/;"	s	language:C++	namespace:glm::detail
@@ -14935,7 +14939,7 @@ tvec4	src/glm/core/type_vec4.hpp	/^        GLM_FUNC_DECL tvec4(glm::detail::swiz
 tvec4	src/glm/core/type_vec4.hpp	/^        GLM_FUNC_DECL tvec4(glm::detail::swizzle<3, T, tvec3<T>, E0, E1, E2, -1> const & v, T const & w)$/;"	f	language:C++	struct:glm::detail::tvec4
 tvec4	src/glm/core/type_vec4.hpp	/^        GLM_FUNC_DECL tvec4(glm::detail::swizzle<4, T, tvec4<T>, E0, E1, E2, E3> const & that)$/;"	f	language:C++	struct:glm::detail::tvec4
 tvec4	src/glm/gtc/half_float.hpp	/^	struct tvec4<half>$/;"	s	language:C++	namespace:glm::detail
-type	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
+type	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
 type	src/glm/core/_detail.hpp	/^	struct type$/;"	s	language:C++	namespace:glm::detail
 type	src/glm/core/type_gentype.hpp	/^		typedef TYPE<VALTYPE> type;$/;"	t	language:C++	struct:glm::detail::genType
 type	src/glm/core/type_mat2x2.hpp	/^		typedef tmat2x2<T> type;$/;"	t	language:C++	struct:glm::detail::tmat2x2
@@ -15115,7 +15119,7 @@ vec3	src/glm/core/type.hpp	/^	typedef highp_vec3          vec3;$/;"	t	language:C
 vec4	src/glm/core/type.hpp	/^	typedef highp_vec4          vec4;$/;"	t	language:C++	namespace:glm
 vec_type	src/glm/core/_swizzle.hpp	/^		typedef VecType         vec_type;        $/;"	t	language:C++	struct:glm::detail::_swizzle_base2
 vec_type	src/glm/core/_swizzle.hpp	/^		typedef VecType vec_type;$/;"	t	language:C++	struct:glm::detail::_swizzle_base2
-vertex	src/glslUtility.cpp	/^		GLuint vertex;$/;"	m	language:C++	struct:glslUtility::__anon50	file:
+vertex	src/glslUtility.cpp	/^		GLuint vertex;$/;"	m	language:C++	struct:glslUtility::__anon51	file:
 view	src/sceneStructs.h	/^	glm::vec3 view;$/;"	m	language:C++	struct:cameraData
 views	src/sceneStructs.h	/^	glm::vec3* views;$/;"	m	language:C++	struct:camera
 vs	src/stb_image/stb_image.c	/^   int hs,vs;   \/\/ expansion factor in each axis$/;"	m	language:C	struct:__anon8	file:
@@ -15235,8 +15239,8 @@ wglWaitForMscOML	PROJ1_WIN/shared/glew/include/GL/wglew.h	1054;"	d	language:C++
 wglWaitForSbcOML	PROJ1_WIN/shared/glew/include/GL/wglew.h	1055;"	d	language:C++
 wglewInit	PROJ1_WIN/shared/glew/include/GL/wglew.h	1264;"	d	language:C++
 wglewIsSupported	PROJ1_WIN/shared/glew/include/GL/wglew.h	1265;"	d	language:C++
-width	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int width, height; $/;"	m	language:C++	struct:__anon53
-width	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
+width	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int width, height; $/;"	m	language:C++	struct:__anon54
+width	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
 width	src/main.h	/^int width=800; int height=800;$/;"	v	language:C++
 word	src/glm/gtx/raw_data (1).hpp	/^	typedef uint16		word;$/;"	t	language:C++	namespace:glm
 word	src/glm/gtx/raw_data.hpp	/^	typedef uint16		word;$/;"	t	language:C++	namespace:glm
@@ -15249,8 +15253,8 @@ writePixelRGB	src/image.cpp	/^void image::writePixelRGB(int x, int y, glm::vec3 
 writePixelRGBA	src/image.cpp	/^void image::writePixelRGBA(int x, int y, glm::vec4 pixel){$/;"	f	language:C++	class:image
 write_pixels	src/stb_image/stb_image_write.h	/^static void write_pixels(FILE *f, int rgb_dir, int vdir, int x, int y, int comp, void *data, int write_alpha, int scanline_pad)$/;"	f	language:C++
 writefv	src/stb_image/stb_image_write.h	/^static void writefv(FILE *f, const char *fmt, va_list v)$/;"	f	language:C++
-x	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int x, y; $/;"	m	language:C++	struct:__anon53
-x	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
+x	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int x, y; $/;"	m	language:C++	struct:__anon54
+x	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
 x	src/cudaMat4.h	/^	glm::vec3 x;$/;"	m	language:C++	struct:cudaMat3
 x	src/cudaMat4.h	/^	glm::vec4 x;$/;"	m	language:C++	struct:cudaMat4
 x	src/glm/core/type_vec1.hpp	/^			union {value_type x, r, s;};$/;"	m	language:C++	union:glm::detail::tvec1::__anon42
@@ -15271,8 +15275,8 @@ x	src/glm/gtc/half_float.hpp	/^		half x, y;$/;"	m	language:C++	struct:glm::detai
 x	src/glm/gtc/quaternion.hpp	/^		value_type x, y, z, w;$/;"	m	language:C++	struct:glm::detail::tquat
 x	src/stb_image/stb_image.c	/^      int x,y,w2,h2;$/;"	m	language:C	struct:__anon6::__anon7	file:
 xSize	src/image.h	/^    int xSize;$/;"	m	language:C++	class:image
-y	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int x, y; $/;"	m	language:C++	struct:__anon53
-y	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon58
+y	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^  int x, y; $/;"	m	language:C++	struct:__anon54
+y	PROJ1_WIN/shared/glew/include/GL/glxew.h	/^typedef struct { int type; unsigned long serial; Bool send_event; Display *display; GLXDrawable drawable; int event_type; int draw_type; unsigned int mask; int x, y; int width, height; int count; } GLXBufferClobberEventSGIX;$/;"	m	language:C++	struct:__anon59
 y	src/cudaMat4.h	/^	glm::vec3 y;$/;"	m	language:C++	struct:cudaMat3
 y	src/cudaMat4.h	/^	glm::vec4 y;$/;"	m	language:C++	struct:cudaMat4
 y	src/glm/core/type_vec2.hpp	/^			struct{value_type x, y;};$/;"	m	language:C++	struct:glm::detail::tvec2::__anon15::__anon18
