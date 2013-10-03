@@ -8,7 +8,11 @@ Fall 2013
 INTRODUCTION:
 -------------------------------------------------------------------------------
 This is an implementation of path tracing rendering algorithm on the GPU, using CUDA.
-Path tracing is considered to be the best known solution to the classic rendering equation. The scary looking integral in the rendering equation is approximated beautifully by Monte Carlo sampling which also implies that in order to reduce our approximation errors, we need to take a really large number of samples.
+
+Path tracing is considered to be the best known solution to the classic rendering equation. 
+
+The scary looking integral in the rendering equation is approximated beautifully by Monte Carlo sampling which also implies that in order to reduce our approximation errors, we need to take a really large number of samples.
+
 -------------------------------------------------------------------------------
 CONTENTS:
 -------------------------------------------------------------------------------
@@ -61,6 +65,24 @@ Notice that the sphere at the bottom refracts and reflects based on angles. If w
 * Translational motion blur
 The idea is to do temporal sampling in addition to spatial sampling. Given a frame, go back in time, and linearly (could be cubic or higher order) interpolate between the positions of geometry now and then.
 ![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/motion_blurred.bmp)
+
+* Depth of field
+Based on the aperture and focal plane specified as camera attributes in the config file.
+The idea is to jitter the rays in such a manner that the jittering is least at the focal plane region.
+![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/refr_refl_diff_DOF.bmp)
+
+* Procedural textures
+I cannot be more fascinated by the beauty of procedural textures (two things that amazed me the most during this assignment are Monte Carlo sampling and Perlin Noise. 
+So beautiful!). I have implemented a few basic procedural textures for the path tracer.
+- Vertical stripes texture
+- Horizontal stripes texture
+- Checkerboard texture
+- Marble texture
+- A more general Perlin texture
+And then, it was time to play with these parameters and just appreciate mathematics.
+![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/perlin_texture.bmp)
+As you can see, this was too much fun. So here is an image with everything textured using perlin textures.
+
 -------------------------------------------------------------------------------
 README
 -------------------------------------------------------------------------------
