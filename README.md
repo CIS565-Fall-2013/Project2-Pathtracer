@@ -3,6 +3,7 @@ CIS565: Project 2: CUDA Pathtracer
 -------------------------------------------------------------------------------
 Fall 2013
 ![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot1.png)
+![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot2.png)
 -------------------------------------------------------------------------------
 PROJECT OVERVIEW
 -------------------------------------------------------------------------------
@@ -24,9 +25,20 @@ the third party software linked below), and camera controls via keyboard.
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
-Stream compaction comparison:
+*Stream compaction comparison:
 
-Number of bounces comparison:
+**Ray Parallelization with Stream Compaction:
+
+**Ray Parallelization without Stream Compaction:
+
+
+*Number of bounces comparison:
+
+**Bounce 5:
+
+**Bounce 10:
+
+**Bounce 20:
 
 
 
@@ -38,6 +50,7 @@ Thrust Stream Compaction: http://thrust.github.io/doc/group__stream__compaction.
 Thrust Device Pointers: http://docs.thrust.googlecode.com/hg/classthrust_1_1device__ptr.html
 CUDA Parallel Prefix Sum: http://http.developer.nvidia.com/GPUGems3/gpugems3_ch39.html
 
+Project Demo Video: https://github.com/mchen15/Project2-Pathtracer/blob/master/renders/Path%20Tracer%20Demo.mp4
 -------------------------------------------------------------------------------
 SELF-GRADING
 -------------------------------------------------------------------------------
