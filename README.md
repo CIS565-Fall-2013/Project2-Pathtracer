@@ -54,6 +54,10 @@ The extra features that were implemented are :
   each iteration.  
 
 -------------------------------------------------------------------------------
+Working Video :
+-------------------------------------------------------------------------------
+![Path Tracer Video](http://www.youtube.com/watch?v=bA-7rGa7juM&feature=youtu.be)
+-------------------------------------------------------------------------------
 ScreenShots :
 -------------------------------------------------------------------------------
 Here is the first image with the basic diffuse applied on all the materials 
