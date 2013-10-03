@@ -2,7 +2,7 @@
 CIS565: Project 2: CUDA Pathtracer
 -------------------------------------------------------------------------------
 Fall 2013
-
+![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot1.png)
 -------------------------------------------------------------------------------
 PROJECT OVERVIEW
 -------------------------------------------------------------------------------
@@ -21,11 +21,22 @@ computing the diffuse scattering direction. Choosing a good seed has a drastic e
 more features including motion blur (which is done via translating the geometry across certain number of frames at a certain interval), OBJ mesh loading (using
 the third party software linked below), and camera controls via keyboard.
 
+-------------------------------------------------------------------------------
+PERFORMANCE EVALUATION
+-------------------------------------------------------------------------------
+Stream compaction comparison:
+
+Number of bounces comparison:
+
+
 
 -------------------------------------------------------------------------------
 THIRD PARTY CODE & LINKS
 -------------------------------------------------------------------------------
-
+Tiny Obj Loader: https://github.com/syoyo/tinyobjloader
+Thrust Stream Compaction: http://thrust.github.io/doc/group__stream__compaction.html#gaf01d45b30fecba794afae065d625f94f
+Thrust Device Pointers: http://docs.thrust.googlecode.com/hg/classthrust_1_1device__ptr.html
+CUDA Parallel Prefix Sum: http://http.developer.nvidia.com/GPUGems3/gpugems3_ch39.html
 
 -------------------------------------------------------------------------------
 SELF-GRADING
@@ -34,13 +45,9 @@ SELF-GRADING
 * Projects are not weighted evenly, e.g., Project 0 doesn't count as much as the path tracer.  We will determine the weighting at the end of the semester based on the size of each project.
 
 -------------------------------------------------------------------------------
-SUBMISSION
+TODO
 -------------------------------------------------------------------------------
-As with the previous project, you should fork this project and work inside of your fork. Upon completion, commit your finished project back to your fork, and make a pull request to the master repository.
-You should include a README.md file in the root directory detailing the following
-
-* A brief description of the project and specific features you implemented
-* At least one screenshot of your project running, and at least one screenshot of the final rendered output of your pathtracer
-* Instructions for building and running your project if they differ from the base code
-* A link to your blog post detailing the project
-* A list of all third-party code used
+* Squash bugs!
+* Additional BDSF such as refraction
+* Additional BRDF models
+* Bounding boxes for triangle meshes
