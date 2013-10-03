@@ -25,7 +25,7 @@ The basic algorithm of the path tracing of this project can be summarized as:
 
 Since the number of the ray in the ray pool decreases we need fewer blocks per grid when launching the kernel. Hence, we can have a quite fast execution speed for the path tracer.
 
-Please run the 565Raytracer.sln file rather to run the 565Pathtracer.sln one. Thank you :)
+Note: Please run the 565Raytracer.sln file rather to run the 565Pathtracer.sln one, you can directly copy the 565Raytracer file from the Project 1 repo. Thank you :)
 
 -------------------------------------------------------------------------------
 FEATURES IMPLEMENTED
