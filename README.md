@@ -116,7 +116,9 @@ Note how the global light in this scene behaves just as any other pathtraced emi
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
-...
+I will have some figures here tomorrow morning on the effectiveness of my stream compaction versus trace depth, but I don't have access to my desktop tonight and my laptop is too slow to get decent performance metrics from.
+The short form of it (minus data) is stream compaction is extremely effective for high trace depths and very open scenes. Depending on the scene I've seen 2x to 10x speedups.
+However, for very low trace depths in closed environments, the additional overhead can actually degrade performance slightly.
 
 
 -------------------------------------------------------------------------------
