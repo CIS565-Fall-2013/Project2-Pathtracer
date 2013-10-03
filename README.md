@@ -82,7 +82,11 @@ With big radius for the circle of confusion
 VIDEOS OF IMPLEMENTATION
 -------------------------------------------------------------------------------
 
+This is the video of the rendering process of the path tracer.
 
+[![ScreenShot](https://raw.github.com/GabriellaQiong/Project1-RayTracer/master/videoScreenShot.PNG)](http://www.youtube.com/watch?v=GcbRUaLgz5A)
+
+The youtube link is here if you cannot open the video in the markdown file: http://www.youtube.com/watch?v=GcbRUaLgz5A
 
 
 -------------------------------------------------------------------------------
