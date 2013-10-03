@@ -74,7 +74,7 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * resolution.x);
     if(x<=resolution.x && y<=resolution.y){
-      image[index] = glm::vec3(0,0,0);
+      image[index] = glm::vec3(0,0,1);
     }
 }
 
@@ -116,147 +116,162 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 //Core raytracer kernel
 __global__ void raytraceRay(ray* cudarays, glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms, int numberOfCubes, int numberOfSpheres, material* cudamaterials, 
-							int numberOfMaterials, int* cudalights, int numberOfLights, int numBounce){
+							int numberOfMaterials, int* cudalights, int numberOfLights, int numBounce, int* cudaalive,
+							int* numAliveRays, int initialMaxRays){
 
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int index = x + (y * resolution.x);
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	int x = cudarays[index].pixelID/resolution.x;
+	int y = cudarays[index].pixelID-resolution.y*x;
 
-	float tempLength, closest = 1e26, indexOfRefraction = 0;
-	int closestObjectid = -1;
-	vec3 tempIntersectionPoint = vec3(0,0,0), tempNormal = vec3(0,0,0), normal = vec3(0,0,0), intersectionPoint = vec3(0,0,0);
-	vec3 objectColor = vec3(0,0,0), specColor = vec3(0,0,0);
-	float specExponent = 0, 
-	bool isReflective = 0, isRefractive = 0;
-	bool inside = false, tempInside = false;
+	//printf("%d ", numAliveRays[0]);
 
-	//input text file must load cubes first before loading spheres
+	if (index < initialMaxRays){
 
-	for (int i = 0; i < numberOfCubes; i++){
-		if(geoms[i].type == CUBE){
-			tempLength = boxIntersectionTest( geoms[i], cudarays[index], tempIntersectionPoint, tempNormal, tempInside);
+		float tempLength, closest = 1e26, indexOfRefraction = 0;
+		int closestObjectid = -1;
+		vec3 tempIntersectionPoint = vec3(0,0,0), tempNormal = vec3(0,0,0), normal = vec3(0,0,0), intersectionPoint = vec3(0,0,0);
+		vec3 objectColor = vec3(0,0,0), specColor = vec3(0,0,0);
+		float specExponent = 0, 
+		bool isReflective = 0, isRefractive = 0;
+		bool inside = false, tempInside = false;
+
+		//input text file must load cubes first before loading spheres
+
+		for (int i = 0; i < numberOfCubes; i++){
+			if(geoms[i].type == CUBE){
+				tempLength = boxIntersectionTest( geoms[i], cudarays[index], tempIntersectionPoint, tempNormal, tempInside);
+			}
+
+			if (tempLength < closest && tempLength >= 0){
+				closest = tempLength;
+				normal = tempNormal;
+				intersectionPoint = tempIntersectionPoint;
+				closestObjectid = i;
+				inside = tempInside;
+			}
 		}
 
-		if (tempLength < closest && tempLength >= 0){
-			closest = tempLength;
-			normal = tempNormal;
-			intersectionPoint = tempIntersectionPoint;
-			closestObjectid = i;
-			inside = tempInside;
-		}
-	}
+		for(int i = numberOfCubes; i < numberOfGeoms; i++){
+			if(geoms[i].type == SPHERE){
+				tempLength = sphereIntersectionTest( geoms[i], cudarays[index], tempIntersectionPoint, tempNormal, tempInside);
+			}
 
-	for(int i = numberOfCubes; i < numberOfGeoms; i++){
-		if(geoms[i].type == SPHERE){
-			tempLength = sphereIntersectionTest( geoms[i], cudarays[index], tempIntersectionPoint, tempNormal, tempInside);
+			if (tempLength < closest && tempLength >= 0){
+				closest = tempLength;
+				normal = tempNormal;
+				intersectionPoint = tempIntersectionPoint;
+				closestObjectid = i;
+				inside = tempInside;
+			}
 		}
-
-		if (tempLength < closest && tempLength >= 0){
-			closest = tempLength;
-			normal = tempNormal;
-			intersectionPoint = tempIntersectionPoint;
-			closestObjectid = i;
-			inside = tempInside;
-		}
-	}
 			 
-	if (closest < 1e26 && closest >= 0){
+		if (closest < 1e26 && closest >= 0){
 
-		objectColor = cudamaterials[geoms[closestObjectid].materialid].color;
-		specExponent = cudamaterials[geoms[closestObjectid].materialid].specularExponent;
-		specColor = cudamaterials[geoms[closestObjectid].materialid].specularColor;
-		isReflective = cudamaterials[geoms[closestObjectid].materialid].hasReflective;
-		isRefractive = cudamaterials[geoms[closestObjectid].materialid].hasRefractive;
-		indexOfRefraction = cudamaterials[geoms[closestObjectid].materialid].indexOfRefraction;
+			objectColor = cudamaterials[geoms[closestObjectid].materialid].color;
+			specExponent = cudamaterials[geoms[closestObjectid].materialid].specularExponent;
+			specColor = cudamaterials[geoms[closestObjectid].materialid].specularColor;
+			isReflective = cudamaterials[geoms[closestObjectid].materialid].hasReflective;
+			isRefractive = cudamaterials[geoms[closestObjectid].materialid].hasRefractive;
+			indexOfRefraction = cudamaterials[geoms[closestObjectid].materialid].indexOfRefraction;
 
-		vec3 reflectedDir = cudarays[index].direction - vec3(2*vec4(normal*(dot(cudarays[index].direction,normal)),0));
-		reflectedDir = normalize(reflectedDir);
-		vec3 refractedDir = vec3(0,0,0);
+			vec3 reflectedDir = cudarays[index].direction - vec3(2*vec4(normal*(dot(cudarays[index].direction,normal)),0));
+			reflectedDir = normalize(reflectedDir);
+			vec3 refractedDir = vec3(0,0,0);
 			
-		for (int i = 0; i < numberOfLights; i++){
-			if (closestObjectid == cudalights[i]){
-				cudarays[index].color *= cudamaterials[geoms[closestObjectid].materialid].color*cudamaterials[geoms[closestObjectid].materialid].emittance;
-				cudarays[index].origin = vec3(0,0,0);
-				cudarays[index].direction = vec3(0,0,0);
-				colors[index] += cudarays[index].color;
-				return;
-			}
-		}
-
-		float n1 = 0, n2 = 0;
-		float costheta_i = 0; float costheta_t = 0;
-		float sin2theta_t = 0;
-		float R = 0;
-		bool TIR = false;
-		float schlicksR = 0;
-		float random = 0;
-
-		if (isRefractive){
-
-			//graphics.stanford.edu/courses/cs148-10-summer/docs/2006--degreve--reflection_refraction.pdf
-
-			if (inside){
-				n1 = indexOfRefraction;
-				n2 = 1.0f;
-				normal = -normal;
-			}else{
-				n1 = 1.0f;
-				n2 = indexOfRefraction;
+			for (int i = 0; i < numberOfLights; i++){
+				if (closestObjectid == cudalights[i]){
+					cudarays[index].color *= cudamaterials[geoms[closestObjectid].materialid].color*cudamaterials[geoms[closestObjectid].materialid].emittance;
+					cudarays[index].origin = vec3(0,0,0);
+					cudarays[index].direction = vec3(0,0,0);
+					colors[cudarays[index].pixelID] += cudarays[index].color;
+					cudaalive[index] = 0; //dead
+					atomicAdd(&numAliveRays[0], -1);
+					//numAliveRays[0]--;
+					return;
+				}
 			}
 
-			costheta_i = glm::dot(-1.0f*cudarays[index].direction, normal);
-			sin2theta_t = pow(n1/n2,2)*(1-pow(costheta_i,2));
-			R = pow((n1-n2)/(n1+n2),2);
-			if (sin2theta_t > 1){
-				TIR = true;
-			}else{
-				costheta_t = sqrt(1-sin2theta_t);
-				refractedDir = (n1/n2)*cudarays[index].direction + ((n1/n2)*costheta_i - sqrt(1-sin2theta_t))*normal;
-			}
+			float n1 = 0, n2 = 0;
+			float costheta_i = 0; float costheta_t = 0;
+			float sin2theta_t = 0;
+			float R = 0;
+			bool TIR = false;
+			float schlicksR = 0;
+			float random = 0;
 
-			if (n1 <= n2){
-				schlicksR = R + (1-R)*(1-costheta_i)*(1-costheta_i)*(1-costheta_i)*(1-costheta_i)*(1-costheta_i);
-			}else if (n1 > n2 && !TIR){
-				schlicksR = R + (1-R)*(1-costheta_t)*(1-costheta_t)*(1-costheta_t)*(1-costheta_t)*(1-costheta_t);
-			}else{
-				schlicksR = 1;
-			}
+			if (isRefractive){
+
+				//graphics.stanford.edu/courses/cs148-10-summer/docs/2006--degreve--reflection_refraction.pdf
+
+				if (inside){
+					n1 = indexOfRefraction;
+					n2 = 1.0f;
+					normal = -normal;
+				}else{
+					n1 = 1.0f;
+					n2 = indexOfRefraction;
+				}
+
+				costheta_i = glm::dot(-1.0f*cudarays[index].direction, normal);
+				sin2theta_t = pow(n1/n2,2)*(1-pow(costheta_i,2));
+				R = pow((n1-n2)/(n1+n2),2);
+				if (sin2theta_t > 1){
+					TIR = true;
+				}else{
+					costheta_t = sqrt(1-sin2theta_t);
+					refractedDir = (n1/n2)*cudarays[index].direction + ((n1/n2)*costheta_i - sqrt(1-sin2theta_t))*normal;
+				}
+
+				if (n1 <= n2){
+					schlicksR = R + (1-R)*(1-costheta_i)*(1-costheta_i)*(1-costheta_i)*(1-costheta_i)*(1-costheta_i);
+				}else if (n1 > n2 && !TIR){
+					schlicksR = R + (1-R)*(1-costheta_t)*(1-costheta_t)*(1-costheta_t)*(1-costheta_t)*(1-costheta_t);
+				}else{
+					schlicksR = 1;
+				}
   
-			thrust::default_random_engine rng(hash((x + (y * resolution.x))*time));
-			thrust::uniform_real_distribution<float> u01(0,1);
+				thrust::default_random_engine rng(hash((cudarays[index].pixelID)*time));
+				thrust::uniform_real_distribution<float> u01(0,1);
 
-			random = (float) u01(rng);
+				random = (float) u01(rng);
 					
-			cudarays[index].origin = intersectionPoint+0.01f*refractedDir;
-			cudarays[index].direction = refractedDir;
+				cudarays[index].origin = intersectionPoint+0.01f*refractedDir;
+				cudarays[index].direction = refractedDir;
 					
-			if (random <= schlicksR){
-				cudarays[index].origin = intersectionPoint+0.0001f*reflectedDir;
+				if (random <= schlicksR){
+					cudarays[index].origin = intersectionPoint+0.0001f*reflectedDir;
+					cudarays[index].direction = reflectedDir;
+				}
+
+			}else if (isReflective){
+				cudarays[index].origin = intersectionPoint+0.01f*reflectedDir;
 				cudarays[index].direction = reflectedDir;
+			}else{ //just diffuse
+				vec3 rand = generateRandomNumberFromThread(resolution, time*(numBounce+1), x, y);
+				vec3 outgoingDir = calculateRandomDirectionInHemisphere(normal,rand.x, rand.y);
+				cudarays[index].origin = intersectionPoint+0.001f*outgoingDir;
+				cudarays[index].direction = outgoingDir;
 			}
 
-		}else if (isReflective){
-			cudarays[index].origin = intersectionPoint+0.01f*reflectedDir;
-			cudarays[index].direction = reflectedDir;
-		}else{ //just diffuse
-			vec3 rand = generateRandomNumberFromThread(resolution, time*(numBounce+1), x, y);
-			vec3 outgoingDir = calculateRandomDirectionInHemisphere(normal,rand.x, rand.y);
-			cudarays[index].origin = intersectionPoint+0.001f*outgoingDir;
-			cudarays[index].direction = outgoingDir;
+			cudarays[index].color *= objectColor;
+
+		}//if intersects with anything
+		else{
+			cudarays[index].origin = vec3(0,0,0);
+			cudarays[index].direction = vec3(0,0,0);
+			cudarays[index].color *= vec3(0,0,0);
+			colors[cudarays[index].pixelID] += cudarays[index].color;
+			cudaalive[index] = 0; //dead
+			atomicAdd(&numAliveRays[0], -1);
+			//numAliveRays[0]--;
+			return;
 		}
 
-		cudarays[index].color *= objectColor;
-
-	}//if intersects with anything
+		//colors[index] += realColor;
+	}//end of ifstatement
 	else{
-		cudarays[index].origin = vec3(0,0,0);
-		cudarays[index].direction = vec3(0,0,0);
-		cudarays[index].color *= vec3(0,0,0);
-		colors[index] += cudarays[index].color;
-		return;
+		//colors[cudarays[index].pixelID] += cudarays[index].color;
 	}
-
-	//colors[index] += realColor;
 }
 
 //INITIALIZES A POOL OF RAYS
@@ -287,18 +302,54 @@ __global__ void initializeRays(glm::vec2 resolution, float time, cameraData cam,
 	}
 }
 
+__global__ void scan(int* cudacondition, int* cudatemp, int d){
+	
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index == 0)
+		cudatemp[0] = cudacondition[0];
+
+	int e = pow(2.0f,d-1);	//speed up this later
+	if (index >= e){
+		cudatemp[index] = cudacondition[index-e] + cudacondition[index];
+	}
+
+}
+
+__global__ void streamCompact( int* cudaalive, int* cudaprescanalive, ray* cudarays, ray* cudaraysTemp, int numRays){
+	
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if (index < numRays){
+		if(cudaprescanalive[index]){						//compare to see if ray is alive or dead
+			cudarays[cudaalive[index]-1].color = cudaraysTemp[index].color;
+			cudarays[cudaalive[index]-1].direction = cudaraysTemp[index].direction;
+			cudarays[cudaalive[index]-1].origin = cudaraysTemp[index].origin;
+			cudarays[cudaalive[index]-1].pixelID = cudaraysTemp[index].pixelID;
+		}
+	}
+}
+
+__global__ void resetAliveConditionArray( int* cudaalive){
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	cudaalive[index] = 1;
+}
+
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, int numberOfCubes, int numberOfSpheres, bool cameraMoved){
   
-  int traceDepth = 5; //determines how many bounces the pathtracer traces
+  int traceDepth = 15; //determines how many bounces the pathtracer traces
   std::vector<int> lightsid;
 
   // set up crucial magic
   int tileSize = 8;
-  dim3 threadsPerBlock(tileSize, tileSize);
-  dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
-  
+  dim3 threadsPerBlock2d(tileSize, tileSize);
+  dim3 fullBlocksPerGrid2d((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
+  dim3 threadsPerBlock1d(tileSize*tileSize);
+  float s = renderCam->resolution.x*renderCam->resolution.y;
+  dim3 fullBlocksPerGrid1d((int)ceil((float(renderCam->resolution.x)/float(tileSize))*(float(renderCam->resolution.y)/float(tileSize))));
+
+
+
   //send image to GPU
   glm::vec3* cudaimage = NULL;
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
@@ -339,10 +390,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMemcpy( cudalights, lightsList, lightsid.size()*sizeof(int), cudaMemcpyHostToDevice);
 
   int numberOfPixels = renderCam->resolution.x*renderCam->resolution.y;
-  ray* cpurays = new ray[numberOfPixels]; 
   ray* cudarays = NULL;
   cudaMalloc((void**)&cudarays, numberOfPixels*sizeof(ray));
-  cudaMemcpy( cudarays, cpurays, numberOfPixels*sizeof(ray), cudaMemcpyHostToDevice);
     
   //package camera
   cameraData cam;
@@ -355,7 +404,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
   //clear image
   if (cameraMoved)
-	clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,cudaimage);
+	clearImage<<<fullBlocksPerGrid2d, threadsPerBlock2d>>>(renderCam->resolution,cudaimage);
 
   if (numberOfGeoms != numberOfCubes+numberOfSpheres){
 	  std::cout<<"ERROR numberOfGeoms != numberOfCubes+numberOfSpheres"<<std::endl;
@@ -363,20 +412,85 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   }
 
   //initial pool of rays
-  initializeRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, cudarays);
+  initializeRays<<<fullBlocksPerGrid2d, threadsPerBlock2d>>>(renderCam->resolution, (float)iterations, cam, cudarays);
+
+  int* numAliveRaysCPU = new int[1];
+  numAliveRaysCPU[0] = numberOfPixels;
+  int* numAliveRays = new int[1];
+  cudaMalloc((void**)&numAliveRays, sizeof(int));
+  cudaMemcpy( numAliveRays, numAliveRaysCPU, sizeof(int), cudaMemcpyHostToDevice);
+
+  //intialize the alive array 
+  int* cudaalive = NULL;
+  cudaMalloc((void**)&cudaalive, numberOfPixels*sizeof(int));
+  resetAliveConditionArray<<<fullBlocksPerGrid1d, threadsPerBlock1d>>>( cudaalive);
+
+  int* cudatemp = NULL;
+  cudaMalloc((void**)&cudatemp, numberOfPixels*sizeof(int));
+
+  int* cudaprescanalive = NULL;
+  cudaMalloc((void**)&cudaprescanalive, numberOfPixels*sizeof(int));
+
+  ray* cudaraysTemp = NULL;
+  cudaMalloc((void**)&cudaraysTemp, numberOfPixels*sizeof(ray));
+
+
+  int numRays = renderCam->resolution.x*renderCam->resolution.y;
 
   //kernel launches
   for (int i = 0; i < traceDepth; i++){
-	raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays, renderCam->resolution, (float)iterations, cam, traceDepth, 
+
+	raytraceRay<<<fullBlocksPerGrid1d, threadsPerBlock1d>>>(cudarays, renderCam->resolution, (float)iterations, cam, traceDepth, 
 	cudaimage, cudageoms, numberOfGeoms, numberOfCubes, numberOfSpheres, cudamaterials, numberOfMaterials, cudalights, lightsid.size(), 
-	i);
+	i, cudaalive, numAliveRays, numRays);
+		  
+ /* ray* debugrays = new ray[numberOfPixels];
+	cudaMemcpy(debugrays, cudarays, numberOfPixels*sizeof(ray), cudaMemcpyDeviceToHost);
+	int* debug = new int[numberOfPixels];
+	cudaMemcpy(debug, cudaalive, numberOfPixels*sizeof(int), cudaMemcpyDeviceToHost);
+	std::cout<<numRays<<std::endl;
+	for (int i = 0; i < numRays; i++){
+		std::cout<<"ray: "<<debugrays[i].pixelID<<" alive: "<<debug[i]<<std::endl;
+	}
+  getchar();
+  */
+	cudaMemcpy(cudaprescanalive, cudaalive, numberOfPixels*sizeof(int), cudaMemcpyDeviceToDevice);		//store original alive before scan
+	cudaMemcpy(numAliveRaysCPU, numAliveRays, sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(cudaraysTemp, cudarays, numberOfPixels*sizeof(ray), cudaMemcpyDeviceToDevice);
+
+	/*ray* debugrays = new ray[numberOfPixels];
+	cudaMemcpy(debugrays, cudarays, numberOfPixels*sizeof(ray), cudaMemcpyDeviceToHost);
+	for (int i = 0; i < 20; i++){
+		std::cout<<"ray: "<<debugrays[i].pixelID<<", ";
+	}
+	std::cout<<std::endl;
+	*/
+	int log2n = (int)ceil(log(float(numRays)) / log(2.0f));
+	for (int d = 1; d <= log2n; d++){
+		scan<<<fullBlocksPerGrid1d, threadsPerBlock1d>>>( cudaalive, cudatemp, d);			//scan
+		cudaMemcpy(cudaalive, cudatemp, numberOfPixels*sizeof(int), cudaMemcpyDeviceToDevice);	//swap
+	}
+	/*
+	int* debug = new int[numberOfPixels];
+	cudaMemcpy(debug, cudaalive, numberOfPixels*sizeof(int), cudaMemcpyDeviceToHost);
+	for (int i = 0; i < 20; i++){
+		std::cout<<debug[i]<<", ";
+	}
+
+	getchar();
+	*/
+	//cudaalive now has the summed corresponding new indices for the alive rays
+
+	streamCompact<<<fullBlocksPerGrid1d, threadsPerBlock1d>>>( cudaalive, cudaprescanalive, cudarays, cudaraysTemp, numRays);
+
+	resetAliveConditionArray<<<fullBlocksPerGrid1d, threadsPerBlock1d>>>( cudaalive);
+
+	numRays = numAliveRaysCPU[0];
+	dim3 fullBlocksPerGrid1d((int)ceil((float(numRays)/float(tileSize*tileSize))));
+
   }
 
-  /*for (int i = 0; i < numberOfPixels; i++){
-	  cudaimage[i] = cudaimage[i] + cudarays[i].color;
-  }*/
-
-  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);
+  sendImageToPBO<<<fullBlocksPerGrid2d, threadsPerBlock2d>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);
 
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
@@ -386,11 +500,18 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudageoms );
   cudaFree( cudarays  );
   cudaFree( cudalights);
+  cudaFree(cudaalive);
+  cudaFree(cudatemp);
+  cudaFree(numAliveRays);
+  cudaFree(cudaprescanalive);
+  cudaFree(cudaraysTemp);
   delete geomList;
   delete lightsList;
-  delete cpurays;
+  delete numAliveRaysCPU;
+
 
   // make certain the kernel has completed
   cudaThreadSynchronize();
   checkCUDAError("Kernel failed!");
+
 }

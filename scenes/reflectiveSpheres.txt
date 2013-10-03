@@ -58,7 +58,7 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   0
 
-MATERIAL 5 				//glass
+MATERIAL 5 				//glass purple
 RGB         .7 .6 1    
 SPECEX      0      
 SPECRGB     1 1 1      
@@ -106,6 +106,30 @@ ABSCOEFF    0 0 0
 RSCTCOEFF   0
 EMITTANCE   15
 
+MATERIAL 9 				//glass red
+RGB         .8 .4 .1    
+SPECEX      0      
+SPECRGB     1 1 1      
+REFL        0       
+REFR        1        
+REFRIOR     3       
+SCATTER     0        
+ABSCOEFF    .02 5.1 5.7      
+RSCTCOEFF   13
+EMITTANCE   0
+
+MATERIAL 10 				//glass
+RGB         1 1 1    
+SPECEX      0      
+SPECRGB     1 1 1      
+REFL        0       
+REFR        1        
+REFRIOR     3       
+SCATTER     0        
+ABSCOEFF    .02 5.1 5.7      
+RSCTCOEFF   13
+EMITTANCE   0
+
 CAMERA
 RES         800 800
 FOVY        25
@@ -143,7 +167,7 @@ SCALE       .01 10 10
 
 OBJECT 3
 cube
-material 2
+material 6
 frame 0
 TRANS       -5 5 0
 ROTAT       0 0 0
@@ -151,17 +175,17 @@ SCALE       .01 10 10
 
 OBJECT 4
 cube
-material 1
+material 3
 frame 0
 TRANS       5 5 0
 ROTAT       0 0 0
 SCALE       .01 10 10
 
-OBJECT 5
+OBJECT 5				//light
 cube
 material 8 
 frame 0
-TRANS       0 9.5 0
+TRANS       0 10 0
 ROTAT       0 0 90
 SCALE       .3 3 3
 
@@ -169,22 +193,22 @@ OBJECT 6
 sphere
 material 5
 frame 0
-TRANS       0 2 0
-ROTAT       0 180 0
-SCALE       3 3 3
-
-OBJECT 7
-sphere
-material 5
-frame 0
 TRANS       2 5 2
 ROTAT       0 180 0
 SCALE       2.5 2.5 2.5
 
-OBJECT 8
+OBJECT 7
 sphere
-material 5
+material 9
 frame 0
 TRANS       -2 5 -2
+ROTAT       0 180 0
+SCALE       3 3 3
+
+OBJECT 8
+sphere
+material 10
+frame 0
+TRANS       0 2 0
 ROTAT       0 180 0
 SCALE       3 3 3
