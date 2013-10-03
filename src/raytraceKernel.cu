@@ -230,8 +230,8 @@ __device__ glm::vec3 calcShade (interceptInfo theRightIntercept, mytexture* text
 		if ((theRightIntercept.intrMaterial.hasReflective >= 1.0) || 
 			(theRightIntercept.intrMaterial.hasRefractive >= 1.0))
 			shadedColour = theRightIntercept.intrMaterial.specularColor;
-		else if (theRightIntercept.intrMaterial.hasTexture)
-			shadedColour = getColour (textureArray [theRightIntercept.intrMaterial.textureid], theRightIntercept.UV);
+//		else if (theRightIntercept.intrMaterial.hasTexture)
+//			shadedColour = getColour (textureArray [theRightIntercept.intrMaterial.textureid], theRightIntercept.UV);
 		else
 			shadedColour = theRightIntercept.intrMaterial.color;
 	}
@@ -243,7 +243,7 @@ __device__ glm::vec3 calcShade (interceptInfo theRightIntercept, mytexture* text
 //Core raytracer kernel
 __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3* colors, staticGeom* geoms, 
 							 material* textureArray, mytexture * Textures, sceneInfo objectCountInfo, 
-							 bool *primaryArrayOnDevice, ray *rayPoolOnDevice, int rayPoolLength, glm::vec3 lightPos)
+							 bool *primaryArrayOnDevice, ray *rayPoolOnDevice, int rayPoolLength)
 {
   extern __shared__ glm::vec3 arrayPool [];
   __shared__ glm::vec3 *colourBlock; 
@@ -289,8 +289,6 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 
 	interceptInfo theRightIntercept = getIntercept (geoms, objectCountInfo, rayPoolBlock [threadID], textureArray);		
 	shadedColour += calcShade (theRightIntercept, Textures);
-	glm::vec3 lightDir = glm::normalize (lightPos - 
-										 (rayPoolBlock [threadID].origin + rayPoolBlock [threadID].direction * theRightIntercept.interceptVal));
 
 	if ((theRightIntercept.intrMaterial.emittance > 0) || (theRightIntercept.interceptVal < 0))
 		primArrayBlock [threadID] = false;	// Ray did not hit anything or it hit light, so kill it.
@@ -298,7 +296,7 @@ __global__ void raytraceRay (float time, cameraData cam, int rayDepth, glm::vec3
 		calculateBSDF  (rayPoolBlock [threadID], 
 						rayPoolBlock [threadID].origin + rayPoolBlock [threadID].direction * theRightIntercept.interceptVal, 
 						theRightIntercept.intrNormal, glm::vec3 (0), AbsorptionAndScatteringProperties (), 
-						index*time, theRightIntercept.intrMaterial.color, glm::vec3 (0), theRightIntercept.intrMaterial, lightDir);
+						index*time, theRightIntercept.intrMaterial.color, glm::vec3 (0), theRightIntercept.intrMaterial);
 	
 	if (glm::length (colourBlock [threadID]) > 0)
 		colourBlock [threadID] *= shadedColour;			// Add computed shade to shadedColour.
@@ -390,11 +388,6 @@ __global__ void	shiftRight (int *Array, bool *primaryArray, int arrayLength)
 		if (primaryArray [curIndex])
 			Array [curIndex] = Array [curIndex] - 1;
 	}
-
-	//__syncthreads ();
-	//// Copy the results of the shift back to the main secondary array from the temp array.
-	//if (curIndex < arrayLength)
-	//	Array [curIndex] = secondArray [curIndex];
 }
 
 
@@ -619,155 +612,75 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		  geomList [primCounts.nCubes].transform = utilityCore::glmMat4ToCudaMat4(transform);
 		  geomList [primCounts.nCubes].inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
 	  }
-
 	  //  Now copy the geometry list to the GPU global memory.
 	  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
-
-	  glm::vec3 lightPos = multiplyMV (geomList [0].transform, glm::vec4 (curLightSamplePos, 1.0));
 	  
 	  // Create Ray Pool. 
 	  int rayPoolLength = cam.resolution.x * cam.resolution.y;
-//	  ray *rayPool = new ray [rayPoolLength];
 	  ray *rayPoolOnDevice = NULL;
 	  cudaMalloc ((void **)&rayPoolOnDevice, rayPoolLength * sizeof (ray));
 
 	  // Primary Array		-> Array holding the true/false value specifying whether the ray is alive (true) or dead (false).
-	  // Secondary Array	-> Array that will hold the indices of rays that are alive. Used in stream compaction.
-	  bool *primaryArray = new bool [rayPoolLength];
-	  memset (primaryArray, true, rayPoolLength * sizeof(bool));
+	  bool *primaryArrayOnHost = new bool [rayPoolLength];
+	  memset (primaryArrayOnHost, true, rayPoolLength * sizeof(bool));
 	  bool *primaryArrayOnDevice = NULL;
 	  cudaMalloc ((void **)&primaryArrayOnDevice, rayPoolLength * sizeof (bool));
 
-	  int *secondaryArray = NULL;
-	  cudaMalloc ((void **)&secondaryArray, rayPoolLength * sizeof (int));
+	  // Secondary Array	-> Array that will hold the indices of rays that are alive. Used in stream compaction.
+	  int *secondaryArrayOnDevice = NULL;
+	  cudaMalloc ((void **)&secondaryArrayOnDevice, rayPoolLength * sizeof (int));
 	  int *secondaryArrayOnHost = new int [rayPoolLength];
-	  int *secondaryArrayOnHost2 = new int [rayPoolLength];
 
 	  // Launch createRayPool kernel to create the ray pool and populate the primary and secondary arrays.
 	  fullBlocksPerGrid = dim3 ((int)ceil(float(cam.resolution.x)/threadsPerBlock.x), (int)ceil(float(cam.resolution.y)/threadsPerBlock.y));
-	  createRayPool<<<fullBlocksPerGrid, threadsPerBlock>>> (rayPoolOnDevice, primaryArrayOnDevice, secondaryArray, cam, ProjectionParams);
-//	  cudaDeviceSynchronize ();
-//	  checkCUDAError("createRayPool Kernel failed!");
-	  
+	  createRayPool<<<fullBlocksPerGrid, threadsPerBlock>>> (rayPoolOnDevice, primaryArrayOnDevice, secondaryArrayOnDevice, cam, ProjectionParams);
+
 	  dim3 threadsPerBlock1D (threadsPerBlock.x*threadsPerBlock.y);
 	  // Iterate until nBounces: launch kernel to trace each ray bounce.
 	  for (int j = 0; j < nBounces; ++j)
 	  {
-		// The backup secondary array. We use this for many things because we can't do stuff in-place in parallel.
-	    int *secondaryArray2 = NULL;
-		cudaMalloc ((void **)&secondaryArray2, rayPoolLength * sizeof (int));
-
 		// The core raytraceRay kernel launch
 		fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
 		raytraceRay<<<fullBlocksPerGrid, threadsPerBlock, threadsPerBlock.x*threadsPerBlock.y*(sizeof(glm::vec3) + sizeof (bool) + sizeof(ray))>>>
 			((float)j+(i*nBounces), cam, j, cudaimage, cudageoms, materialColours, textureArray, primCounts, primaryArrayOnDevice, 
-			rayPoolOnDevice, rayPoolLength, lightPos);
-//		checkCUDAError("raytraceRay Kernel failed!");
+			rayPoolOnDevice, rayPoolLength);
 
-/////		---- CPU Stream Compaction ----		///
-//		// Inefficient. Grossly inefficient. Need to look over and change as required.
-//		cudaMemcpy (primaryArray, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
-//		cudaMemcpy (rayPool, rayPoolOnDevice, rayPoolLength * sizeof (ray), cudaMemcpyDeviceToHost);
-//
-//		// Stream compaction:
-//		secondaryArrayOnHost [0] = 0;
-//		for (int k = 1; k < rayPoolLength; ++ k)
-//			secondaryArrayOnHost [k] = secondaryArrayOnHost [k-1] + primaryArray [k-1];
-//
-//		int count = 0;
-//		for (int k = 0; k < rayPoolLength; ++ k)
-//		{
-//			if (primaryArray [k])
-//			{
-//				rayPool [secondaryArrayOnHost [k]] = rayPool [k];
-//				++ count;
-//			}
-//		}
-//
-//		rayPoolLength = count;
-//		cudaMemcpy (rayPoolOnDevice, rayPool, rayPoolLength * sizeof (ray), cudaMemcpyHostToDevice);
-//		cudaMemset (primaryArrayOnDevice, true, rayPoolLength * sizeof (bool));
+		/// ----- CPU/GPU Hybrid Stream Compaction ----- ///
+		// Scan is done on the CPU, the actual compaction happens on the GPU.
+		// ------------------------------------------------------------------
+		// Copy the primary array from device to host.
+		cudaMemcpy (primaryArrayOnHost, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
 
-		/// ----- Stream Compaction ----- ///
-		// Copy the primary array into secondaryArray and secondaryArray2.
-		copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (primaryArrayOnDevice, secondaryArray, rayPoolLength);
-//		checkCUDAError("copyArray Kernel failed!");
-		copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (secondaryArray, secondaryArray2, rayPoolLength);
-		
-		// Parallel scan. We can't do it in place, so we accumulate in secondaryArray2, and copy back to secondaryArray
-		// at the end of each iteration.
-		float test = log2f (rayPoolLength);
-		for (int k = 1; k <= ceil (test); ++ k) 
-		{
-			cudaDeviceSynchronize ();
-			inclusiveScan<<<fullBlocksPerGrid, threadsPerBlock1D>>>(secondaryArray, secondaryArray2, rayPoolLength, k);
-			cudaDeviceSynchronize ();
-//			copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (secondaryArray2, secondaryArray, rayPoolLength);
-			cudaMemcpy (secondaryArray, secondaryArray2, rayPoolLength*sizeof (int), cudaMemcpyDeviceToDevice);
-			cudaDeviceSynchronize ();
-		}
-//		checkCUDAError("inclusiveScan Kernel failed!");
-	
-		// Next, we convert the result of the parallel scan (inclusive) into exclusive scan.
-		shiftRight<<<fullBlocksPerGrid, threadsPerBlock1D>>>(secondaryArray, primaryArrayOnDevice, rayPoolLength);
-//		cudaDeviceSynchronize ();
-//		cudaMemcpy (secondaryArray, secondaryArray2, rayPoolLength*sizeof (int), cudaMemcpyDeviceToDevice);
-
-//		checkCUDAError("shiftRight Kernel failed!");
-//		copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (secondaryArray2, secondaryArray, rayPoolLength);
-//		checkCUDAError("copyArray-shiftRight Kernel failed!");
-		cudaMemcpy (primaryArray, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
+		// Exclusive scan.
 		secondaryArrayOnHost [0] = 0;
 		for (int k = 1; k < rayPoolLength; ++ k)
-			secondaryArrayOnHost [k] = secondaryArrayOnHost [k-1] + primaryArray [k-1];
-		cudaMemcpy (secondaryArrayOnHost2, secondaryArray, rayPoolLength * sizeof (int), cudaMemcpyDeviceToHost);
-		for (int k = 0; k < rayPoolLength; ++k)
-		{
-			if (secondaryArrayOnHost [k] != secondaryArrayOnHost2 [k])
-			{
-				std::cout << "\nERROR!: Secondary Arrays don't match. GPU scanning is inaccurate." 
-						  << "\nMismatch at " << k << " CPU val: " << secondaryArrayOnHost [k] << " GPU val: " << secondaryArrayOnHost2 [k]
-						  << " Raypool Length: " << rayPoolLength;
-				errCount ++;
-				if (errCount > 15)
-				{
-					std::cin.get ();
-					exit (EXIT_FAILURE);
-				}
-			}
-		}
-		
-		// We're done with the backup secondary array, so let's free the memory.
-		cudaFree (secondaryArray2);
+			secondaryArrayOnHost [k] = secondaryArrayOnHost [k-1] + primaryArrayOnHost [k-1];
+		// This is because the compactStream kernel should run on the whole, uncompacted array.
+		// We'll set this to rayPoolLength once compactStream has done its job.
+		int compactedRayPoolLength = secondaryArrayOnHost [rayPoolLength-1] + primaryArrayOnHost [rayPoolLength-1];
 
-		// Stream compaction. Compact the ray pool into tmpRayPool and copy back.
+		// Stream compaction. Compact the ray pool into tmpRayPool.
 		ray *tmpRayPool = NULL;
 		cudaMalloc ((void **)&tmpRayPool, rayPoolLength * sizeof (ray));
-		compactStream<<<fullBlocksPerGrid, threadsPerBlock1D>>> (rayPoolOnDevice, tmpRayPool, primaryArrayOnDevice, secondaryArray, rayPoolLength);
-//		checkCUDAError("compactStream Kernel failed!");
+		cudaMemcpy (secondaryArrayOnDevice, secondaryArrayOnHost, rayPoolLength * sizeof (int), cudaMemcpyHostToDevice);
+		compactStream<<<fullBlocksPerGrid, threadsPerBlock1D>>> (rayPoolOnDevice, tmpRayPool, primaryArrayOnDevice, secondaryArrayOnDevice, rayPoolLength);
 
-		// But we only need to copy back the compacted array, so first find the length of the reduced array 
-		cudaMemcpy (primaryArray, primaryArrayOnDevice, rayPoolLength * sizeof (bool), cudaMemcpyDeviceToHost);
-		int count = 0;
-		for (int k = 0; k < rayPoolLength; ++k)
-			if (primaryArray [k])
-				count ++;
-		rayPoolLength = count;
+		// Now set rayPoolLength to the compacted array size, compactedRayPoolLength.
+		rayPoolLength = compactedRayPoolLength;
 
-		// Now copy it back.
+		// Copy the ray pool from tmpRayPool back into rayPoolOnDevice.
 		copyArray<<<fullBlocksPerGrid, threadsPerBlock1D>>> (tmpRayPool, rayPoolOnDevice, rayPoolLength);
 		cudaFree (tmpRayPool);
 
 		// Set the primary array to all trues because all rays in the ray pool are alive, 
 		// now that stream compaction has already happened.
 		cudaMemset (primaryArrayOnDevice, true, rayPoolLength * sizeof (bool));
-//		checkCUDAError("copyArray-compactStream Kernel failed!");
 	  }
 	  checkCUDAError ("One or more of the raytrace/stream compaction kernels failed. ");
 
-	  fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
 	  // At this point, since stream compaction has already taken place,
 	  // it means that rayPoolOnDevice contains only rays that are still alive.
+	  fullBlocksPerGrid = dim3 ((int)ceil(float(rayPoolLength)/(threadsPerBlock.x*threadsPerBlock.y))); 
 	  addNoise<<<fullBlocksPerGrid,threadsPerBlock>>>(cudaimage, rayPoolOnDevice, rayPoolLength, cam.resolution);
 
 	  fullBlocksPerGrid = dim3 ((int)ceil(float(cam.resolution.x)/threadsPerBlock.x), (int)ceil(float(cam.resolution.y)/threadsPerBlock.y));
@@ -776,17 +689,15 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	  cudaFree (rayPoolOnDevice);
 	  cudaFree (primaryArrayOnDevice);
-	  cudaFree (secondaryArray);
+	  cudaFree (secondaryArrayOnDevice);
 	  cudaFree (cudaimage);
 
 	  rayPoolOnDevice = NULL;
 	  primaryArrayOnDevice = NULL;
 	  cudaimage = NULL;
 
-	  delete [] primaryArray;
+	  delete [] primaryArrayOnHost;
 	  delete [] secondaryArrayOnHost;
-	  delete [] secondaryArrayOnHost2;
-//	  delete [] rayPool;
 
 	  std::cout << "\rRendering.. " <<  ceil ((float)i/(nIterations-1) * 100) << " percent complete.";
   }
@@ -796,6 +707,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaFinalImage, nIterations);
   std::cout.precision (4);
   std::cout << "\nRendered in " << difftime (time (NULL), startTime) << " seconds. \n\n";
+  
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaFinalImage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
@@ -806,21 +718,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		cudaFree( cudageoms );
    if (materialColours)
    {
-	   /*for (int i = 0; i < numberOfMaterials; i ++)
-	   {
-		   if (materialColours [i].hasTexture)
-			cudaFree (materialColours[i].Texture.texels);
-
-		   if (materialColours [i].hasNormalMap)
-			cudaFree (materialColours[i].NormalMap.texels);
-	   }*/
 	   cudaFree (materialColours);
    }
    if (textureArray)
    {
-//	   for (int i = 0; i < numberOfTextures; i ++)
-//		   if (textureArray [i].texels)
-//			   cudaFree (textureArray [i].texels);
 	   cudaFree (textureArray);
    }
 
@@ -834,6 +735,4 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   delete [] geomList;
 
   checkCUDAError("Kernel failed!");
-  
-//  std::cin.get ();
 }

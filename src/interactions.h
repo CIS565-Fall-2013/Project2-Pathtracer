@@ -153,7 +153,7 @@ __host__ __device__ glm::vec3 calculateDirectionInLobeAroundNormal (glm::vec3 no
 __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 normal, glm::vec3 emittedColor,
                                        AbsorptionAndScatteringProperties& currentAbsorptionAndScattering,
 									   float randomSeed, glm::vec3& color, glm::vec3& unabsorbedColor, 
-									   material m, glm::vec3 lightDir)
+									   material m)
 {
 	int retVal = 0;
 	r.origin = intersect-0.01f*r.direction; //slightly perturb along normal to avoid self-intersection.
