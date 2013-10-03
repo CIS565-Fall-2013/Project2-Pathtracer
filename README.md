@@ -1,7 +1,7 @@
 -------------------------------------------------------------------------------
 CIS565: Project 2: CUDA Pathtracer (Due Wednesday, 10/02/13)
 -------------------------------------------------------------------------------
-Fall 2013
+Fall 2013 (Note: code and rendering in progress)
 -------------------------------------------------------------------------------
 
 I was able to implement:
@@ -11,12 +11,16 @@ I was able to implement:
 * Parallelization by ray instead of by pixel via stream compaction (you may use Thrust for this).
 * Perfect specular reflection
 
+![Diffuse](https://raw.github.com/takfuruya/Project2-Pathtracer/master/renders/color_bleeding.0.8.bmp)
+![Reflective](https://raw.github.com/takfuruya/Project2-Pathtracer/master/renders/color_bleeding.0.10.bmp)
+
+
 -------------------------------------------------------------------------------
 Nsight Insights
 -------------------------------------------------------------------------------
 
 My program was running fine when "Generate GPU Debug Information" was set to "Yes" but immediately
-stopped execution when it was set to "No". No change in code.
+stopped execution when it was set to "No". No changes in code.
 
 ![Generate GPU Debug Information](https://raw.github.com/takfuruya/Project2-Pathtracer/master/1.png)
 
