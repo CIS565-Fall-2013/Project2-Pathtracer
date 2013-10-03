@@ -48,6 +48,9 @@ using namespace std;
 
 scene* renderScene;
 camera* renderCam;
+ParameterSet* parameterSet;
+m_BMP* textures;
+
 int targetFrame;
 int iterations;
 bool finishedRender;

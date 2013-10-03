@@ -10,6 +10,7 @@
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
+int totalRayNum=0;
 
 int main(int argc, char** argv){
 
@@ -50,8 +51,27 @@ int main(int argc, char** argv){
   // Set up camera stuff from loaded pathtracer settings
   iterations = 0;
   renderCam = &renderScene->renderCam;
+  parameterSet = &renderScene->parameterSet;
   width = renderCam->resolution[0];
   height = renderCam->resolution[1];
+  textures=new m_BMP[renderScene->bmps.size()];
+  int i,j,k;
+  
+  for(i=0;i<renderScene->bmps.size();i++)
+  {
+	//int w=renderScene->bmps[i]->Width;
+	//int h=renderScene->bmps[i]->Height;
+	BMP now;
+	now.ReadFromFile(renderScene->bmps[i].c_str());
+	int h=now.TellHeight();int w=now.TellWidth();
+	textures[i].resolution=glm::vec2(w,h);
+	textures[i].colors=new glm::vec3[w*h];
+	for(j=0;j<w;j++)for(k=0;k<h;k++)
+	{
+		RGBApixel current=now.GetPixel(j,k);
+		textures[i].colors[j*h+k]=glm::vec3(current.Red,current.Green,current.Blue)*(1.0f/255.0f);
+	}
+  }
 
   if(targetFrame>=renderCam->frames){
     cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
@@ -123,7 +143,7 @@ void runCuda(){
     
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, parameterSet, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(),textures,renderScene->bmps.size());
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -142,8 +162,8 @@ void runCuda(){
       
       gammaSettings gamma;
       gamma.applyGamma = true;
-      gamma.gamma = 1.0;
-      gamma.divisor = 1.0; //renderCam->iterations;
+      gamma.gamma = 1.0/2.2;
+      gamma.divisor = renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -167,6 +187,7 @@ void runCuda(){
       iterations = 0;
       for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
         renderCam->image[i] = glm::vec3(0,0,0);
+		renderCam->shadowVal[i] = glm::vec3(0,0,0);
       }
       cudaDeviceReset(); 
       finishedRender = false;

@@ -10,16 +10,26 @@
 
 #include <stdio.h>
 #include <thrust/random.h>
+#include <thrust/scan.h>
+#include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/fill.h>
+#include <thrust/copy.h>
+#include <thrust/remove.h>
+
+
 #include <cuda.h>
 #include <cmath>
 #include "sceneStructs.h"
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
+
 #else
     #include <cutil_math.h>
 #endif
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+
+void cudaRaytraceCore(uchar4* pos, camera* renderCam, ParameterSet* pSet, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, m_BMP* textures, int numberOfTextures);
 
 #endif
