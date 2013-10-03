@@ -42,6 +42,7 @@ Features that you get for free with path tracing
 * Full global illumination
 
 Features that I implemented additionally
+* Stream compaction on the GPU
 * A generic BRDF model that supports diffuse, specular and transmittive surfaces (or a combination of those)
 * Fresnel reflections and refractions
 * Translational motion blur
@@ -52,6 +53,7 @@ Features that I implemented additionally
 -------------------------------------------------------------------------------
 FEATURES (in a bit more detail)
 -------------------------------------------------------------------------------
+* **Stream compaction on the GPU**: This is basically a technique that prunes out inactive rays after every bounce. This helps in reducing the number of threads for the next bounce, and hence can achieve speedups especially when we have a large number of rays that don't hit anything in the scene. Currently I am using "thrust" library for this task.
 
 * **BRDF model:** : Here is an example of results from a scene having surfaces that are both diffuse and specular at the same time.
 The way the BRDF deals with it is a russian roulette based on probabilities. Simply put, if a material is 70% diffuse, at every iteration, draw a random number from 0 to 1, and if its less than 0.7, then calculate diffuse reflection, else specular reflection.
@@ -111,6 +113,9 @@ Here is an example depth map,
 ![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/depthMap_pool.bmp)
 
 -------------------------------------------------------------------------------
+BUILDING AND RUNNING THE CODE
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
 The performance evaluation is where you will investigate how to make your CUDA
@@ -135,11 +140,9 @@ optimizations along with tables and or graphs to visually explain any
 performance differences.
 
 -------------------------------------------------------------------------------
-THIRD PARTY CODE POLICY
+THIRD PARTY CODE CREDITS
 -------------------------------------------------------------------------------
-* Use of any third-party code must be approved by asking on the Google group.  If it is approved, all students are welcome to use it.  Generally, we approve use of third-party code that is not a core part of the project.  For example, for the ray tracer, we would approve using a third-party library for loading models, but would not approve copying and pasting a CUDA function for doing refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another student's code, is an academic integrity violation, and will result in you receiving an F for the semester.
+* Perlin noise function: http://www.codermind.com/articles/Raytracer-in-C++-Part-III-Textures.html
 
 -------------------------------------------------------------------------------
 SELF-GRADING
