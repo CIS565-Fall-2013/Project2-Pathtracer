@@ -128,7 +128,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
   {
       glm::vec3 color;
 	  
-	  image[index] = glm::clamp(image[index], vec3(0,0,0), vec3(1,1,1));
+	  //image[index] = glm::clamp(image[index], vec3(0,0,0), vec3(1,1,1));
 
 	  imageAccumd[index] = (imageAccumd[index] * (iteration - 1) + image[index]) / iteration;
 
@@ -614,9 +614,9 @@ int getNumRays(ray* allrays, int total)
 }
 
 // move the object a little before the rendering process.
-void translateObject(geom* geoms, int geomId, int frame, int iterations, int idleFrameNum, vec3 translation)
+void translateObject(geom* geoms, int geomId, int frame, int iterations, int idleFrameNum, int stopFrame, vec3 translation)
 {
-	if (iterations % idleFrameNum == 0)
+	if (iterations % idleFrameNum == 0 && iterations < stopFrame)
 	{
 		geoms[geomId].translations[frame] += translation;
 		glm::mat4 transform = utilityCore::buildTransformationMatrix(geoms[geomId].translations[frame], geoms[geomId].rotations[frame], geoms[geomId].scales[frame]);
@@ -636,7 +636,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	// set up geometry for motion blur
 	if (MOTION_BLUR_SWITCH)
 	{
-		translateObject(geoms, 6, frame, iterations, 20, vec3(0, -0.01, 0));
+		translateObject(geoms, 6, frame, iterations, 20, 2000, vec3(0, -0.01, 0));
 	}
 
 	// set up crucial magic
@@ -755,7 +755,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 			if (USE_STREAM_COMPACTION)
 			{
 				thrust::device_ptr<ray> cudaRayPoolDevicePtr(cudaRayPool);
-				thrust::device_ptr<ray> compactCudaRayPoolDevicePtr = thrust::remove_if(cudaRayPoolDevicePtr, cudaRayPoolDevicePtr + initPoolSize, is_terminated());
+				thrust::device_ptr<ray> compactCudaRayPoolDevicePtr = thrust::remove_if(cudaRayPoolDevicePtr, cudaRayPoolDevicePtr + numRays, is_terminated());
 			
 				// pointer arithmetic to figure out the number of rays.
 				numRays = compactCudaRayPoolDevicePtr.get() - cudaRayPoolDevicePtr.get();

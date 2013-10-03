@@ -2,124 +2,30 @@
 CIS565: Project 2: CUDA Pathtracer
 -------------------------------------------------------------------------------
 Fall 2013
--------------------------------------------------------------------------------
-Due Wednesday, 10/02/13
--------------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------
-Project Overview
+PROJECT OVERVIEW
 -------------------------------------------------------------------------------
 For this project, I built off of my CUDA ray tracer in order to implement a parallel path tracer featuring full global illumination,
+color accumulation, supersampled antialiasing, parallelization by ray instead of pixel via stream compaction, perfect specular reflection,
+translational motion blur, OBJ mesh loading, and interactive camera. 
 
+One of the first tasks I tackled when working on the project was the ray parallelization. In my ray tracer, I had done parallelization by pixel. 
+While this is intuitive, rays tend to terminate at different depths, which leads to many idle threads. One way of fixing this issue is to instead, 
+have each thread represent a ray at one particular depth. In other words, a breadth first instead of depth first approach is used. The most difficult
+part of this was to properly allocate a pool for each ray and figuring out how to keep track of the active rays. The cuda thrust library provides a nice
+way to help with stream compaction. I have included the links that helped me a lot when thinking about how to structure my code. 
+
+Once the parallelization of rays step had been done, I moved on to implementing the core path tracing algorithm. The trickiest part in this portion was
+computing the diffuse scattering direction. Choosing a good seed has a drastic effect on how the outcome image looks. Once the path tracer was functional, I added
+more features including motion blur (which is done via translating the geometry across certain number of frames at a certain interval), OBJ mesh loading (using
+the third party software linked below), and camera controls via keyboard.
 
 
 -------------------------------------------------------------------------------
-CONTENTS:
+THIRD PARTY CODE & LINKS
 -------------------------------------------------------------------------------
-The Project2 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio solution and the OSX makefile reference this folder for all source; the base source code compiles on OSX and Windows without modification.
-* scenes/ contains an example scene description file.
-* renders/ contains two example renders: the raytraced render from Project 1 (GI_no.bmp), and the same scene rendered with global illumination (GI_yes.bmp). 
-* PROJ1_WIN/ contains a Windows Visual Studio 2010 project and all dependencies needed for building and running on Windows 7.
-* PROJ1_OSX/ contains a OSX makefile, run script, and all dependencies needed for building and running on Mac OSX 10.8. 
-* PROJ1_NIX/ contains a Linux makefile for building and running on Ubuntu 
-  12.04 LTS. Note that you will need to set the following environment
-  variables: 
-    
-  - PATH=$PATH:/usr/local/cuda-5.5/bin
-  - LD_LIBRARY_PATH=/usr/local/cuda-5.5/lib64:/lib
 
-The projects build and run exactly the same way as in Project0 and Project1.
-
--------------------------------------------------------------------------------
-REQUIREMENTS:
--------------------------------------------------------------------------------
-In this project, you are given code for:
-
-* All of the basecode from Project 1, plus:
-* Intersection testing code for spheres and cubes
-* Code for raycasting from the camera
-
-You will need to implement the following features. A number of these required features you may have already implemented in Project 1. If you have, you are ahead of the curve and have less work to do! 
-
-* Full global illumination (including soft shadows, color bleeding, etc.) by pathtracing rays through the scene. 
-* Properly accumulating emittance and colors to generate a final image
-* Supersampled antialiasing
-* Parallelization by ray instead of by pixel via stream compaction
-* Perfect specular reflection
-
-You are also required to implement at least two of the following features. Some of these features you may have already implemented in Project 1. If you have, you may NOT resubmit those features and instead must pick two new ones to implement.
-
-* Additional BRDF models, such as Cook-Torrance, Ward, etc. Each BRDF model may count as a separate feature. 
-* Texture mapping 
-* Bump mapping
-* Translational motion blur
-* Fresnel-based Refraction, i.e. glass
-* OBJ Mesh loading and rendering without KD-Tree
-* Interactive camera
-* Integrate an existing stackless KD-Tree library, such as CUKD (https://github.com/unvirtual/cukd)
-* Depth of field
-
-Alternatively, implementing just one of the following features can satisfy the "pick two" feature requirement, since these are correspondingly more difficult problems:
-
-* Physically based subsurface scattering and transmission
-* Implement and integrate your own stackless KD-Tree from scratch. 
-* Displacement mapping
-* Deformational motion blur
-
-As yet another alternative, if you have a feature or features you really want to implement that are not on this list, let us know, and we'll probably say yes!
-
--------------------------------------------------------------------------------
-NOTES ON GLM:
--------------------------------------------------------------------------------
-This project uses GLM, the GL Math library, for linear algebra. You need to know two important points on how GLM is used in this project:
-
-* In this project, indices in GLM vectors (such as vec3, vec4), are accessed via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is used, and so on and so forth.
-* GLM Matrix operations work fine on NVIDIA Fermi cards and later, but pre-Fermi cards do not play nice with GLM matrices. As such, in this project, GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is provided as multiplyMV() in intersections.h.
-
--------------------------------------------------------------------------------
-README
--------------------------------------------------------------------------------
-All students must replace or augment the contents of this Readme.md in a clear 
-manner with the following:
-
-* A brief description of the project and the specific features you implemented.
-* At least one screenshot of your project running.
-* A 30 second or longer video of your project running.  To create the video you
-  can use http://www.microsoft.com/expression/products/Encoder4_Overview.aspx 
-* A performance evaluation (described in detail below).
-
--------------------------------------------------------------------------------
-PERFORMANCE EVALUATION
--------------------------------------------------------------------------------
-The performance evaluation is where you will investigate how to make your CUDA
-programs more efficient using the skills you've learned in class. You must have
-performed at least one experiment on your code to investigate the positive or
-negative effects on performance. 
-
-One such experiment would be to investigate the performance increase involved 
-with adding a spatial data-structure to your scene data.
-
-Another idea could be looking at the change in timing between various block
-sizes.
-
-A good metric to track would be number of rays per second, or frames per 
-second, or number of objects displayable at 60fps.
-
-We encourage you to get creative with your tweaks. Consider places in your code
-that could be considered bottlenecks and try to improve them. 
-
-Each student should provide no more than a one page summary of their
-optimizations along with tables and or graphs to visually explain any
-performance differences.
-
--------------------------------------------------------------------------------
-THIRD PARTY CODE POLICY
--------------------------------------------------------------------------------
-* Use of any third-party code must be approved by asking on the Google group.  If it is approved, all students are welcome to use it.  Generally, we approve use of third-party code that is not a core part of the project.  For example, for the ray tracer, we would approve using a third-party library for loading models, but would not approve copying and pasting a CUDA function for doing refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another student's code, is an academic integrity violation, and will result in you receiving an F for the semester.
 
 -------------------------------------------------------------------------------
 SELF-GRADING
