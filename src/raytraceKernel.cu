@@ -157,22 +157,6 @@ __host__ __device__ glm::vec3 computeRefractedRay( ray currentRay, glm::vec3 int
   if ( cos_theta > 0.0 )
     return refractive_index*currentRay.direction + (refractive_index*cos_theta - cos2_theta)*intersection_normal;
   return refractive_index*currentRay.direction + (refractive_index*cos_theta + cos2_theta)*intersection_normal;
-  
-
-  /*
-  int sign = -1;
-  if ( inside ) 
-    sign = 1; 
-  // Check for no transmission 
-  // I'm being lazy here
-  //if ( cos2_theta > 1.0 ) {
-  //  return // something bad happend 
-  return -refractive_index * currentRay.direction \
-         + ( sign*refractive_index*cos_theta + sqrt( cos2_theta )) * intersection_normal;
-  
-  return -currentRay.direction + 10.0f*glm::dot(intersection_normal, currentRay.direction)*intersection_normal;
-  */
-  
 
 }
 
@@ -324,31 +308,49 @@ __global__ void sampleBRDF( int resolution, float time, ray_data* ray_pool, int 
   glm::vec3 new_direction;
   glm::vec3 brdf(1.0, 1.0, 1.0);
 
+  int do_refract = 0;
+  int do_reflect = 0;
+
   if ( index > numberOfRays )
     return;
   
   thrust::default_random_engine rng(hash( index*time ));
   thrust::uniform_real_distribution<float> xi1(0,1);
   thrust::uniform_real_distribution<float> xi2(0,1);
+  thrust::uniform_real_distribution<float> choose(0,1);
 
   obj_index = ray_pool[index].collision_index;
   mat = materials[geoms[obj_index].materialid];
 
+  if ( mat.hasReflective && mat.indexOfRefraction > 0.0 && mat.hasReflective ) {
+    // Randomly choose reflective or refractive 
+    if ( choose(rng) > 0.5 ) {
+      do_reflect = 1;
+    } else {
+      do_refract = 1;
+    }
+  } else if ( mat.hasReflective ) {
+    do_reflect = 1;
+  } else if ( mat.hasRefractive && mat.indexOfRefraction > 0.0 ) {
+    do_refract = 1;
+  }
+
+
+
   // Handle Diffuse 
   // Sample new direction
-  if ( mat.hasReflective ) {
+  if ( do_reflect ) {
     // Calculate reflection vector
     new_direction = computeReflectedRay( ray_pool[index].Ray, ray_pool[index].Intersection.direction );
     //brdf = new_direction;
     brdf = mat.color;
-  } else if ( mat.hasRefractive && mat.indexOfRefraction > 0.0 ) {
+  } else if ( do_refract ) {
     // At the moment this function just does a reflection
     new_direction = computeRefractedRay( ray_pool[index].Ray, ray_pool[index].Intersection.direction, ray_pool[index].inside_object, mat.indexOfRefraction );
     // Toggle inside object tracker
     ray_pool[index].inside_object = !ray_pool[index].inside_object;
     //brdf = new_direction;
-    //brdf = mat.color;
-    brdf = glm::vec3( 1.0, 1.0, 1.0 );
+    brdf = mat.color;
   } else { 
      new_direction = calculateRandomDirectionInHemisphere( ray_pool[index].Intersection.direction, xi1(rng), xi2(rng) );
     float diffuse = glm::dot( new_direction, ray_pool[index].Intersection.direction );
