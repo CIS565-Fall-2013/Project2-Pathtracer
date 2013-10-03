@@ -60,6 +60,9 @@ TileSize vs. Average Time-per-frame ( milli-seconds ) for a 400 by 400 Image on 
 * 8, 0.18
 * 16, 0.25
 
+For a 600 by 600 image using a TileSize of 8 I acheive an average time-per-frame of 0.33 with a raydepth of 6. 
+This comes out to ~6480000 rays/sec. 
+
 Once I fix the thrust::dealloc error in my code ( a quick google search seems to hint at the problem being some sort of ECC problem ) I'm going to do some profiling useing NVidia Visual Profiler ( such a cool tool! ). 
 
 
