@@ -168,13 +168,6 @@ TRANS       5 5 0
 ROTAT       0 0 0
 SCALE       .01 10 10
 
-OBJECT 5				// white diffuse motion blur sphere
-sphere
-material 4
-frame 0
-TRANS       0 2 1.5
-ROTAT       0 180 0
-SCALE       3 3 3
 
 OBJECT 6				// mirror sphere.
 sphere

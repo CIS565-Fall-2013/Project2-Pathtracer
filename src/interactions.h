@@ -195,7 +195,7 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 			retVal = 2;
 		}
 	}
-	else if (m.hasReflective >= u01(rng))	// m.hasReflective between 0 and 1 signifies diffuse reflectance.
+	else if (m.hasReflective)	// m.hasReflective between 0 and 1 signifies diffuse reflectance.
 	{
 		r.direction = glm::normalize (calculateDirectionInLobeAroundNormal (normal, rng));
 		retVal = 1;
