@@ -226,8 +226,8 @@ void runCuda(){
 		switch (key) 
 		{
 		   case(27):
-			   exit(1);
-			   break;
+		     exit(1);
+		     break;
 		}
 	}
 

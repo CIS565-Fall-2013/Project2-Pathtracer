@@ -34,11 +34,13 @@
 struct ray_data { 
   ray Ray; 
   ray Intersection;
+  float intersection_distance;
   int Age;
   int image_index;
   glm::vec3 Incident;
   glm::vec3 Emission;
   int collision_index;
+  int inside_object;
 }; 
 
 enum { DEBUG_COLLISIONS, DEBUG_DIRECTIONS, DEBUG_BRDF, DEBUG_DIFFUSE, DEBUG_NORMALS, DEBUG_DISTANCE, DEBUG_ALL }; 
@@ -134,16 +136,44 @@ __host__ __device__ ray computeLightRay( glm::vec3 light, glm::vec3 intersection
 
 // Calculate reflected ray
 __host__ __device__ glm::vec3 computeReflectedRay( ray currentRay, glm::vec3 intersection_normal ) {
-  return -2*glm::dot(currentRay.direction, intersection_normal)*intersection_normal + currentRay.direction;
+  return currentRay.direction - 2*glm::dot(currentRay.direction, intersection_normal)*intersection_normal;
 }
 
 /* 
    Calculate refracted ray 
-    - At the moment this is just ideal refraction
+    - Fresnel refraction
 */
-__host__ __device__ glm::vec3 computeRefractedRay( ray currentRay, glm::vec3 intersection_normal ) {
+__host__ __device__ glm::vec3 computeRefractedRay( ray currentRay, glm::vec3 intersection_normal, int inside , float mat_refractive_index) {
   // TODO finish
-  return -2*glm::dot(currentRay.direction, intersection_normal)*intersection_normal + currentRay.direction;
+  // Start with index of refraction of 1
+ 
+  float refractive_index = 1.0/mat_refractive_index; 
+  if ( inside ) { 
+    refractive_index = 1.0f/refractive_index;  
+    intersection_normal = -intersection_normal;
+  }
+  float cos_theta = glm::dot( intersection_normal, -currentRay.direction );
+  float cos2_theta = sqrt( 1.0f - refractive_index*refractive_index*( 1.0f - cos_theta*cos_theta ) );
+  if ( cos_theta > 0.0 )
+    return refractive_index*currentRay.direction + (refractive_index*cos_theta - cos2_theta)*intersection_normal;
+  return refractive_index*currentRay.direction + (refractive_index*cos_theta + cos2_theta)*intersection_normal;
+  
+
+  /*
+  int sign = -1;
+  if ( inside ) 
+    sign = 1; 
+  // Check for no transmission 
+  // I'm being lazy here
+  //if ( cos2_theta > 1.0 ) {
+  //  return // something bad happend 
+  return -refractive_index * currentRay.direction \
+         + ( sign*refractive_index*cos_theta + sqrt( cos2_theta )) * intersection_normal;
+  
+  return -currentRay.direction + 10.0f*glm::dot(intersection_normal, currentRay.direction)*intersection_normal;
+  */
+  
+
 }
 
 //Kernel that blacks out a given image buffer
@@ -229,7 +259,7 @@ __global__ void raycastFromCameraKernel( glm::vec2 resolution, float time, camer
 
   // Depth of field needs to be more interactive, need to be able change focal plane
   ray r;
-  r.origin = cam.position + 0.1f*glm::vec3( xv(rng), yv(rng), zv(rng) ); 
+  r.origin = cam.position;// + 0.1f*glm::vec3( xv(rng), yv(rng), zv(rng) ); 
   //r.origin = cam.position;
   r.direction = cam.view + (-2.0f*px_size_x*xf/resolution.x + px_size_x)*glm::cross( cam.view, cam.up ) \
 		         + (-2.0f*px_size_y*yf/resolution.y + px_size_y)*cam.up;
@@ -240,6 +270,7 @@ __global__ void raycastFromCameraKernel( glm::vec2 resolution, float time, camer
   ray_pool[index].image_index = index;
   ray_pool[index].Incident = glm::vec3(1.0, 1.0, 1.0);
   ray_pool[index].Emission = glm::vec3(0.0, 0.0, 0.0);
+  ray_pool[index].inside_object = 0;
 }
 
 /* 
@@ -272,6 +303,7 @@ __global__ void rayCollisions( int resolution, float time, ray_data* ray_pool, i
   ray_pool[index].Intersection.origin = intersection_point;
   ray_pool[index].Intersection.direction= intersection_normal;
   ray_pool[index].collision_index = obj_index;
+  ray_pool[index].intersection_distance = intersection_dist;
 
   // Set mask value to 0 if there is no collision
   if ( obj_index == -1 )
@@ -307,14 +339,20 @@ __global__ void sampleBRDF( int resolution, float time, ray_data* ray_pool, int 
   if ( mat.hasReflective ) {
     // Calculate reflection vector
     new_direction = computeReflectedRay( ray_pool[index].Ray, ray_pool[index].Intersection.direction );
+    //brdf = new_direction;
     brdf = mat.color;
-  } else if ( mat.hasRefractive ) {
+  } else if ( mat.hasRefractive && mat.indexOfRefraction > 0.0 ) {
     // At the moment this function just does a reflection
-    new_direction = computeRefractedRay( ray_pool[index].Ray, ray_pool[index].Intersection.direction );
-    brdf = mat.color;
+    new_direction = computeRefractedRay( ray_pool[index].Ray, ray_pool[index].Intersection.direction, ray_pool[index].inside_object, mat.indexOfRefraction );
+    // Toggle inside object tracker
+    ray_pool[index].inside_object = !ray_pool[index].inside_object;
+    //brdf = new_direction;
+    //brdf = mat.color;
+    brdf = glm::vec3( 1.0, 1.0, 1.0 );
   } else { 
      new_direction = calculateRandomDirectionInHemisphere( ray_pool[index].Intersection.direction, xi1(rng), xi2(rng) );
     float diffuse = glm::dot( new_direction, ray_pool[index].Intersection.direction );
+    //brdf = new_direction;
     brdf = 2*diffuse*mat.color;
     // Diffuse weighting
   }
@@ -344,9 +382,10 @@ __global__ void sampleBRDF( int resolution, float time, ray_data* ray_pool, int 
 
   // Accumulate Lighting 
   ray_pool[index].Emission += ray_pool[index].Incident*mat.emittance*glm::normalize(mat.color);
+  //ray_pool[index].Emission = 1/30.0f*ray_pool[index].intersection_distance*glm::vec3(1.0,1.0,1.0);
   ray_pool[index].Incident *= brdf;
 
-  ray_pool[index].Ray.origin = ray_pool[index].Intersection.origin;
+  ray_pool[index].Ray.origin = ray_pool[index].Intersection.origin + 0.001f*new_direction;
   ray_pool[index].Ray.direction = new_direction;
 
 }
