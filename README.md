@@ -71,25 +71,11 @@ PERFORMANCE EVALUATION
 
 ![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/table.png)
 
-The performance evaluation is where you will investigate how to make your CUDA
-programs more efficient using the skills you've learned in class. You must have
-performed at least one experiment on your code to investigate the positive or
-negative effects on performance. 
-
-One such experiment would be to investigate the performance increase involved 
-with adding a spatial data-structure to your scene data.
-
-Another idea could be looking at the change in timing between various block
-sizes.
-
-A good metric to track would be number of rays per second, or frames per 
-second, or number of objects displayable at 60fps.
-
-We encourage you to get creative with your tweaks. Consider places in your code
-that could be considered bottlenecks and try to improve them. 
-
-Each student should provide no more than a one page summary of their
-optimizations along with tables and or graphs to visually explain any
-performance differences.
+In this Performance evaluation, the speeds or the time elapsed for with and without stream
+campaction is compared. Here initially when the number of bounces are less, without stream 
+campaction would work better because of thrust remove_if overhead calculations for smaller
+bounces.
+Whereas it can be easily seen how the performance improves when the number of threads are reduced 
+when we have more number of bounces and hence more number of rays that can be removed from the raypool
 
 
