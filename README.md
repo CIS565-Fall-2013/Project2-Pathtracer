@@ -46,12 +46,6 @@ CUDA Parallel Prefix Sum: http://http.developer.nvidia.com/GPUGems3/gpugems3_ch3
 Project Demo Video: https://github.com/mchen15/Project2-Pathtracer/blob/master/renders/Path%20Tracer%20Demo.mp4
 
 -------------------------------------------------------------------------------
-SELF-GRADING
--------------------------------------------------------------------------------
-* On the submission date, email your grade, on a scale of 0 to 100, to Liam, liamboone+cis565@gmail.com, with a one paragraph explanation.  Be concise and realistic.  Recall that we reserve 30 points as a sanity check to adjust your grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We hope to only use this in extreme cases when your grade does not realistically reflect your work - it is either too high or too low.  In most cases, we plan to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as the path tracer.  We will determine the weighting at the end of the semester based on the size of each project.
-
--------------------------------------------------------------------------------
 TODO
 -------------------------------------------------------------------------------
 * Squash bugs!
