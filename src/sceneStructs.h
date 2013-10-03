@@ -16,10 +16,17 @@ enum GEOMTYPE{ SPHERE, CUBE, MESH };
 struct ray {
 	glm::vec3 origin;
 	glm::vec3 direction;
+	glm::vec3 coeff;		// specular/diffusive/refractive RGB coefficient
+	float x;				// pixel's x-index
+	float y;				// pixel's y-index
+	float currentIOR;		// IOR of current material being traversed
+	bool alive;				// is this ray still interacting with the scene?
 };
+
 
 struct geom {
 	enum GEOMTYPE type;
+	int objectid;
 	int materialid;
 	int frames;
 	glm::vec3* translations;
@@ -31,6 +38,7 @@ struct geom {
 
 struct staticGeom {
 	enum GEOMTYPE type;
+	int objectid;
 	int materialid;
 	glm::vec3 translation;
 	glm::vec3 rotation;
@@ -71,6 +79,12 @@ struct material{
 	glm::vec3 absorptionCoefficient;
 	float reducedScatterCoefficient;
 	float emittance;
+};
+
+struct R3Intersection {
+	glm::vec3 point;
+	glm::vec3 normal;
+	material* material;
 };
 
 #endif //CUDASTRUCTS_H

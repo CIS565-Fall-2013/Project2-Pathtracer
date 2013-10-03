@@ -12,15 +12,18 @@
 #include "utilities.h"
 #include <thrust/random.h>
 
+#define ERROR 0.75e-3
+
 //Some forward declarations
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
 __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
-__host__ __device__ float boxIntersectionTest(glm::vec3 boxMin, glm::vec3 boxMax, staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ glm::vec3 getRandomPointOnGeom(staticGeom geom, float randomSeed);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
+__host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed);
 
 //Handy dandy little hashing function that provides seeds for random number generation
 __host__ __device__ unsigned int hash(unsigned int a){
@@ -69,98 +72,71 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-//Wrapper for cube intersection test for testing against unit cubes
-__host__ __device__  float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
-  return boxIntersectionTest(glm::vec3(-.5,-.5,-.5), glm::vec3(.5,.5,.5), box, r, intersectionPoint, normal);
+//Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
+__host__ __device__ float geomIntersectionTest(staticGeom geom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+	if (geom.type == CUBE) return boxIntersectionTest(geom, r, intersectionPoint, normal);
+	else if (geom.type == SPHERE) return sphereIntersectionTest(geom, r, intersectionPoint, normal);
+	return (float)-1.0;
 }
 
+//TODO: IMPLEMENT THIS FUNCTION
 //Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
-__host__ __device__  float boxIntersectionTest(glm::vec3 boxMin, glm::vec3 boxMax, staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
-    glm::vec3 currentNormal = glm::vec3(0,0,0);
+__host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+	        
+  glm::vec3 ro = multiplyMV(box.inverseTransform, glm::vec4(r.origin,1.0f));
+  glm::vec3 rd = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction,0.0f)));
 
-    ray ro = r;
+  ray rt; rt.origin = ro; rt.direction = rd;
+  
+  glm::vec3 faceNormals[6];
+  glm::vec3 faceCenters[6];
+  faceNormals[0] = glm::vec3(0,0,-1); faceCenters[0] = glm::vec3(0,0,-0.5);
+  faceNormals[1] = glm::vec3(0,0,-1); faceCenters[1] = glm::vec3(0,0, 0.5);
+  faceNormals[2] = glm::vec3(0,-1,0); faceCenters[2] = glm::vec3(0,-0.5,0);
+  faceNormals[3] = glm::vec3(0, 1,0); faceCenters[3] = glm::vec3(0, 0.5,0);
+  faceNormals[4] = glm::vec3(-1,0,0); faceCenters[4] = glm::vec3(-0.5,0,0);
+  faceNormals[5] = glm::vec3( 1,0,0); faceCenters[5] = glm::vec3( 0.5,0,0);
 
-    glm::vec3 iP0 = multiplyMV(box.inverseTransform,glm::vec4(r.origin, 1.0f));
-    glm::vec3 iP1 = multiplyMV(box.inverseTransform,glm::vec4(r.origin+r.direction, 1.0f));
-    glm::vec3 iV0 = iP1 - iP0;
+  // closest discovered intersection
+  float min_t = -1.0;
+  int min_i = 6;
+  
+  // find intersection of ray with each plane of the box
+  for (unsigned int i = 0; i < 6; i++) {
+	  glm::vec3 normal = faceNormals[i];
+	  glm::vec3 center = faceCenters[i];
 
-    r.origin = iP0; 
-    r.direction = glm::normalize(iV0);
-
-    float tmin, tmax, tymin, tymax, tzmin, tzmax;
-
-    glm::vec3 rsign = getSignOfRay(r);
-    glm::vec3 rInverseDirection = getInverseDirectionOfRay(r);
-
-    if((int)rsign.x==0){
-      tmin = (boxMin.x - r.origin.x) * rInverseDirection.x;
-      tmax = (boxMax.x - r.origin.x) * rInverseDirection.x;
-    }else{
-      tmin = (boxMax.x - r.origin.x) * rInverseDirection.x;
-      tmax = (boxMin.x - r.origin.x) * rInverseDirection.x;
-    }
-
-    if((int)rsign.y==0){
-      tymin = (boxMin.y - r.origin.y) * rInverseDirection.y;
-      tymax = (boxMax.y - r.origin.y) * rInverseDirection.y;
-    }else{
-      tymin = (boxMax.y - r.origin.y) * rInverseDirection.y;
-      tymax = (boxMin.y - r.origin.y) * rInverseDirection.y;
-    }
-
-    if ( (tmin > tymax) || (tymin > tmax) ){
-        return -1;
-    }
-    if (tymin > tmin){
-        tmin = tymin;
-    }
-    if (tymax < tmax){
-        tmax = tymax;
-    }
-
-    if((int)rsign.z==0){
-      tzmin = (boxMin.z - r.origin.z) * rInverseDirection.z;
-      tzmax = (boxMax.z - r.origin.z) * rInverseDirection.z;
-    }else{
-      tzmin = (boxMax.z - r.origin.z) * rInverseDirection.z;
-      tzmax = (boxMin.z - r.origin.z) * rInverseDirection.z;
-    }
-
-    if ( (tmin > tzmax) || (tzmin > tmax) ){
-        return -1;
-    }
-    if (tzmin > tmin){
-        tmin = tzmin;
-    }
-    if (tzmax < tmax){
-        tmax = tzmax;
-    }
-    if(tmin<0){
-        return -1;
-    }
-
-    glm::vec3 osintersect = r.origin + tmin*r.direction;
-
-    if(abs(osintersect.x-abs(boxMax.x))<.001){
-        currentNormal = glm::vec3(1,0,0);
-    }else if(abs(osintersect.y-abs(boxMax.y))<.001){
-        currentNormal = glm::vec3(0,1,0);
-    }else if(abs(osintersect.z-abs(boxMax.z))<.001){
-        currentNormal = glm::vec3(0,0,1);
-    }else if(abs(osintersect.x+abs(boxMin.x))<.001){
-        currentNormal = glm::vec3(-1,0,0);
-    }else if(abs(osintersect.y+abs(boxMin.y))<.001){
-        currentNormal = glm::vec3(0,-1,0);
-    }else if(abs(osintersect.z+abs(boxMin.z))<.001){
-        currentNormal = glm::vec3(0,0,-1);
-    }
-
-    intersectionPoint = multiplyMV(box.transform, glm::vec4(osintersect, 1.0));
-
-
-
-    normal = multiplyMV(box.transform, glm::vec4(currentNormal,0.0));
-    return glm::length(intersectionPoint-ro.origin);
+	  float t = glm::dot((center - rt.origin), normal) / glm::dot(rt.direction, normal);
+	  
+	  // continue if intersection is behind camera
+	  if (t <= 0)
+		  continue;
+	  
+	  // if t is greater than the closest found intersection, skip it
+	  if ((min_t > 0.0) && (t >= min_t))
+		  continue;
+	  
+	  // check to see if the point found is within
+	  // the edges defined by the face
+	  glm::vec3 P = getPointOnRay(rt,t);
+	  if ((P.x >= (-0.5 - ERROR)) && (P.x <= (0.5 + ERROR)) && 
+		  (P.y >= (-0.5 - ERROR)) && (P.y <= (0.5 + ERROR)) && 
+		  (P.z >= (-0.5 - ERROR)) && (P.z <= (0.5 + ERROR)))
+		  min_t = t;
+		  min_i = i;
+  }
+  
+  if (min_t < 0)
+	return (float) -1.0;
+  
+  else {
+	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(rt, min_t), 1.0));
+	glm::vec3 realNormal = glm::normalize(multiplyMV(box.transform, glm::vec4(faceNormals[min_i],0.0f)));
+	intersectionPoint = realIntersectionPoint;
+	normal = realNormal;
+        
+	return glm::length(r.origin - realIntersectionPoint);
+  }
 }
 
 //LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
@@ -177,7 +153,7 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   float vDotDirection = glm::dot(rt.origin, rt.direction);
   float radicand = vDotDirection * vDotDirection - (glm::dot(rt.origin, rt.origin) - pow(radius, 2));
   if (radicand < 0){
-    return -1;
+    return (float) -1.0;
   }
   
   float squareRoot = sqrt(radicand);
@@ -213,6 +189,12 @@ __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){
     float yradius = glm::distance(origin, ymax);
     float zradius = glm::distance(origin, zmax);
     return glm::vec3(xradius, yradius, zradius);
+}
+
+__host__ __device__ glm::vec3 getRandomPointOnGeom(staticGeom geom, float randomSeed){
+	if (geom.type == SPHERE)    { return getRandomPointOnSphere(geom, randomSeed); }
+	else if (geom.type == CUBE) { return getRandomPointOnCube(geom, randomSeed);   }
+	else						{ return glm::vec3(0.0f, 0.0f, 0.0f);			   }
 }
 
 //LOOK: Example for generating a random point on an object using thrust.
@@ -261,20 +243,22 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
        
 }
 
+//TODO: IMPLEMENT THIS FUNCTION
 //Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
-  float radius=.5f;
-  thrust::default_random_engine rng(hash(randomSeed));
-  thrust::uniform_real_distribution<float> u01(-1,1);
-  thrust::uniform_real_distribution<float> u02(0,TWO_PI);
+	
+	float radius=.5f;
+	thrust::default_random_engine rng(hash(randomSeed));
+	thrust::uniform_real_distribution<float> u01(-1,1);
+	thrust::uniform_real_distribution<float> u02(0,TWO_PI);
 
-  float theta = (float)u02(rng);
-  float cosphi = (float)u01(rng);
-  float sinphi = sqrt(1 - cosphi*cosphi);
-  glm::vec3 point = radius*glm::vec3(sinphi*cos(theta),sinphi*sin(theta),cosphi);
-  glm::vec3 randPoint = multiplyMV(sphere.transform, glm::vec4(point,1.0f));
+	float theta = (float)u02(rng);
+	float cosphi = (float)u01(rng);
+	float sinphi = sqrt(1 - cosphi*cosphi);
+	glm::vec3 point = radius*glm::vec3(sinphi*cos(theta),sinphi*sin(theta),cosphi);
+	glm::vec3 randPoint = multiplyMV(sphere.transform, glm::vec4(point,1.0f));
 
-  return randPoint;
+	return randPoint;
 }
 
 #endif

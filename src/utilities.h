@@ -17,18 +17,19 @@
 #include <vector>
 #include "cudaMat4.h"
 
-const float PI                          =3.1415926535897932384626422832795028841971;
-const float TWO_PI                      =6.2831853071795864769252867665590057683943;
-const float SQRT_OF_ONE_THIRD           =0.5773502691896257645091487805019574556476;
-const float E                           =2.7182818284590452353602874713526624977572;
-const float EPSILON                     =.000000001;
-const float ZERO_ABSORPTION_EPSILON     =0.00001;
-const float RAY_BIAS_AMOUNT             =0.0002;
+#define PI                          3.1415926535897932384626422832795028841971
+#define TWO_PI                      6.2831853071795864769252867665590057683943
+#define SQRT_OF_ONE_THIRD           0.5773502691896257645091487805019574556476
+#define E                           2.7182818284590452353602874713526624977572
+#define EPSILON                     .000000001
+#define ZERO_ABSORPTION_EPSILON     0.00001
+#define RAY_BIAS_AMOUNT             0.0002
 
 namespace utilityCore {
     extern float clamp(float f, float min, float max);
     extern bool replaceString(std::string& str, const std::string& from, const std::string& to);
     extern glm::vec3 clampRGB(glm::vec3 color);
+    extern glm::vec3 clampLight(glm::vec3 color);
     extern bool epsilonCheck(float a, float b);
     extern std::vector<std::string> tokenizeString(std::string str); 
     extern cudaMat4 glmMat4ToCudaMat4(glm::mat4 a);
