@@ -104,22 +104,11 @@ Last but not the least, since these are interactive features, images will not be
 https://vimeo.com/76013561
 
 **SECRET SAUCE** behind these user interactive features,
-In the first iteration and first bounce, I am capturing the depth and the object IDs at every pixel. 
+In the first iteration and the first bounce, I am capturing the depth and the object IDs at every pixel. 
 	+ "Depth map" : This helps in interactive DOF. We just set the focal plane to the value of the clicked pixel in the depth buffer
 	+ "OBJID map" : This is how I identify which pixels correspond to which objects. Basis of both interactive textures and interactive translations features.
 Here is an example depth map,
-
--------------------------------------------------------------------------------
-README
--------------------------------------------------------------------------------
-All students must replace or augment the contents of this Readme.md in a clear 
-manner with the following:
-
-* A brief description of the project and the specific features you implemented.
-* At least one screenshot of your project running.
-* A 30 second or longer video of your project running.  To create the video you
-  can use http://www.microsoft.com/expression/products/Encoder4_Overview.aspx 
-* A performance evaluation (described in detail below).
+![alt tag](https://raw.github.com/vimanyu/Project2-Pathtracer/master/renders/depthMap_pool.bmp)
 
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
