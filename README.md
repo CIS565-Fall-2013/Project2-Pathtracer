@@ -1,24 +1,34 @@
 -------------------------------------------------------------------------------
-CIS565: Project 2: CUDA Pathtracer
--------------------------------------------------------------------------------
-Fall 2013
--------------------------------------------------------------------------------
-Due Wednesday, 10/02/13
--------------------------------------------------------------------------------
-
+CIS565 Fall 2013: Project 2: CUDA Pathtracer
 -------------------------------------------------------------------------------
 NOTE:
 -------------------------------------------------------------------------------
-This project requires an NVIDIA graphics card with CUDA capability! Any card after the Geforce 8xxx series will work. If you do not have an NVIDIA graphics card in the machine you are working on, feel free to use any machine in the SIG Lab or in Moore100 labs. All machines in the SIG Lab and Moore100 are equipped with CUDA capable NVIDIA graphics cards. If this too proves to be a problem, please contact Patrick or Liam as soon as possible.
+This project requires an NVIDIA graphics card with CUDA compute 2.0 capability! 
+
 
 -------------------------------------------------------------------------------
 INTRODUCTION:
 -------------------------------------------------------------------------------
-In this project, you will extend your raytracer from Project 1 into a full CUDA based global illumination pathtracer. 
+This is a basic path tracing engine written in CUDA. 
 
-For this project, you may either choose to continue working off of your codebase from Project 1, or you may choose to use the included basecode in this repository. The basecode for Project 2 is the same as the basecode for Project 1, but with some missing components you will need filled in, such as the intersection testing and camera raycasting methods. 
+It is capable of simulating a diverse set of materials including matte diffuse surfaces, 
+metalics, glossy smooth mirrors, translucent and transparent refractive materials, 
+glass and speckled tinted glass.
 
-How you choose to extend your raytracer into a pathtracer is a fairly open-ended problem; the supplied basecode is meant to serve as one possible set of guidelines for doing so, but you may choose any approach you want in your actual implementation, including completely scrapping the provided basecode in favor of your own from-scratch solution.
+![This scene contains elements of every feature implemented](/renders/fuzzyglass_fresnel.bmp "Speckled Tinted Glass")
+
+-------------------------------------------------------------------------------
+Features:
+-------------------------------------------------------------------------------
+
+* Full global illumination (including soft shadows, color bleeding, etc.) by pathtracing rays through the scene. 
+* Supersampled antialiasing
+* Parallelization by ray instead of by pixel
+* Perfect specular reflection
+* Scattered specular reflection and transmission (fuzzy glass/mirrors)
+* Fresnel-based reflection/refraction (i.e. glass)
+* Stream compaction for optimizing high bounce counts in open scenes
+* Optional Global Lighting sources for faster convergence
 
 -------------------------------------------------------------------------------
 CONTENTS:
@@ -40,42 +50,37 @@ The Project2 root directory contains the following subdirectories:
 The projects build and run exactly the same way as in Project0 and Project1.
 
 -------------------------------------------------------------------------------
-REQUIREMENTS:
+Interactive Controls
 -------------------------------------------------------------------------------
-In this project, you are given code for:
+The engine was designed so that many features could modified at runtime to allow easy exploration of the effects of various parameters. In addition, several debug modes were implemented that graphically display additional information about the scene. These options to result in more complex kernels that have a negative impact on performance. I preferred the flexibility to quickly experiment for this project, but in the path tracer I will be redesigning the kernel structure from the ground up with performance in mind.
 
-* All of the basecode from Project 1, plus:
-* Intersection testing code for spheres and cubes
-* Code for raycasting from the camera
+Here is a complete list of the keypress commands you can use at runtime.
 
-You will need to implement the following features. A number of these required features you may have already implemented in Project 1. If you have, you are ahead of the curve and have less work to do! 
+Keypress | Function
+--- | ---
+A | Toggles Anti-Aliasing
+S | Toggles Stream Compaction
+F | Toggles Frame Filtering
+G | Toggles Harsh Global Shadows
+f | Clears frame filter
+= | Increase trace depth
+- | Decrease trace dept
+ESC | Exit
+1 | Pathtracing Render Mode
+2 | Ray Coverage Debug Mode
+3 | Trace Depth Debug Mode
+4 | First Hit Debug Mode
+5 | Normals Debug Mode
 
-* Full global illumination (including soft shadows, color bleeding, etc.) by pathtracing rays through the scene. 
-* Properly accumulating emittance and colors to generate a final image
-* Supersampled antialiasing
-* Parallelization by ray instead of by pixel via stream compaction
-* Perfect specular reflection
 
-You are also required to implement at least two of the following features. Some of these features you may have already implemented in Project 1. If you have, you may NOT resubmit those features and instead must pick two new ones to implement.
 
-* Additional BRDF models, such as Cook-Torrance, Ward, etc. Each BRDF model may count as a separate feature. 
-* Texture mapping 
-* Bump mapping
-* Translational motion blur
-* Fresnel-based Refraction, i.e. glass
-* OBJ Mesh loading and rendering without KD-Tree
-* Interactive camera
-* Integrate an existing stackless KD-Tree library, such as CUKD (https://github.com/unvirtual/cukd)
-* Depth of field
 
-Alternatively, implementing just one of the following features can satisfy the "pick two" feature requirement, since these are correspondingly more difficult problems:
 
-* Physically based subsurface scattering and transmission
-* Implement and integrate your own stackless KD-Tree from scratch. 
-* Displacement mapping
-* Deformational motion blur
+-------------------------------------------------------------------------------
+PERFORMANCE EVALUATION
+-------------------------------------------------------------------------------
+...
 
-As yet another alternative, if you have a feature or features you really want to implement that are not on this list, let us know, and we'll probably say yes!
 
 -------------------------------------------------------------------------------
 NOTES ON GLM:
@@ -85,63 +90,9 @@ This project uses GLM, the GL Math library, for linear algebra. You need to know
 * In this project, indices in GLM vectors (such as vec3, vec4), are accessed via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is used, and so on and so forth.
 * GLM Matrix operations work fine on NVIDIA Fermi cards and later, but pre-Fermi cards do not play nice with GLM matrices. As such, in this project, GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is provided as multiplyMV() in intersections.h.
 
--------------------------------------------------------------------------------
-README
--------------------------------------------------------------------------------
-All students must replace or augment the contents of this Readme.md in a clear 
-manner with the following:
-
-* A brief description of the project and the specific features you implemented.
-* At least one screenshot of your project running.
-* A 30 second or longer video of your project running.  To create the video you
-  can use http://www.microsoft.com/expression/products/Encoder4_Overview.aspx 
-* A performance evaluation (described in detail below).
 
 -------------------------------------------------------------------------------
-PERFORMANCE EVALUATION
+THIRD PARTY CODE
 -------------------------------------------------------------------------------
-The performance evaluation is where you will investigate how to make your CUDA
-programs more efficient using the skills you've learned in class. You must have
-performed at least one experiment on your code to investigate the positive or
-negative effects on performance. 
-
-One such experiment would be to investigate the performance increase involved 
-with adding a spatial data-structure to your scene data.
-
-Another idea could be looking at the change in timing between various block
-sizes.
-
-A good metric to track would be number of rays per second, or frames per 
-second, or number of objects displayable at 60fps.
-
-We encourage you to get creative with your tweaks. Consider places in your code
-that could be considered bottlenecks and try to improve them. 
-
-Each student should provide no more than a one page summary of their
-optimizations along with tables and or graphs to visually explain any
-performance differences.
-
--------------------------------------------------------------------------------
-THIRD PARTY CODE POLICY
--------------------------------------------------------------------------------
-* Use of any third-party code must be approved by asking on the Google group.  If it is approved, all students are welcome to use it.  Generally, we approve use of third-party code that is not a core part of the project.  For example, for the ray tracer, we would approve using a third-party library for loading models, but would not approve copying and pasting a CUDA function for doing refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another student's code, is an academic integrity violation, and will result in you receiving an F for the semester.
-
--------------------------------------------------------------------------------
-SELF-GRADING
--------------------------------------------------------------------------------
-* On the submission date, email your grade, on a scale of 0 to 100, to Liam, liamboone+cis565@gmail.com, with a one paragraph explanation.  Be concise and realistic.  Recall that we reserve 30 points as a sanity check to adjust your grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We hope to only use this in extreme cases when your grade does not realistically reflect your work - it is either too high or too low.  In most cases, we plan to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as the path tracer.  We will determine the weighting at the end of the semester based on the size of each project.
-
--------------------------------------------------------------------------------
-SUBMISSION
--------------------------------------------------------------------------------
-As with the previous project, you should fork this project and work inside of your fork. Upon completion, commit your finished project back to your fork, and make a pull request to the master repository.
-You should include a README.md file in the root directory detailing the following
-
-* A brief description of the project and specific features you implemented
-* At least one screenshot of your project running, and at least one screenshot of the final rendered output of your pathtracer
-* Instructions for building and running your project if they differ from the base code
-* A link to your blog post detailing the project
-* A list of all third-party code used
+My implementation of parallel exclusive scan in CUDA was greatly influenced by this GPUGems article: http://http.developer.nvidia.com/GPUGems3/gpugems3_ch39.html 
+I had to rewrite it all myself and implement the arbitrary length array code, but the bulk of the code is very similar.
