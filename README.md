@@ -57,10 +57,14 @@ Stream compaction ensures that kernel invocations work on valid rays, reducing t
 ##Development environment
 * Visual Studio 2012 on Windows 7
 * How to build
-Make sure the project has correct INCLUDE and LIBRARY Pathes of the above libraries.
-Make sure the CUDA 5.5 is selected in the [Build Customization] Setting.
-Make sure the compute_10/sm_10 compute version is remvoed from the Code Generation setting under the [0CUDA C/C++] setting
-Place the needed DLL inside the execution folder.
-Place testScene.scene and model venusv.obj & box.obj in the execution folder.
+Make sure the project has correct INCLUDE and LIBRARY Pathes of the above libraries.  
+
+Make sure the CUDA 5.5 is selected in the [Build Customization] Setting.  
+
+Make sure the compute_10/sm_10 compute version is remvoed from the Code Generation setting under the [0CUDA C/C++] setting  
+
+Place the needed DLL inside the execution folder.  
+
+Place testScene.scene and model teapot.obj in the execution folder.
 You are good to go.
   
