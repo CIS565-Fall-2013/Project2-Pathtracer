@@ -1,11 +1,12 @@
-![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/all_features.bmp)
-
-Screenshot showing all features implemented.
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/dof_nice.bmp)
 
 -------------------------------------------------------------------------------
 Pathtracer:
 -------------------------------------------------------------------------------
-![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/dof_nice.bmp)
+![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/all_features.bmp)
+Screenshot showing all features implemented.
+
+
 
 ![screenshot](https://raw.github.com/uriahjb/Project2-PathTracer/master/renders/dof_refl_refr.bmp)
 
