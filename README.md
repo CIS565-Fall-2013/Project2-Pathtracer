@@ -7,7 +7,7 @@ It has the following features:
  4. Depth of field effect
  5. OBJ model rendering support  
  
-![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot4.png "Result after 1000 iterations")
+![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot4.png "Result after 2000 iterations")
 
 ##Implementation Details:
  **This work was extended from my previous project, which is a CUDA-based ray tracer.** 
@@ -32,6 +32,8 @@ It has the following features:
  
  **Depth of field effect is realized by randomly offsetting the eye position at the start of each iteration.**
  
-##performance:
-  
+##Performance evaluation:
+  **Coupled with Russian Roulette, stream compaction can greatly reduce path traversing time, as shown in the following chart:
+ ![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot4.png "Result after 2000 iterations")
+Stream compaction ensures that 
   
