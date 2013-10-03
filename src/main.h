@@ -50,6 +50,8 @@ using namespace std;
 
 scene* renderScene;
 camera* renderCam;
+geom* geoms;
+material* materials;
 int targetFrame;
 int iterations;
 bool finishedRender;
@@ -100,6 +102,7 @@ void runCuda();
 	void init(int argc, char* argv[]);
 #endif
 
+void memCleanup();
 void initPBO(GLuint* pbo);
 void initCuda();
 void initTextures();

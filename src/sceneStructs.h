@@ -85,6 +85,7 @@ struct rayBounce{
 	int currDepth;
 	bool dead;
 	glm::vec3 color;	//current color of the ray, use to attenuate
+
 };
 
 #endif //CUDASTRUCTS_H

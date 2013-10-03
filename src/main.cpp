@@ -70,7 +70,7 @@ int main(int argc, char** argv){
 	init(argc, argv);
   #endif
 
-	initCuda();
+  initCuda();
 
   initVAO();
   initTextures();
@@ -113,20 +113,8 @@ void runCuda(){
     uchar4 *dptr=NULL;
     iterations++;
     cudaGLMapBufferObject((void**)&dptr, pbo);
-  
-    //pack geom and material arrays
-    geom* geoms = new geom[renderScene->objects.size()];
-    material* materials = new material[renderScene->materials.size()];
-    
-    for(int i=0; i<renderScene->objects.size(); i++){
-      geoms[i] = renderScene->objects[i];
-    }
-    for(int i=0; i<renderScene->materials.size(); i++){
-      materials[i] = renderScene->materials[i];
-    }
-    
+ 
 	//t = clock();
-  
     // execute the kernel
     cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), clearImage);
     
@@ -136,7 +124,7 @@ void runCuda(){
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   }else{
-	 
+
     if(!finishedRender){
       //output image file
       image outputImage(renderCam->resolution.x, renderCam->resolution.y);
@@ -232,14 +220,14 @@ void runCuda(){
 	void keyboard(unsigned char key, int x, int y)
 	{
 		//std::cout << key << std::endl;
-		
+
 		switch (key) 
 		{
 
 		case(27):
 			exit(1);
 			break;
-			
+
 		case('a'):
 			renderCam->positions[targetFrame].x += 1.0f;
 			iterations = 0;
@@ -343,6 +331,12 @@ void initPBO(GLuint* pbo){
   }
 }
 
+void memCleanup(){
+	delete[] geoms;
+	delete[] materials;
+
+}
+
 void initCuda(){
   // Use device with highest Gflops/s
   cudaGLSetGLDevice( compat_getMaxGflopsDeviceId() );
@@ -352,8 +346,21 @@ void initCuda(){
   // Clean up on program exit
   atexit(cleanupCuda);
   atexit(cudaFreeMemory);
+  atexit(memCleanup);
 
-  cudaAllocMemory(renderCam->resolution);
+  //pack geom and material arrays
+  geoms = new geom[renderScene->objects.size()];
+  materials = new material[renderScene->materials.size()];
+    
+  for(int i=0; i<renderScene->objects.size(); i++){
+	  geoms[i] = renderScene->objects[i];
+  }
+  for(int i=0; i<renderScene->materials.size(); i++){
+	  materials[i] = renderScene->materials[i];
+  }
+  //copy stuff to the gpu
+  cudaAllocMemory(renderCam, materials, renderScene->materials.size(), geoms, renderScene->objects.size());
+  
   runCuda();
 }
 

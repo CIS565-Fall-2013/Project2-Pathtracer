@@ -21,7 +21,8 @@
 #endif
 
 //for first bounce
-void cudaAllocMemory(glm::vec2 resolution);
+//void cudaAllocMemory(camera* renderCam, int frame, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+void cudaAllocMemory(camera* renderCam, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
 
 void cudaFreeMemory();
 
