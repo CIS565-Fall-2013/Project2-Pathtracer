@@ -163,34 +163,22 @@ HOW TO BUILD
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
-Tested sample scene with trace depth 2, all features enabled.
 
+* Executin time with different block sizes (motion blur enabled, DoF disabled, 10 bounces with stream compaction and tileSize = 8)
 
-* FPS under different block sizes
-   - block dimension = 8*8        : 43
-   - block dimension = 9*9        : 37
-   - block dimension = 10*10    : 37
-   - block dimension = 11*11    : 41
-   - block dimension = 12*12    : 38
-   - block dimension = 13*13    : 34
-   - block dimension = 14*14    : 36
-   - block dimension = 15*15    : 39
-   - block dimension = 16*16    : 43
-   - block dimension = 17*17    : 30
-   - block dimension = 18*18    : 32
-   - block dimension = 19*19    : 34
-   - block dimension = 20*20    : 36
-   - block dimension = 21*21    : 37
-   - block dimension = 22*22    : 40
-   - block dimension >= 23*23    : kernel failed! too many resources requested for launch
+ ![Alt text](Performance Evaluation/block size vs execution time.jpg?raw=true)
 
-* FPS for block dimension = 8*8 with 2X jittered SSAA: 16
-   - Switch code generation from compute_20,sm_20 to compute_30,sm_30: 20
-   - Use fast math: 27
+* Evaluate the effect of stream compaction under different bounces (motion blur enabled, DoF disabled, and tileSize = 8)
+ 
+ ![Alt text](Performance Evaluation/Stream compaction vs no stream compaction.jpg?raw=true)
 
-It seemes to me that program executes fastest when image size (800*800) is divisible by block size. 
+ It turns out that stream compaction is only effective when doing many bounces (>15), possibly because of the additional kernel launch overhead.
+ However, making number of bounces 10 or 100 does not really make a big difference in terms of convergence rate because the majority of the rays
+ will be terminated after 10 bounce. 
+
 
 * Test Bench:
+    * Windows 7 x64 Professional
 	* CPU: Intel(R) Core(TM) i7-3770K CPU @ 3.50GHz
 	* GPU: GeForce GTX TITAN (6GB)
 	* Memory: 16GB
