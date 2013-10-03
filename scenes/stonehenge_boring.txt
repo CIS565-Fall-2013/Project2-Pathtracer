@@ -75,7 +75,7 @@ EMITTANCE   0
 MATERIAL 	6 					//Moonlight
 RGB         1 1 1       	//Emitter Color
 SPECEX      -1					//Flag to use as global light material				
-SPECRGB     0.01 0.01 0.01       //Direct lighting background color (daylight sky blue)
+SPECRGB     0.1 0.1 0.2       //Direct lighting background color (daylight sky blue)
 REFL        0 //Must be zero
 REFR        0 //Must be zero       
 REFRIOR     0       
@@ -88,18 +88,18 @@ CAMERA
 RES         600 600
 FOVY        25
 ITERATIONS  500
-FILE        stonehenge.bmp
+FILE        sundial3_moonlight.bmp
 frame 0
-EYE         0 15 50
+EYE         0 25 75
 VIEW        0 0 -1
 UP          0 1 0
 
 //Global light
 OBJECT 0
 sphere
-material 0
+material 6
 frame 0
-TRANS       2e4 2e4 -1e5
+TRANS      -1e4 5e4 -3e4
 ROTAT       0 0 0
 SCALE       1e4 1e4 1e4
 
@@ -135,9 +135,9 @@ OBJECT 4
 cube
 material 1
 frame 0
-TRANS       0 5 0
+TRANS       0 7 0
 ROTAT       0 0 0
-SCALE       10 1 10
+SCALE       15 1 15
 
 
 //Center Altar bottom
@@ -145,9 +145,9 @@ OBJECT 5
 cube
 material 1
 frame 0
-TRANS       0 4 0
+TRANS       0 5 0
 ROTAT       0 0 0
-SCALE       9.5 1 9.5
+SCALE       9.5 2 9.5
 
 
 //Pier Pilar
@@ -157,6 +157,6 @@ material 1
 frame 0
 TRANS       0 10 0
 ROTAT       0 0 0
-SCALE       5 20 1
+SCALE       1 10 1
 
 

@@ -186,7 +186,7 @@ FOVY        25
 ITERATIONS  1000
 FILE        hallofmirrors.bmp
 frame 0
-EYE         0 4 5
+EYE         0 4 8
 VIEW        0 0 -1
 UP          0 1 0
 
