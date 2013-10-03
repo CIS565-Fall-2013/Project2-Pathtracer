@@ -6,9 +6,11 @@ It has the following features:
  3. Interactive camera
  4. Depth of field effect
  5. OBJ model rendering support  
- 
+
+**Recording of execution: http://www.youtube.com/watch?v=noNKCQpq5iA&feature=youtu.be**
 ![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot4.png "Result after 2000 iterations")
 ![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot6_120iteration.png "Result after 120 iterations")
+
 ##Implementation Details:
  **This work was extended from my previous project, which is a CUDA-based ray tracer.** 
  To make it have a better interactivity, the tracing of an eye ray is broken into 
@@ -37,6 +39,16 @@ It has the following features:
  ![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot6.png "chart")
 Stream compaction ensures that kernel invocations work on valid rays, reducing the chances of branch divergences.
 
+##Third-party code
+ * GLM object loader from [Nate Robins](https://user.xmission.com/~nate/tutors.html)
+
+##Third-party libraries
+  * [GLEW](http://glew.sourceforge.net/)
+  * [Freeglut](http://freeglut.sourceforge.net/)
+  * [FreeImage](http://freeimage.sourceforge.net/)
+  * [GLM](http://glm.g-truc.net/0.9.4/index.html)  
+  * [GLUI](http://glui.sourceforge.net/)
+  
 ##Development environment
 * Visual Studio 2012 on Windows 7
 * How to build
