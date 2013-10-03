@@ -84,22 +84,30 @@ As you can see, this was too much fun. So here is an image with everything textu
 According to me, this was the coolest part of the assignment. User interaction with photorealistic rendering algorithms are best avoided, but hey, we have the GPU! And we have inherently formulated the path tracing algorithm in a parallel and iterative fashion. This makes it idea for user interaction.
 There are three types of user interactions supported.
 
-1. Interactive "look-at" depth of field: The user can focus on any part of the image by using the right mouse button. Just click and let it be in focus! 
-2. Interactive positioning of objects on screen: LMB on any object in the scene, and use the following keys to move the object
+1. Interactive "look-at" depth of field: 
+   The user can focus on any part of the image by using the right mouse button. Just click and let it be in focus! 
+2. Interactive positioning of objects on screen: 
+   LMB on any object in the scene, and use the following keys to move the object
    + x : move in positive x-direction
    + X : move in negative x-direction
    + y : move in positive y-direction
    + Y : move in negative y-direction
    + z : move in positive z-direction
    + Z : move in negative z-direction
-3. Interacitve editing of procedural textures : Press "t" on the keyboard to enter/exit the world of procedural textures. This feature grew out of necessity. It was taking me quite a while to come up with good settings for the "attempted" earth procedural texture above. So, I thought it might be covenient to do this visually.
+3. Interacitve editing of procedural textures : 
+   Press "t" on the keyboard to enter/exit the world of procedural textures. This feature grew out of necessity. It was taking me quite a while to come up with good settings for the "attempted" earth procedural texture above. So, I thought it might be covenient to do this visually.
 Finally, I ended up implementing this feature as an integral part of path tracer. We can think of it like this. If you don't like the way, your procedural textures are rendering in your path tracer, you can hit 't' and set your textures as per your liking, and then hit 't' again to path trace with these textures.
 A "Texture session"  basically shows a flat color render without any lighting.  The user can tweak values (see the keyboard controls given below) and interactively see if he likes any of the textures. Right now, the interface doesn't cover "all" the parameters, so you will be basically see derivations or variations from an existing configuration. For example, you can't change the colors, but can change the pattern.
-
 
 Last but not the least, since these are interactive features, images will not be able to describe completely. Please see the **video of these features**at this link,
 
 https://vimeo.com/76013561
+
+**SECRET SAUCE** behind these user interactive features,
+In the first iteration and first bounce, I am capturing the depth and the object IDs at every pixel. 
+	+ "Depth map" : This helps in interactive DOF. We just set the focal plane to the value of the clicked pixel in the depth buffer
+	+ "OBJID map" : This is how I identify which pixels correspond to which objects. Basis of both interactive textures and interactive translations features.
+Here is an example depth map,
 
 -------------------------------------------------------------------------------
 README
