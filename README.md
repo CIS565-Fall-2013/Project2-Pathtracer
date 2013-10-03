@@ -55,12 +55,13 @@ With Depth of Field
 ![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/6.png)
 
 With Motion Blur 
-![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/7.png)
+![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/8.png)
 
 With OBJ loader and bounding boxes 
+![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/7.png)
+
+Other renders
 ![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/2.png)
-
-
 
 -------------------------------------------------------------------------------
 REQUIREMENTS:
