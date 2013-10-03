@@ -32,21 +32,19 @@ Was achieved by reflecting the rays when they hit the reflective surface
 -------------------------------------------------------------------------------
 ScreenShots :
 -------------------------------------------------------------------------------
-The Project2 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio solution and the OSX makefile reference this folder for all source; the base source code compiles on OSX and Windows without modification.
-* scenes/ contains an example scene description file.
-* renders/ contains two example renders: the raytraced render from Project 1 (GI_no.bmp), and the same scene rendered with global illumination (GI_yes.bmp). 
-* PROJ1_WIN/ contains a Windows Visual Studio 2010 project and all dependencies needed for building and running on Windows 7.
-* PROJ1_OSX/ contains a OSX makefile, run script, and all dependencies needed for building and running on Mac OSX 10.8. 
-* PROJ1_NIX/ contains a Linux makefile for building and running on Ubuntu 
-  12.04 LTS. Note that you will need to set the following environment
-  variables: 
-    
-  - PATH=$PATH:/usr/local/cuda-5.5/bin
-  - LD_LIBRARY_PATH=/usr/local/cuda-5.5/lib64:/lib
+![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/2.png)
 
-The projects build and run exactly the same way as in Project0 and Project1.
+![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/3.png)
+
+![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/4.png)
+
+![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/5.png)
+
+![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/6.png)
+
+![alt tag](https://raw.github.com/vivreddy/Project2-Pathtracer/master/renders/7.png)
+
+
 
 -------------------------------------------------------------------------------
 REQUIREMENTS:
