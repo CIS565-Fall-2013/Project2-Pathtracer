@@ -403,13 +403,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     //Send maxmins of the mesh to GPU
   float* mami = NULL;
   cudaMalloc((void**)&mami,6 * sizeof(float));
- /*  if(maxmin != NULL)
-  {*/
+  if(maxmin != NULL)
+  {
   for(int i=0; i < 6; i++){
 	   
 	   cudaMemcpy( &mami[i] , &maxmin[i], sizeof(float), cudaMemcpyHostToDevice);
   }
- //  }
+  }
 
   //package geometry and materials and sent to GPU
   staticGeom* geomList = new staticGeom[numberOfGeoms];
@@ -489,10 +489,18 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   //geoms[mID].inverseTransforms[0] = utilityCore::glmMat4ToCudaMat4(glm::inverse(utilityCore::cudaMat4ToGlmMat4(geoms[mID].transforms[0])));
 
 
+  //create events
+cudaEvent_t event1, event2;
+cudaEventCreate(&event1);
+cudaEventCreate(&event2);
+
+cudaEventRecord(event1, 0); 
+
+
   int N  = ((int)renderCam->resolution.x*(int)renderCam->resolution.y);
   dim3 StreamBlocksPerGrid = fullBlocksPerGrid ;
   int blockdim = fullBlocksPerGrid.x ;
-  for(int bounce = 1; bounce <=5; ++bounce)
+  for(int bounce = 1; bounce <=25; ++bounce)
   {   
  
   raytraceRay<<<StreamBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, (float)bounce, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials,raypool,colorBounce,bounce,N,blockdim,mvertex,numVertices,mami);
@@ -504,22 +512,25 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   int numofBlocks = ceil((float)N / (float)(tileSize * tileSize)) ;
   blockdim = ceil(sqrt((float)numofBlocks));
   StreamBlocksPerGrid = dim3(blockdim,blockdim);
-
-
-  //int rows = (int)N / ( (int)renderCam->resolution.x)    ;
-  //int rem = N %  ( (int)renderCam->resolution.x) ;
-  //if ( rem != 0 )
-	 // rows = rows + 1 ;
-  ////StreamBlocksPerGrid = dim3((int)ceil((float)N / (float)tileSize ),(int)((float)N / (float)tileSize )) ;
-  //StreamBlocksPerGrid = dim3((int)ceil(float(renderCam->resolution.x)/float(tileSize)) , (int)ceil(float(rows)/float(tileSize)));
- // StreamBlocksPerGrid = dim3(rows , rows ) ;
   cudaThreadSynchronize();
   }
-  //int j = 5 ;
+  
   finalizeraycolor<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution,colorBounce,cudaimage,(float)iterations);
   cudaThreadSynchronize();
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 
+
+
+    cudaEventRecord(event2, 0);
+	//synchronize
+	cudaEventSynchronize(event1); //optional
+	cudaEventSynchronize(event2); //wait for the event to be executed!
+
+//calculate time
+float dt_ms;
+cudaEventElapsedTime(&dt_ms, event1, event2);
+
+std::cout << dt_ms << std::endl ;
   //retrieve image from GPU
   cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
