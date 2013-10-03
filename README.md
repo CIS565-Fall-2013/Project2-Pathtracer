@@ -102,7 +102,7 @@ feelers, gives us full global illumination (notice the color bleeding from the
 walls onto the ceiling/floor/spheres and dark spots on the corners where light gets
 trapped), and computes diffuse lighting that varies with the incoming light angle.
 
-![Global Illumination](https://raw.github.com/rarietta/Project2-PathTracer/master/PROJ1_WIN/565Raytracer/README_images/diffuse.bmp]
+![Global Illumination](https://raw.github.com/rarietta/Project2-PathTracer/master/PROJ1_WIN/565Raytracer/README_images/diffuse.bmp)
 
 -------------------------------------------------------------------------------
 Perfect Specular Reflection
@@ -120,7 +120,7 @@ is specular (or refractive, see below), then a defined float value 0.3 is used a
 the probability of diffuse reflection. The probabilities of specular reflection
 and refraction are computed via Fresnel equations.
 
-![Perfect Specular Reflection](https://raw.github.com/rarietta/Project2-PathTracer/master/PROJ1_WIN/565Raytracer/README_images/specular.bmp]
+![Perfect Specular Reflection](https://raw.github.com/rarietta/Project2-PathTracer/master/PROJ1_WIN/565Raytracer/README_images/specular.bmp])
 
 -------------------------------------------------------------------------------
 Fresnel Refraction
@@ -131,7 +131,7 @@ as glass. We can see that the refractive glass inverts the view of the scene beh
 it, and the path tracer automatically accounts for caustics formed under the glass
 in the direction of the light source (note the bright spot on the wall.)
 
-![Fresnel Refraction](https://raw.github.com/rarietta/Project2-PathTracer/master/PROJ1_WIN/565Raytracer/README_images/refraction.bmp]
+![Fresnel Refraction](https://raw.github.com/rarietta/Project2-PathTracer/master/PROJ1_WIN/565Raytracer/README_images/refraction.bmp)
 
 -------------------------------------------------------------------------------
 Addition of Supersampled AntiAliasing
