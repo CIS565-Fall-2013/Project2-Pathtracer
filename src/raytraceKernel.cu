@@ -32,7 +32,7 @@
 #define TITLESIZE 8
 #define MOTIONBLUR 1
 #define DOF 16
-#define MAXDEPTH 5
+#define MAXDEPTH 12
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
@@ -371,7 +371,7 @@ __host__ __device__ void pathTraceIterative(ray r, int rayDepth, staticGeom* geo
 
 		float cosTheta = glm::dot(r.direction, normal);
 
-		if(currMaterial.hasReflective > 0.0f)//Reflective
+		if(currMaterial.hasReflective > 0.0f && ran.z < currMaterial.hasReflective)//Reflective
 		{
 			glm::vec3 reflectionDirection = calculateReflectionDirection(normal, r.direction);			
 			r.origin = intersectionPoint + 0.01f * reflectionDirection;
@@ -385,6 +385,8 @@ __host__ __device__ void pathTraceIterative(ray r, int rayDepth, staticGeom* geo
 				fresnel = calculateFresnel(-normal, r.direction, currMaterial.indexOfRefraction, 1.0f, reflectedColor, refractedColor);
 
 			color *= fresnel.reflectionCoefficient;
+			color *= currMaterial.color;
+			continue;
 		}
 		else if(currMaterial.hasRefractive> 0.0f)//Refractive
 		{
@@ -499,11 +501,23 @@ __host__ __device__ int pathTraceIterativeSC(ray& r, staticGeom* geoms, int numb
 
 	float cosTheta = glm::dot(r.direction, normal);
 
-	if(currMaterial.hasReflective > 0.0f)//Reflective
+	if(currMaterial.hasReflective > 0.0f && ran.z < currMaterial.hasReflective)//Reflective
 	{
 		glm::vec3 reflectionDirection = calculateReflectionDirection(normal, r.direction);			
 		r.origin = intersectionPoint + 0.01f * reflectionDirection;
 		r.direction = reflectionDirection;	
+
+		Fresnel fresnel;
+		float inOrOut = glm::dot(r.direction, normal);
+		glm::vec3 reflectedColor, refractedColor;
+		if(inOrOut < 0)
+			fresnel = calculateFresnel(normal, r.direction, 1.0f, currMaterial.indexOfRefraction, reflectedColor, refractedColor);
+		else
+			fresnel = calculateFresnel(-normal, r.direction, currMaterial.indexOfRefraction, 1.0f, reflectedColor, refractedColor);
+
+		color *= (currMaterial.color);
+		color *= fresnel.reflectionCoefficient;
+		return colorCheck(color);
 	}
 	else if(currMaterial.hasRefractive> 0.0f)//Refractive
 	{
@@ -543,9 +557,9 @@ __host__ __device__ int pathTraceIterativeSC(ray& r, staticGeom* geoms, int numb
 	{
 		r.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, ran.x, ran.y));
 		r.origin = intersectionPoint + 0.001f * r.direction;
-	}
-
-	color *= currMaterial.color;
+	}	
+	
+	color *= (currMaterial.color);
 	return colorCheck(color);
 }
 

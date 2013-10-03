@@ -1,4 +1,8 @@
+![Alt text](/renders/test4000FUN.0.bmp "With OBJ Loader")
+
 ![Alt text](/renders/test4000.0WithOBJ.bmp "With OBJ Loader")
+
+
 
 CUDA Path Tracing
 -------------------------------------------------------------------------------
@@ -30,8 +34,18 @@ As the max depth goes up, the time for normal path tracer goes up really quickly
 
  ![Alt text](/ScperformaceTest.png "Stream Compaction and Max Depth")
 
+**Instruction for Building:**
 
-**Render Samples:**
+I am currently using CUDA 5.5 for my project and I also set my computation ability to 2.0.
+
+For loading the obj mesh, change the cube or sphere in the scene file to the obj file path.
+
+
+**Third Party Code:**
+
+TinyObjLoader [https://github.com/syoyo/tinyobjloader](https://github.com/syoyo/tinyobjloader "TinyOBJLoader")
+
+**Screen Shots:**
 
 ![Alt text](/renders/test5000.0MB.bmp "With Motion Blur")
 
