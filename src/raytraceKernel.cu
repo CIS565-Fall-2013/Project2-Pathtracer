@@ -21,7 +21,7 @@
 #include "interactions.h"
 
 //#define DEPTH_OF_FIELD
-//#define MOTION_BLUR
+#define MOTION_BLUR
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
