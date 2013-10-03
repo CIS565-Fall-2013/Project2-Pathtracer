@@ -40,7 +40,7 @@ Look how much difference antialiasing makes!
 ![Alt text](/renders/finished/antialias.jpg "antialiasing")
 
 Diffuse, reflection, and Fresnel refraction
-![Alt text](/renders/finished/test0.jpg "Fresnel refraction")
+![Alt text](/renders/finished/test0.bmp "Fresnel refraction")
 
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
