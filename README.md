@@ -56,7 +56,7 @@ The extra features that were implemented are :
 -------------------------------------------------------------------------------
 Working Video :
 -------------------------------------------------------------------------------
-![Path Tracer Video](http://www.youtube.com/watch?v=bA-7rGa7juM&feature=youtu.be)
+[Path Tracer Video](http://www.youtube.com/watch?v=bA-7rGa7juM&feature=youtu.be)
 -------------------------------------------------------------------------------
 ScreenShots :
 -------------------------------------------------------------------------------
