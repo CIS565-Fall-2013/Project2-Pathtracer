@@ -1,10 +1,10 @@
-﻿Build started 10/2/2013 8:20:52 PM.
+﻿Build started 10/2/2013 9:58:03 PM.
      1>Project "C:\Users\Mikey\Dropbox\UPenn\CIS-565 (GPU Programming)\Assignments\Project2PathTracer\PROJ1_WIN\565Pathtracer\565Pathtracer.vcxproj" on node 2 (Build target(s)).
      1>AddCudaCompileDeps:
          C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin\cl.exe /E /nologo /showIncludes /TP /D__CUDACC__ /DWIN32 /D_DEBUG /D_CONSOLE /D_UNICODE /DUNICODE /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I"C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc" /I../shared/glew/includes /I../shared/freeglut/includes /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" /I../shared/glew/include /I../shared/freeglut/include /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin" /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I. /FIcuda_runtime.h /c "C:\Users\Mikey\Dropbox\UPenn\CIS-565 (GPU Programming)\Assignments\Project2PathTracer\src\raytraceKernel.cu" 
        CudaBuild:
          Compiling CUDA source file ..\..\src\raytraceKernel.cu...
-         cmd.exe /C "C:\Users\Mikey\AppData\Local\Temp\tmp29e03ccd2ef54c6cb98e04a9f24a6e17.cmd"
+         cmd.exe /C "C:\Users\Mikey\AppData\Local\Temp\tmpd705129bea8649fb87176d8d6bf8a289.cmd"
          "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin\nvcc.exe" -gencode=arch=compute_30,code=\"sm_30,compute_30\" --use-local-env --cl-version 2012 -ccbin "C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin"  -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc" -I../shared/glew/includes -I../shared/freeglut/includes -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I../shared/glew/include -I../shared/freeglut/include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include"     --keep-dir "Debug (v5.5)" -maxrregcount=0  --machine 32 --compile -cudart static     -DWIN32 -D_DEBUG -D_CONSOLE -D_UNICODE -DUNICODE -Xcompiler "/EHsc /W3 /nologo /Od /Zi /RTC1 /MDd  " -o "C:\Users\Mikey\Dropbox\UPenn\CIS-565 (GPU Programming)\Assignments\Project2PathTracer\PROJ1_WIN\565Pathtracer\Win32/Debug (v5.5)/raytraceKernel.cu.obj" "C:\Users\Mikey\Dropbox\UPenn\CIS-565 (GPU Programming)\Assignments\Project2PathTracer\src\raytraceKernel.cu"
          
          C:\Users\Mikey\Dropbox\UPenn\CIS-565 (GPU Programming)\Assignments\Project2PathTracer\PROJ1_WIN\565Pathtracer>"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin\nvcc.exe" -gencode=arch=compute_30,code=\"sm_30,compute_30\" --use-local-env --cl-version 2012 -ccbin "C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin"  -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc" -I../shared/glew/includes -I../shared/freeglut/includes -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I../shared/glew/include -I../shared/freeglut/include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include"     --keep-dir "Debug (v5.5)" -maxrregcount=0  --machine 32 --compile -cudart static     -DWIN32 -D_DEBUG -D_CONSOLE -D_UNICODE -DUNICODE -Xcompiler "/EHsc /W3 /nologo /Od /Zi /RTC1 /MDd  " -o "C:\Users\Mikey\Dropbox\UPenn\CIS-565 (GPU Programming)\Assignments\Project2PathTracer\PROJ1_WIN\565Pathtracer\Win32/Debug (v5.5)/raytraceKernel.cu.obj" "C:\Users\Mikey\Dropbox\UPenn\CIS-565 (GPU Programming)\Assignments\Project2PathTracer\src\raytraceKernel.cu" 
@@ -272,7 +272,38 @@
      1>C:/Users/Mikey/Dropbox/UPenn/CIS-565 (GPU Programming)/Assignments/Project2PathTracer/src/raytraceKernel.cu(55): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
      1>C:/Users/Mikey/Dropbox/UPenn/CIS-565 (GPU Programming)/Assignments/Project2PathTracer/src/raytraceKernel.cu(57): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
      1>C:/Users/Mikey/Dropbox/UPenn/CIS-565 (GPU Programming)/Assignments/Project2PathTracer/src/raytraceKernel.cu(97): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
-     1>C:/Users/Mikey/Dropbox/UPenn/CIS-565 (GPU Programming)/Assignments/Project2PathTracer/src/raytraceKernel.cu(700): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>C:/Users/Mikey/Dropbox/UPenn/CIS-565 (GPU Programming)/Assignments/Project2PathTracer/src/raytraceKernel.cu(729): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+       ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin\CL.exe /c /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" /I../shared/glew/include /I../shared/freeglut/include /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug (v5.5)\\" /Fd"Debug (v5.5)\vc110.pdb" /Gd /TP /analyze- /errorReport:prompt ..\..\src\image.cpp ..\..\src\main.cpp ..\..\src\scene.cpp ..\..\src\utilities.cpp
+         image.cpp
+         Generating Code...
+         Compiling...
+         utilities.cpp
+         scene.cpp
+     1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\thrust\system\detail\error_category.inl(102): warning C4996: 'strerror': This function or variable may be unsafe. Consider using strerror_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 c:\program files (x86)\microsoft visual studio 11.0\vc\include\string.h(164) : see declaration of 'strerror'
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(39): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(171): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(225): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(227): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(261): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(266): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(268): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(270): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(272): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(277): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(279): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(304): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\scene.cpp(311): warning C4018: '<' : signed/unsigned mismatch
+         main.cpp
+         Note: including lib: glut32.lib
+         
+     1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\thrust\system\detail\error_category.inl(102): warning C4996: 'strerror': This function or variable may be unsafe. Consider using strerror_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 c:\program files (x86)\microsoft visual studio 11.0\vc\include\string.h(164) : see declaration of 'strerror'
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\main.cpp(115): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\main.cpp(125): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\mikey\dropbox\upenn\cis-565 (gpu programming)\assignments\project2pathtracer\src\main.cpp(128): warning C4018: '<' : signed/unsigned mismatch
+         Generating Code...
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Mikey\Dropbox\UPenn\CIS-565 (GPU Programming)\Assignments\Project2PathTracer\PROJ1_WIN\Debug (v5.5)\565Pathtracer.exe" /INCREMENTAL /NOLOGO /LIBPATH:../shared/glew/lib /LIBPATH:../shared/freeglut/lib /LIBPATH:"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\lib\Win32" cudart.lib glew32.lib glu32.lib opengl32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Mikey\Dropbox\UPenn\CIS-565 (GPU Programming)\Assignments\Project2PathTracer\PROJ1_WIN\Debug (v5.5)\565Pathtracer.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /ENTRY:"mainCRTStartup" /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Mikey\Dropbox\UPenn\CIS-565 (GPU Programming)\Assignments\Project2PathTracer\PROJ1_WIN\Debug (v5.5)\565Pathtracer.lib" /MACHINE:X86 "C:\Users\Mikey\Dropbox\UPenn\CIS-565 (GPU Programming)\Assignments\Project2PathTracer\PROJ1_WIN\565Pathtracer\Win32/Debug (v5.5)/raytraceKernel.cu.obj"
          "Debug (v5.5)\glslUtility.obj"
@@ -288,4 +319,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:15.96
+Time Elapsed 00:00:25.19

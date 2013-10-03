@@ -324,23 +324,38 @@ __device__ vec3 shadowFeeler(staticGeom* geoms, int numberOfGeoms, material* mat
 }
 
 //Core pathtracer kernel
-__global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cameraData cam,
-                            staticGeom* geoms, int numberOfGeoms, material* cudamat, int numberOfMat, int* cudalightIndex, int numberOfLights, float iter, int bounce, int blockDim1Size)
+__global__ void pathtraceRay(ray* rayPool, glm::vec3* colors, cameraData cam, staticGeom* geoms, int numberOfGeoms, material* cudamat, 
+							 int numberOfMat, int* cudalightIndex, int numberOfLights, float iter, int bounce, int blockDim1Size)
 {
 	// Note: For ray parallelization, these ids will not necessarily correspond to the index of the pixel that can be used for the color array.
 	// So instead of using these IDs directly, store pixel index that the ray is responsible for during rayPool construction
-	int rayIdx = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int rayIdy = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int rayIndex = rayIdx + (rayIdy * blockDim1Size);
+	//int rayIdx = (blockIdx.x * blockDim.x) + threadIdx.x;
+	//int rayIdy = (blockIdx.y * blockDim.y) + threadIdx.y;
+	//int rayIndex = rayIdx + (rayIdy * blockDim1Size);
+
+
+	int rayIndex = (blockIdx.x * blockDim.x) + threadIdx.x;
+
 	int rayPixelIndex = rayPool[rayIndex].pixelID;
 
-	ray &r = rayPool[rayIndex];
+	ray r = rayPool[rayIndex];
 
 	vec3 isectPoint = vec3(0,0,0);
 	vec3 isectNormal = vec3(0,0,0);
 	int matId = -1;
 	int geomId = -1;
 	float t = FLT_MAX;
+
+	if (r.isTerminated)
+		return;
+
+
+	// debug
+	//if (r.isTerminated)
+	//	colors[rayPixelIndex] = vec3(1,0,0);
+	//else
+	//	colors[rayPixelIndex] = vec3(0,0,0);
+
 
 	if (bounce == 0)
 	{
@@ -403,8 +418,9 @@ __global__ void pathtraceRay(ray* rayPool, float ssratio, glm::vec3* colors, cam
 		r.isTerminated = true;
 		colors[rayPixelIndex] = vec3(0,0,0);
 	}
-	
-	
+
+	rayPool[rayIndex] = r;
+
 	////////////////
 	// Debug Code //
 	////////////////
@@ -584,6 +600,19 @@ void cleanupTriMesh(thrust::device_ptr<staticGeom> geoms, int numberOfGeoms)
 	}
 }
 
+int getNumRays(ray* allrays, int total)
+{
+	int totalrays = 0;
+	for (int i = 0 ; i < total ; ++i)
+	{
+		if (!allrays[i].isTerminated)
+			totalrays++;
+
+	}
+
+	return totalrays;
+}
+
 // move the object a little before the rendering process.
 void translateObject(geom* geoms, int geomId, int frame, int iterations, int idleFrameNum, vec3 translation)
 {
@@ -711,19 +740,31 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		for(int bounce = 0; bounce <= MAX_BOUNCE; ++bounce)
 		{
 			// Update blockSize based on the number of rays.
-			float sqrtNumRays = ceil(sqrt((float)numRays));
-			int blockSize = (int)ceil(sqrtNumRays/(float)tileSize);
-			dim3 rayBlockPerGrid(blockSize, blockSize);
-
-			// TODO: ssratio is just 1 for now in path tracing mode.
-			pathtraceRay<<<rayBlockPerGrid,threadsPerBlock>>>(cudaRayPool, 1, cudaimage, cam, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, (float)iterations, bounce, blockSize * tileSize);
+			//float sqrtNumRays = ceil(sqrt((float)numRays));
+			//int blockSize = (int)ceil(sqrtNumRays/(float)tileSize);
+			//dim3 rayBlockPerGrid(blockSize, blockSize);
+			//pathtraceRay<<<rayBlockPerGrid,threadsPerBlock>>>(cudaRayPool, cudaimage, cam, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, (float)iterations, bounce, blockSize * tileSize);
+			
+			// try 1D blocks...
+			int totalThreadsPerBlock = tileSize * tileSize;
+			int totalRayBlocksPerGrid = (int)ceil((float)numRays / (float)totalThreadsPerBlock);
+			pathtraceRay<<<totalRayBlocksPerGrid,totalThreadsPerBlock>>>(cudaRayPool, cudaimage, cam, cudageoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, (float)iterations, bounce, 1);
 
 			// Stream compaction using thrust
-			thrust::device_ptr<ray> cudaRayPoolDevicePtr(cudaRayPool);
-			thrust::device_ptr<ray> compactCudaRayPoolDevicePtr = thrust::remove_if(cudaRayPoolDevicePtr, cudaRayPoolDevicePtr + numRays, is_terminated());
+			if (USE_STREAM_COMPACTION)
+			{
+				thrust::device_ptr<ray> cudaRayPoolDevicePtr(cudaRayPool);
+				thrust::device_ptr<ray> compactCudaRayPoolDevicePtr = thrust::remove_if(cudaRayPoolDevicePtr, cudaRayPoolDevicePtr + numRays, is_terminated());
 			
-			// pointer arithmetic to figure out the number of rays.
-			numRays = compactCudaRayPoolDevicePtr.get() - cudaRayPoolDevicePtr.get();
+				// pointer arithmetic to figure out the number of rays.
+				numRays = compactCudaRayPoolDevicePtr.get() - cudaRayPoolDevicePtr.get();
+			}
+
+			// debugging. The size computed by getNumRays doesnt seem to match numRays above.
+			//ray* allRays = new ray[(int)cam.resolution.x * (int)cam.resolution.y];
+			//cudaMemcpy( allRays, cudaRayPool, (int)cam.resolution.x * (int)cam.resolution.y*sizeof(ray), cudaMemcpyDeviceToHost);
+			//int numRays2 = getNumRays(allRays, (int)cam.resolution.x * (int)cam.resolution.y);
+			//delete[] allRays;
 
 			if (numRays < 0)
 			{
