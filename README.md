@@ -65,7 +65,7 @@ SCREENSHOTS OF THE FEATURES IMPLEMENTED
 
 * Translational motion blur
 
-![ScreenShot]()
+![ScreenShot](https://raw.github.com/GabriellaQiong/Project2-Pathtracer/master/10022256.PNG)
 
 * Depth of field
 
@@ -82,22 +82,26 @@ With big radius for the circle of confusion
 VIDEOS OF IMPLEMENTATION
 -------------------------------------------------------------------------------
 
+This is the video of the rendering process of the path tracer.
 
+[![ScreenShot](https://raw.github.com/GabriellaQiong/Project1-RayTracer/master/videoScreenShot.PNG)](http://www.youtube.com/watch?v=GcbRUaLgz5A)
+
+The youtube link is here if you cannot open the video in the markdown file: http://www.youtube.com/watch?v=GcbRUaLgz5A
 
 
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
-Here is the table for the performance evaluation when changing the size of tile. We can easily find that when the tile size become larger the fps increases at the same time.
+Here is the table for the performance evaluation when changing the size of tile and with stream compaction or not. 
 
-| tileSize  |      time for running 10 iteration     |  approximate fps |
-|:---------:|:--------------------------------------:|:----------------:|
-|     1     |               2 : 22.7                 |       7.00       |
-|     2     |               0 : 49.2                 |       20.33      |
-|     4     |               0 : 17.4                 |       57.47      |
-|     8     |               0 : 16.9                 |       59.17      |
-|    16     |               0 : 16.5                 |       60.61      |
+| tileSize  |  with compaction  |      time for running 10 iteration      |  approximate fps  |
+|:---------:|:-----------------:|:---------------------------------------:|:-----------------:|
+|     8     |        yes        |               0 : 22.72                 |       0.440       |
+|    10     |        yes        |               0 : 25.97                 |       0.385       |
+|     8     |        no         |               0 : 23.39                 |       0.428       |
+|    10     |        no         |               0 : 27.47                 |       0.364       |
 
+We can easily find that when the tile size become larger the fps decrease a little somehow. The fps with stream compaction is higher than that without stream compaction.
 
 -------------------------------------------------------------------------------
 REFERENCES
