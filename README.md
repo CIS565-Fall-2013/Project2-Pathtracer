@@ -38,7 +38,7 @@ Screenshots:
 Screen recording:
 -------------------------------------------------------------------------------
 
-https://vimeo.com/75074121
+https://vimeo.com/76024508
 
 
 Performance analysis:
