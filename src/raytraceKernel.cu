@@ -382,11 +382,14 @@ __host__ int raypoolCompaction(rayState** cudaraypool, int rayPoolSize)
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig, int frame, int iterations, int frameFilterCounter, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
+// Returns average number of bounces rays run.
+float cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig, int frame, int iterations, int frameFilterCounter, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
 
 	int traceDepth = rconfig->traceDepth; //determines how many bounces the raytracer traces
 	int numPixels = renderCam->resolution.x*renderCam->resolution.y;
 	int rayPoolSize = (int) ceil(float(numPixels)*rconfig->rayPoolSize);
+
+	float avgBounces = 0;
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -478,9 +481,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 			if(rconfig->streamCompaction)
 			{
 				//printf("Raypool size%d\n", rayPoolSize);
-				rayPoolSize = raypoolCompaction(&cudaraypool, rayPoolSize);
-
-
+				int newRayPoolSize = raypoolCompaction(&cudaraypool, rayPoolSize);
+				avgBounces += (1+bounce)*float(rayPoolSize-newRayPoolSize)/numPixels;
+				rayPoolSize = newRayPoolSize;
 				blockCount = (int)ceil(float(rayPoolSize)/float(blockSize));
 
 				dim3 fullBlocksPerGridByRay;
@@ -535,4 +538,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam,  renderOptions* rconfig
 	// make certain the kernel has completed 
 	cudaThreadSynchronize();
 	checkCUDAError("Kernel failed!");
+
+	if(rconfig->streamCompaction)
+		return avgBounces;
+	else
+		return traceDepth-1;
 }

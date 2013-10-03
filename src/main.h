@@ -32,6 +32,7 @@
 #include "utilities.h"
 #include "scene.h"
 #include "cudaAlgorithms.h"
+#include <iomanip>
 
 #if CUDA_VERSION >= 5000
     #include <helper_cuda.h>
@@ -58,6 +59,18 @@ int iterations;
 int frameFilterCounter;
 bool finishedRender;
 bool singleFrameMode;
+
+//Will not include this value in sweep
+#define STOP_DEPTH_SWEEP 100
+
+//2D arrays
+//Odd iterations have 
+//Major index by trace depth
+float* runtimeDataWithSC;
+float* runtimeDataWithoutSC;
+float* avgBouncesDataWithSC;
+
+int iterationsPerDepth;
 
 //-------------------------------
 //------------GL STUFF-----------

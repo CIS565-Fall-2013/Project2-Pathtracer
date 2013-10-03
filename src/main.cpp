@@ -76,11 +76,11 @@ int main(int argc, char** argv){
 
 	//TODO: Set up rendering options
 	renderOpts = new renderOptions();
-	renderOpts->mode = TRACEDEPTH_DEBUG;
-	renderOpts->traceDepth = 50;
+	renderOpts->mode = PATHTRACE;
+	renderOpts->traceDepth = 1;
 	renderOpts->rayPoolSize =1.0f;//Size of pool relative to number of pixels. 1.0f means 1 ray per pixel
 	renderOpts->stocasticRayAssignment = false;
-	
+
 	//Defaults
 	renderOpts->globalLightGeomInd = -1;
 	//Setup global lighting conditions
@@ -101,12 +101,12 @@ int main(int argc, char** argv){
 				break;
 		}
 	}
-	
+
 
 	//Rendering toggle options
 	renderOpts->antialiasing = true;
-	renderOpts->streamCompaction = true;
-	renderOpts->frameFiltering = true;
+	renderOpts->streamCompaction = false;
+	renderOpts->frameFiltering = false;
 	renderOpts->globalShadows = true;
 
 
@@ -119,6 +119,12 @@ int main(int argc, char** argv){
 		targetFrame = 0;
 	}
 
+
+	//Initialize performance metric arrays
+	iterationsPerDepth = renderCam->iterations/(STOP_DEPTH_SWEEP);
+	runtimeDataWithSC = new float[iterationsPerDepth]();
+	avgBouncesDataWithSC = new float[iterationsPerDepth]();
+	runtimeDataWithoutSC = new float[iterationsPerDepth]();
 	// Launch CUDA/GL
 
 #ifdef __APPLE__
@@ -187,11 +193,27 @@ void runCuda(){
 		clock_t toc = tic;
 		tic = clock();
 		//Slight Low pass filter to make FPS easier to read
-		fps = 0.2*fps + 0.8*CLOCKS_PER_SEC/float(tic-toc);
+		fps = 0.0*fps + 1.0*CLOCKS_PER_SEC/float(tic-toc);
 
+		//Set up performance metric
+
+		renderOpts->traceDepth = iterations/iterationsPerDepth;
+		renderOpts->streamCompaction = (iterations % 2 == 0);//Even iterations use stream compaction
 		// execute the kernel
 
-		cudaRaytraceCore(dptr, renderCam, renderOpts, targetFrame, iterations, frameFilterCounter, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+		clock_t ticTime = clock();
+		float numBounces = cudaRaytraceCore(dptr, renderCam, renderOpts, targetFrame, iterations, frameFilterCounter, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+		clock_t tocTime = clock();
+		float runtimeMs = 1000*float(tocTime-ticTime)/CLOCKS_PER_SEC;
+
+		float divisor = iterationsPerDepth/2.0f;
+		if(renderOpts->streamCompaction)
+		{
+			runtimeDataWithSC[renderOpts->traceDepth] += runtimeMs/divisor;
+			avgBouncesDataWithSC[renderOpts->traceDepth] += numBounces/divisor;
+		}else{
+			runtimeDataWithoutSC[renderOpts->traceDepth] += runtimeMs/divisor;
+		}
 
 		// unmap buffer object
 		cudaGLUnmapBufferObject(pbo);
@@ -223,6 +245,17 @@ void runCuda(){
 			outputImage.saveImageRGB(filename);
 			cout << "Saved frame " << s << " to " << filename << endl;
 			finishedRender = true;
+
+			//Save performance data
+
+			ofstream arrayData("\performance_sweep.csv"); 
+			arrayData << "TraceDepth,NumBounces,RunTimeMS_SC,RunTimeMS_NoSC"<<endl;
+			for(int i = 0; i < STOP_DEPTH_SWEEP; i++)
+			{
+				arrayData << i << ',' << setprecision(6) << avgBouncesDataWithSC[i] << ',' << runtimeDataWithSC[i] << ',' << runtimeDataWithoutSC[i] <<endl;
+			}
+
+
 			if(singleFrameMode==true){
 				cudaDeviceReset(); 
 				exit(0);
