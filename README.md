@@ -166,11 +166,11 @@ PERFORMANCE EVALUATION
 
 * Executin time with different block sizes (motion blur enabled, DoF disabled, 10 bounces with stream compaction and tileSize = 8)
 
- ![Alt text](Performance Evaluation/block size vs execution time.jpg?raw=true)
+ ![Alt text](Performance evaluation/block size vs execution time.jpg?raw=true)
 
 * Evaluate the effect of stream compaction under different bounces (motion blur enabled, DoF disabled, and tileSize = 8)
  
- ![Alt text](Performance Evaluation/Stream compaction vs no stream compaction.jpg?raw=true)
+ ![Alt text](Performance evaluation/Stream compaction vs no stream compaction.jpg?raw=true)
 
  It turns out that stream compaction is only effective when doing many bounces (>15), possibly because of the additional kernel launch overhead.
  However, making number of bounces 10 or 100 does not really make a big difference in terms of convergence rate because the majority of the rays
