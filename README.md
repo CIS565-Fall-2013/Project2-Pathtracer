@@ -54,11 +54,22 @@ For comparison here is the fixed pure-refraction
 -------------------------------------------------------------------------------
 Performance Evalutation:
 -------------------------------------------------------------------------------
-TileSize vs. Average Time-per-frame ( milli-seconds ) for a 400 by 400 Image on a GEFORCE 610M 1GB. 
+TileSize vs. Average Time-per-frame ( seconds ) for a 400 by 400 Image on a GEFORCE 610M 1GB. 
+
+With stream compaction:
 * 2, 0.81
 * 4, 0.33
 * 8, 0.18
 * 16, 0.25
+
+Without stream compaction ( note: this code produces incorrect results but will be fixed ):
+* 2, 0.43
+* 4, 0.17
+* 8, 0.08
+* 16, 0.11
+
+At the moment it looks like my non-stream compaction implementation is faster by about a factor of 2. Once I get NVVP up and running I'll evaluate more closely the difference between the two. 
+
 
 For a 600 by 600 image using a TileSize of 8 I acheive an average time-per-frame of 0.33 with a raydepth of 6. 
 This comes out to ~6480000 rays/sec. 
