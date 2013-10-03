@@ -1,5 +1,6 @@
 #include <GL/glew.h>
 #include <iostream>
+#include <cstdlib>
 #include <cuda_gl_interop.h>
 #include <thrust/device_ptr.h>
 #include <thrust/remove.h>
@@ -45,6 +46,12 @@ CudaRayTracer::CudaRayTracer()
     depth = 0;
 
     numValidPath = 0;
+
+    sampleGrid[0].x = -0.375; sampleGrid[0].y = 0.125;
+    sampleGrid[0].x = +0.125; sampleGrid[0].y = 0.375;
+    sampleGrid[0].x = -0.125; sampleGrid[0].y = -0.375;
+    sampleGrid[0].x = 0.375; sampleGrid[0].y = -0.125;
+    sampleGridIdx = 0;
 }
 
 CudaRayTracer::~CudaRayTracer()
@@ -77,8 +84,8 @@ void CudaRayTracer::renderImage( cudaGraphicsResource* pboResource )
         pathTracerKernelWrapper( &param );
     timer.Stop();
     ++depth;
-    //std::cout<<"Render time: "<<timer.Elapsed()<<" ms. at iteration "<<iteration<<std::endl;
-    std::cout<<"valid ray: "<<numValidPath<<"\n";
+    std::cout<<"Render time: "<<timer.Elapsed()<<" ms. at iteration "<<iteration<<std::endl;
+    //std::cout<<"valid ray: "<<numValidPath<<"\n";
     cudaErrorCheck( cudaGraphicsUnmapResources( 1, &pboResource, 0 ) );
 
 
@@ -122,8 +129,10 @@ void CudaRayTracer::packSceneDescData( const SceneDesc &sceneDesc )
 
     width = sceneDesc.width;
     height = sceneDesc.height;
+    center = sceneDesc.center;
+    up = sceneDesc.up;
     //packing the camrea setting
-    cameraData.eyePos = sceneDesc.eyePos;
+    eyePos = cameraData.eyePos = sceneDesc.eyePos;
     //cameraData.viewportHalfDim.y = tan( sceneDesc.fovy / 2.0 );
     //cameraData.viewportHalfDim.x = (float)width / (float) height * cameraData.viewportHalfDim.y;
     glm::vec2 viewportHalfDim;
@@ -134,13 +143,18 @@ void CudaRayTracer::packSceneDescData( const SceneDesc &sceneDesc )
     cameraData.offset1.y = -viewportHalfDim.y * 2.0f / height;
     cameraData.offset2.x = ( 1.0f/width - 1 )* viewportHalfDim.x;
     cameraData.offset2.y = (-1.0f/height+1) * viewportHalfDim.y;
-        //offset.x = cameraData.viewportHalfDim.x * ( (idx.x+0.5) / (width/2.0) - 1 );
+
+    //apply super-sampling pattern
+    cameraData.jitteredOffset1 = sampleGrid[sampleGridIdx];
+
+    //offset.x = cameraData.viewportHalfDim.x * ( (idx.x+0.5) / (width/2.0) - 1 );
     //offset.y = cameraData.viewportHalfDim.y * ( 1- (idx.y+0.5) / (height/2.0)  );
     //construct the 3 orthoogonal vectors constitute a frame
-    cameraData.uVec = glm::normalize( sceneDesc.up );
-    cameraData.wVec = glm::normalize( sceneDesc.center - sceneDesc.eyePos );
+    cameraData.uVec = glm::normalize( up );
+    cameraData.wVec = glm::normalize( center - cameraData.eyePos );
     cameraData.vVec = glm::normalize( glm::cross( cameraData.wVec, cameraData.uVec ) );
     cameraData.uVec = glm::normalize( glm::cross( cameraData.vVec, cameraData.wVec ) );
+
 
     //packing the primitives
     numPrimitive = sceneDesc.primitives.size();
@@ -359,6 +373,7 @@ void  CudaRayTracer::init( const SceneDesc &scene )
     //allocate host memory
     //h_outputImage = new unsigned char[ 4 * width * height ];
 
+    std::cout<<"Path tracer initialization completed. Start rendering\n"<<std::endl;
 }
 
 void CudaRayTracer::resetPathDepth()
@@ -366,6 +381,14 @@ void CudaRayTracer::resetPathDepth()
     depth = 0;
     iteration += 1;
     numValidPath = width * height;
+
+    //rotate to next supersampling subpixel
+    sampleGridIdx = sampleGridIdx+1 % 4;
+    //apply super-sampling pattern
+    cameraData.jitteredOffset1 = sampleGrid[sampleGridIdx];
+
+    //jitter camera position, for DOF effect
+    jitterCameraPos();
 }
 void CudaRayTracer::resetIteration()
 {
@@ -386,7 +409,7 @@ void CudaRayTracer::resetIteration()
 void CudaRayTracer::updateCamera( const SceneDesc &sceneDesc )
 {
     //packing the camrea setting
-    cameraData.eyePos = sceneDesc.eyePos;
+    eyePos = cameraData.eyePos = sceneDesc.eyePos;
     glm::vec2 viewportHalfDim;
     viewportHalfDim.y =  tan( sceneDesc.fovy / 2.0 );
     viewportHalfDim.x = (float)width / (float) height * viewportHalfDim.y;
@@ -396,15 +419,20 @@ void CudaRayTracer::updateCamera( const SceneDesc &sceneDesc )
     cameraData.offset2.x = ( 1.0f/width - 1 )* viewportHalfDim.x;
     cameraData.offset2.y = (-1.0f/height+1) * viewportHalfDim.y;
 
+
+   //apply super-sampling pattern
+    //cameraData.jitteredOffset1 =  sampleGrid[sampleGridIdx];
+
     width = sceneDesc.width;
     height = sceneDesc.height;
 
     //construct the 3 orthoogonal vectors constitute a frame
     cameraData.uVec = glm::normalize( sceneDesc.up );
-    cameraData.wVec = glm::normalize( sceneDesc.center - sceneDesc.eyePos );
+    cameraData.wVec = glm::normalize( sceneDesc.center - eyePos );
     cameraData.vVec = glm::normalize( glm::cross( cameraData.wVec, cameraData.uVec ) );
     cameraData.uVec = glm::normalize( glm::cross( cameraData.vVec, cameraData.wVec ) );
 
+    jitterCameraPos();
 }
 
 void CudaRayTracer::setupDevStates()
@@ -419,11 +447,11 @@ void CudaRayTracer::setupDevStates()
     cudaErrorCheck( cudaMalloc( (void**)&d_devStates, width*height*sizeof(curandState) ) );
 
     cudaErrorCheck( cudaMalloc( (void**)&d_sobolStates, width*height*sizeof(curandStateSobol32_t) ) );
-    cudaErrorCheck( cudaMalloc( (void**)&d_vectors, sizeof(unsigned int)*32 ) );
-    cudaErrorCheck( cudaMemcpy( d_vectors, vectors[0], sizeof(unsigned int)*32, cudaMemcpyHostToDevice ) );
+    //cudaErrorCheck( cudaMalloc( (void**)&d_vectors, sizeof(unsigned int)*32 ) );
+    //cudaErrorCheck( cudaMemcpy( d_vectors, vectors[0], sizeof(unsigned int)*32, cudaMemcpyHostToDevice ) );
     //std::cout<<"state size:"<<sizeof(curandState)*width*height/1024/1024<<std::endl;
     setupRandSeedWrapper(width,height,d_devStates ) ;
-    setupSobolRandSeedWrapper( width, height, d_sobolStates, d_vectors);
+    //setupSobolRandSeedWrapper( width, height, d_sobolStates, d_vectors);
     //if( CURAND_STATUS_SUCCESS != curandCreatePoissonDistribution( 100, &poisson_dist ) )
     //{
     //    std::cout<<"ERROR at "<<__FILE__<<":"<<__LINE__<<"\n";
@@ -440,4 +468,20 @@ void CudaRayTracer::compactSurvivingPath()
     initMarkerWrapper( width, height, d_marker_temp );
     //update the number of surviving valid paths
     numValidPath = countValidPath( d_marker, numValidPath );
+}
+
+void CudaRayTracer::jitterCameraPos()
+{
+    //cameraData.eyePos = eyePos + (( rand() % 10+1 )/10.0f )*cameraData.uVec +  (( rand() % 10+1 )/10.0f )*cameraData.vVec;
+    //cameraData.wVec = glm::normalize( center - cameraData.eyePos );
+
+    //cameraData.uVec = glm::normalize( up );
+    //cameraData.wVec = glm::normalize( center - eyePos );
+    //cameraData.vVec = glm::normalize( glm::cross( cameraData.wVec, cameraData.uVec ) );
+    //cameraData.uVec = glm::normalize( glm::cross( cameraData.vVec, cameraData.wVec ) );
+
+    cameraData.eyePos = eyePos + 0.1f*(rand()/(float)(RAND_MAX+1))*cameraData.uVec +   0.1f*(rand()/(float)(RAND_MAX+1))*cameraData.vVec;
+    cameraData.wVec = glm::normalize( center - cameraData.eyePos );
+    //cameraData.vVec = glm::normalize( glm::cross( cameraData.wVec, cameraData.uVec ) );
+    //cameraData.uVec = glm::normalize( glm::cross( cameraData.vVec, cameraData.wVec ) );
 }

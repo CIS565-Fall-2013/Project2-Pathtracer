@@ -1,60 +1,37 @@
-#CUDA-based GPU raytracer 
-This project implements a GPU raytracer using nVidia CUDA.  
-  
-The following featues are implemented:
+#CUDA-based GPU Pathtracer
+This project implements an path tracer on GPU using CUDA.
+It has the following features:
+ 1. Diffuse interreflectance
+ 2. Supersampling
+ 3. Interactive camera
+ 4. Depth of field effect
+ 5. OBJ model rendering support
 
-* Parallel Ray casting
-* Ray-sphere and Ray-Triangle intersections 
-* Phong reflection model
-* Area lights and soft shadows
-  1. Area lights are sampled in 4x4 grid resolutin; each sample ray is jitterd with randomness to decrease blocking effects.  
-  2. cuRAND is used to generate the random values 
-* mirror reflection  
-  1. An iterative approach is used to gather reflectance energy without the use of costly recursive approach is avoided.  
-  2. The default depth of reflection is 4.
-* Wavefront obj model rendering
 
-#Rendering Snapshot
- * Recording of execution: http://www.youtube.com/watch?v=46AOCXCAYd8
- * 30-sec. rendered animation: http://www.youtube.com/watch?v=SMAJNEoWPoc
- * Snapshot of execution: https://raw.github.com/otaku690/Project1-RayTracer/master/execute_snapshot.png
- * Snapshot of rendered image: https://raw.github.com/otaku690/Project1-RayTracer/master/render_results.png
-
-#Performance evaluation
- setting: 1024x768 res., 4x4 shadow & lighting samples, 4 bounces of reflection
-## Use of shared memory
-  Given that each ray test the geometries in the same sequence, we can load the geometries into shared memory before testing them, one at a time.  
-    
-  This approach increase the performance by about 4~5%. However, further investigation is needed because some blocks would display anormally.
-## Block size 
- * without using shared memory
-  * 8x8: ~26 sec. per frame
-  * 16x16: 25 sec. per frame
-  * 32*32: 25 sec. per frame
- * using shared memory
-  * 8x8: ~25 sec. per frame
-  * 16x16: 24 sec. per frame
-  * 32*32: 24 sec. per frame
- * There are no significant difference in 8x8, 16x16 and 32x32 blcok sizes
+##Implementation Details:
+ **This work was extended from my previous project, which is a CUDA-based ray tracer.** 
+ To make it have a better interactivity, the tracing of an eye ray is broken into 
+ multiple kernel invocations, one for each tracing depth.
+ Furthermore, the ray-triangle intersection test is accelerated with the use of Bounding Box.  
  
-
-
-
-#Third-party code
- * GLM object loader from [Nate Robins](https://user.xmission.com/~nate/tutors.html)
-
-#Third-party libraries
-  * [GLEW](http://glew.sourceforge.net/)
-  * [Freeglut](http://freeglut.sourceforge.net/)
-  * [FreeImage](http://freeimage.sourceforge.net/)
-  * [GLM](http://glm.g-truc.net/0.9.4/index.html)  
+ **Two ray-termination schemes are employed: Russian Roulette and predefined depth limit.**  
+ Since recursive invocations within CUDA kernels are slow, and patht racing is inherently a recursive operation, this path tracer traces the rays iteratively and builds a stack to mimic the recursive behavior.
+ To prevent the graphics memory from exhaustion, a predefined tracing depth limit is set.  
+ Within the depth limit, Russian Roulette is used to determine if a ray should terminate or not. Currenlty 50% termination rate is used.
+ 
+ **For stream compaction, an index array is constructed, each element stores the index of each pixel, that is, each eye ray.**  
+  During the path tracing, the index values of 
+  rays deemed terminated are replaced with -1, which will then be remove from the index array when stream compaction is performed. With 50% termination rate at each depht,
+  the travese time could be greatly reduced, especially on enclosed scenes, where rays bounce around mulitple times.
   
-#Development Environment
-* Visual Studio 2012 on Windows 7
-* How to build
-  * Make sure the project has correct INCLUDE and LIBRARY Pathes of the above libraries.
-  * Make sure the CUDA 5.5 is selected in the [Build Customization] Setting.
-  * Make sure the compute_10/sm_10 compute version is remvoed from the Code Generation setting under the [0CUDA C/C++] setting
-  * Place the needed DLL inside the execution folder.
-  * Place testScene.scene and model venusv.obj & box.obj in the execution folder.
-  * You are good to go.
+ **For better sampling efficiency, direct illumination and indirect illumination sampling are separated.**
+ 
+ **Supersampling is done by sampling each pixel four times.**  
+  A 2x2 rotated grid pattern is used to yield better results than the normal grid pattern.  
+  Since this is a path tracer, the sampling results are averaged without special care.
+ 
+ **Depth of field effect is realized by randomly offsetting the eye position at the start of each iteration.**
+ 
+##performance:
+  
+  

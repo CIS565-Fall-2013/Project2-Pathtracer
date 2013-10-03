@@ -6,6 +6,7 @@
 #include "util.h"
 #include <curand_kernel.h>
 
+
 class CudaRayTracer
 {
 public:
@@ -28,9 +29,12 @@ public:
 private:
     void cleanUp();
     void packSceneDescData( const SceneDesc &sceneDesc );
-
+    void jitterCameraPos(); //for FOV effect
     int width;
     int height;
+    glm::vec3 up;
+    glm::vec3 center;
+    glm::vec3 eyePos;
 
     //Host-side and packed data for transferring to the device
     _CameraData cameraData;
@@ -74,4 +78,7 @@ private:
     unsigned int* d_vectors;
     curandDiscreteDistribution_t poisson_dist;
 
+    //rotated grid pattern supersampling 
+    glm::vec2 sampleGrid[4];
+    int sampleGridIdx;  //which grid to use
 };

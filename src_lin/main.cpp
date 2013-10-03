@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <ctime>
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 #include <FreeImage.h>
@@ -21,11 +22,11 @@ unsigned int win_w, win_h;
 
 SceneDesc theScene;
 int win_id;
-
+string caption;
 int main( int argc, char* argv[] )
 {
     //FreeImage_Initialise();
-
+    srand( time(NULL) );
     if( argc == 1 )
     {
         cout<<"Usage: CudaRaytracer.exe [scene filename]\n";

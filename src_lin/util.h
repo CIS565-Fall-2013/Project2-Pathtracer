@@ -12,7 +12,7 @@
 #define TYPE_SPHERE 0
 #define TYPE_TRIANGLE 1
 #define TYPE_BBOX 2
-#define MAXDEPTH 5
+#define MAXDEPTH 8
 #define DST_SCALE 2
 
 #define cudaErrorCheck( errNo ) checkError( (errNo), __FILE__, __LINE__ )
@@ -67,7 +67,9 @@ typedef struct _CamreaData
     glm::vec3 wVec;
     //glm::vec2 viewportHalfDim;
     glm::vec2 offset1;
+    glm::vec2 jitteredOffset1;
     glm::vec2 offset2;
+    float focalDist;
 
 }_CameraData;
 

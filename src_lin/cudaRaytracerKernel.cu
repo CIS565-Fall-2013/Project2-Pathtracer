@@ -60,7 +60,7 @@ __device__ glm::vec3 specular_direction( const glm:: vec3* incoming, const glm::
     }
     else
     {
-        //*weight = 1.0f/0.8f;
+        *weight = 1.0f/0.8f;
         return glm::normalize( glm::reflect( *incoming, *normal) );
     }
 }
@@ -553,7 +553,7 @@ __global__ void pathTracerKernel( ///unsigned char* const outputImage,
             mtl = mtls[primitives[hitId].mtl_id];
             shiftP = incidentP +  (0.001f * surfaceNormal);
             
-            if( hitId > 1 ) //skip light gemoetry
+            if( mtl.emission.x <0.0001 && mtl.emission.y <0.0001 && mtl.emission.z <0.0001 ) //skip light gemoetry
             {
                 shadowSampleCount = 0; //this will be accumulated in the shadowTest
                 for( int i = 0; i < lightNum; ++i )
@@ -564,6 +564,13 @@ __global__ void pathTracerKernel( ///unsigned char* const outputImage,
                 }
                 color /= shadowSampleCount;
             }
+            else
+                color = ( mtl.ambient + mtl.emission ) * lights[0].attenu_const + 
+               ( lights[0].attenu_linear + lights[0].attenu_quadratic * glm::distance( raysource, incidentP ) ) * 
+               glm::distance( raysource, incidentP );
+            //else
+             //   color = ( light->attenu_const + 
+             //             ( light->attenu_linear + light->attenu_quadratic * lightDst ) * lightDst;
 
             //Assume no self-emit objects currently
             //if( depth == 0 )
@@ -587,7 +594,7 @@ __global__ void pathTracerKernel( ///unsigned char* const outputImage,
 
             weight = 1;
             //generate a ray for a further bounce
-            if( glm::all(glm::equal(mtl.specular, glm::vec3(0.0f,0.0f,0.0f) ) ) )
+            if( !glm::all(glm::equal(mtl.diffuse, glm::vec3(0.0f,0.0f,0.0f) ) ) )
             {
                 reflectRay = diffuse_direction( &surfaceNormal, &local_state, sobolState );
             }
@@ -723,8 +730,8 @@ __global__ void pathTracerEyeRayKernel( ///unsigned char* const outputImage,
 
     //offset.x = cameraData.viewportHalfDim.x * ( (idx.x+0.5) / (width/2.0) - 1 );
     //offset.y = cameraData.viewportHalfDim.y * ( 1- (idx.y+0.5) / (height/2.0)  );
-    offset.x = cameraData.offset1.x * idx.x + cameraData.offset2.x;
-    offset.y = cameraData.offset1.y * idx.y + cameraData.offset2.y;
+    offset.x = cameraData.offset1.x * (idx.x+cameraData.jitteredOffset1.x) + cameraData.offset2.x;
+    offset.y = cameraData.offset1.y * (idx.y+cameraData.jitteredOffset1.y) + cameraData.offset2.y;
 
     ray = cameraData.wVec + offset.x * cameraData.vVec + offset.y * cameraData.uVec;
     ray = glm::normalize( ray );
@@ -754,8 +761,10 @@ __global__ void pathTracerEyeRayKernel( ///unsigned char* const outputImage,
                 }
                 color /= shadowSampleCount;
             }
-
-            color += mtl.ambient + mtl.emission;
+            else
+                color = ( mtl.ambient + mtl.emission ) * lights[0].attenu_const + 
+               ( lights[0].attenu_linear + lights[0].attenu_quadratic * glm::distance( raysource, incidentP ) ) * 
+               glm::distance( raysource, incidentP );
 
             directIllum[outIdx3 ] = color.x; // / 0.5
             directIllum[outIdx3+1] = color.y;
@@ -770,7 +779,7 @@ __global__ void pathTracerEyeRayKernel( ///unsigned char* const outputImage,
 
             weight = 1;
             //generate a ray for a further bounce
-            if( glm::all(glm::equal(mtl.specular, glm::vec3(0.0f,0.0f,0.0f) ) ) )
+            if(!glm::all(glm::equal(mtl.diffuse, glm::vec3(0.0f,0.0f,0.0f) ) )  )
             {
                 reflectRay = diffuse_direction( &surfaceNormal, &local_state, sobolState );
             }
@@ -850,7 +859,7 @@ __global__ void setupSobolRandSeed(curandStateSobol32_t *state, unsigned int* ve
 
 void setupRandSeedWrapper( int width, int height, curandState* states ) 
 {
-    dim3 blockSize = dim3(8*8);
+    dim3 blockSize = dim3(16*16);
     dim3 gridSize = dim3( (width*height + blockSize.x-1)/blockSize.x );
     setupRandSeed<<<gridSize, blockSize>>>(states);
     cudaErrorCheck( cudaGetLastError() );
@@ -860,7 +869,7 @@ void setupRandSeedWrapper( int width, int height, curandState* states )
 
 void setupSobolRandSeedWrapper( int width, int height, curandStateSobol32_t* states, unsigned int*vector ) 
 {
-    dim3 blockSize = dim3(8*8);
+    dim3 blockSize = dim3(16*16);
     dim3 gridSize = dim3( (width*height + blockSize.x-1)/blockSize.x );
     setupSobolRandSeed<<<gridSize, blockSize>>>(states, vector);
     cudaErrorCheck( cudaGetLastError() );
