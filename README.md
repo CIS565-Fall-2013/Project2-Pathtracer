@@ -7,18 +7,11 @@ Due Wednesday, 10/02/13
 -------------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------
-NOTE:
+Project Overview
 -------------------------------------------------------------------------------
-This project requires an NVIDIA graphics card with CUDA capability! Any card after the Geforce 8xxx series will work. If you do not have an NVIDIA graphics card in the machine you are working on, feel free to use any machine in the SIG Lab or in Moore100 labs. All machines in the SIG Lab and Moore100 are equipped with CUDA capable NVIDIA graphics cards. If this too proves to be a problem, please contact Patrick or Liam as soon as possible.
+For this project, I built off of my CUDA ray tracer in order to implement a parallel path tracer featuring full global illumination,
 
--------------------------------------------------------------------------------
-INTRODUCTION:
--------------------------------------------------------------------------------
-In this project, you will extend your raytracer from Project 1 into a full CUDA based global illumination pathtracer. 
 
-For this project, you may either choose to continue working off of your codebase from Project 1, or you may choose to use the included basecode in this repository. The basecode for Project 2 is the same as the basecode for Project 1, but with some missing components you will need filled in, such as the intersection testing and camera raycasting methods. 
-
-How you choose to extend your raytracer into a pathtracer is a fairly open-ended problem; the supplied basecode is meant to serve as one possible set of guidelines for doing so, but you may choose any approach you want in your actual implementation, including completely scrapping the provided basecode in favor of your own from-scratch solution.
 
 -------------------------------------------------------------------------------
 CONTENTS:

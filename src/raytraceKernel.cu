@@ -128,11 +128,11 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
   {
       glm::vec3 color;
 	  
-	  glm::clamp(image[index], vec3(0,0,0), vec3(1,1,1));
+	  image[index] = glm::clamp(image[index], vec3(0,0,0), vec3(1,1,1));
 
 	  imageAccumd[index] = (imageAccumd[index] * (iteration - 1) + image[index]) / iteration;
 
-	  glm::clamp(imageAccumd[index], vec3(0,0,0), vec3(1,1,1));
+	  imageAccumd[index] = glm::clamp(imageAccumd[index], vec3(0,0,0), vec3(1,1,1));
 
       color.x = imageAccumd[index].x*255.0;
       color.y = imageAccumd[index].y*255.0;
@@ -727,6 +727,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	
 	// LOOK: Currently assuming number of rays is the number of pixels on screen.
 	int numRays = cam.resolution.x * cam.resolution.y;
+	int initPoolSize = numRays;
 	ray* cudaRayPool = NULL;
 	
 	//kernel launch
@@ -754,7 +755,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 			if (USE_STREAM_COMPACTION)
 			{
 				thrust::device_ptr<ray> cudaRayPoolDevicePtr(cudaRayPool);
-				thrust::device_ptr<ray> compactCudaRayPoolDevicePtr = thrust::remove_if(cudaRayPoolDevicePtr, cudaRayPoolDevicePtr + numRays, is_terminated());
+				thrust::device_ptr<ray> compactCudaRayPoolDevicePtr = thrust::remove_if(cudaRayPoolDevicePtr, cudaRayPoolDevicePtr + initPoolSize, is_terminated());
 			
 				// pointer arithmetic to figure out the number of rays.
 				numRays = compactCudaRayPoolDevicePtr.get() - cudaRayPoolDevicePtr.get();
