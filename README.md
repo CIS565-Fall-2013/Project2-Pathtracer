@@ -1,26 +1,26 @@
 -------------------------------------------------------------------------------
-CIS565: Project 1: CUDA Raytracer
+#CIS565: Project 1: CUDA Raytracer
 -------------------------------------------------------------------------------
-Fall 2013
+#Fall 2013
 -------------------------------------------------------------------------------
 
 ![Alt text](renders/title image.jpg?raw=true)
 -------------------------------------------------------------------------------
 PROJECT DESCRIPTION
 -------------------------------------------------------------------------------
-This is a GPU path tracing program. Features implemented including:
-### Basic features
-	- Full global illumination (including soft shadows, color bleeding, etc.) by pathtracing rays through the scene. 
+This is a GPU path tracing program. Features implemented including
+#### Basic features
+    - Full global illumination (including soft shadows, color bleeding, etc.) by pathtracing rays through the scene. 
     - Properly accumulating emittance and colors to generate a final image
     - Supersampled antialiasing
     - Parallelization by ray instead of by pixel via stream compaction using Thrust library.
     - Perfect specular reflection (mirror)
 
 
-### Additional features
-	- Fresnel refraction and reflection for transparent objects
-	- Motion blur
-	- Depth of Field
+#### Additional features
+    - Fresnel refraction and reflection for transparent objects
+    - Motion blur
+    - Depth of Field
 
 
 To activate motion blur effects, define MOTION_BLUR in raytraceKernel.cu file.
@@ -31,7 +31,7 @@ Both effect are hardcoded while motion blur applies to object 6 and depth of fie
 -------------------------------------------------------------------------------
 IMPLEMENTATION DETAILS
 -------------------------------------------------------------------------------
-## Fresnel Transparency
+### Fresnel Transparency
 
 Starting from my ray tracer from last project, the easiest addition would be changing my transparent objects from ray tracer 
 to be based on Fresnel equations. This would first calculate the Fresnel cooefficients based on the index of refraction from each side
@@ -45,7 +45,7 @@ Throw in some mirror for awesomeness:
  ![Alt text](renders/fresnel with mirror.jpg?raw=true)
 
 
-## A Naive Path Tracer
+### A Naive Path Tracer
 
 After Fresnel worked, my next objective is get a basic path tracer up and running. Although the rendering equation and all those
 BRDFs and PDF seem difficult, if we just do the basic diffuse surface with cosine weighted hemisphere sampling, a naive path tracer
@@ -65,7 +65,7 @@ take index of pixels, iterations and bounces, the image start to look plausible,
 
 But I will leave it there for now and work on ray-parallelization instead.
 
-## Ray-parallelization
+### Ray-parallelization
 
 The ray-parallel path tracer is better than a pixel-parallel path tracer in that it does not have as many idle threads with concluded pixel
 color computation. For a path tracer, the actual bounces between rays could potentially vary a lot, which is a waste of computational resource
@@ -87,14 +87,14 @@ Working increamentally to transfer all functionalities from pixel-parallel to ra
  ![Alt text](renders/Refractive added.jpg?raw=true)
 
 
-## Stream compaction
+### Stream compaction
 
 Because we are using ray-parallelization here, the rays that are terminated should no longer take a thread and do nothing. So instead of calculating 
 each bounce for resolution.x * resolution.y rays, we only calculate the "alive" rays to better utilize hardware resources. For each bounce, scan the
 ray pool and remove dead rays with thrust::remove_if, then recalculate the number of blocks for the grid, launch kernel for next bounce. The performance
 improvement was well visible. I will talk more about this in Performance Analysis section.
 
-* Color accumulation
+### Color accumulation
 
 While doing this, I encountered the color accumulation issue. Before then, I just use a naive approach to adding each iteration's contribution
 multiplied by 1/numberOfIterations. However, I have to wait a long time before the scene is bright enough for me to see anything, and I cannot 
@@ -126,25 +126,25 @@ Tune up iteration to 5000, it finally looks like an path-traced image like I oft
 
  ![Alt text](renders/5000 iterations.jpg?raw=true)
 
-## Anti-aliasing
+### Anti-aliasing
 
 With path-tracing, Anti-aliasing is infinitely simple. Just perturbe the direction of the ray within the pixel for every iteration, and you get very nice AA!
 
  ![Alt text](renders/5000 iterations with AA.jpg?raw=true)
 
-## Motion blur
+### Motion blur
 
 Motion blur is easy too, simply translate the object a bit every iteration. This is the effect I was able to achieve in an modified Cornell Box
 
  ![Alt text](renders/Motion Blur.jpg?raw=true)
 
-## Depth of Field
+### Depth of Field
 
 Browsing Internet for knowlegde of Depth of Field, I found some great sites:
 
-	### For theory: http://http.developer.nvidia.com/GPUGems/gpugems_ch23.html
+	- For theory: http://http.developer.nvidia.com/GPUGems/gpugems_ch23.html
 
-	### For implementation: 
+	- For implementation: 
 	http://www.codermind.com/articles/Raytracer-in-C++-Depth-of-field-Fresnel-blobs.html
 	http://www.keithlantz.net/2013/03/path-tracer-depth-of-field/
 	http://www.colorseffectscode.com/Projects/GPUPathTracer.html (Shehzan's personel website)
