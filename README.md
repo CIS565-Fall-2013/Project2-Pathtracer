@@ -32,10 +32,26 @@ Was achieved by reflecting the rays when they hit the reflective surface
 The extra features that were implemented are : 
 
 * Translational motion blur
+  Here the object position was varied according to linear interpolated values of its start and end 
+  position during each iteration
+
 * Snell-based Refraction, i.e. glass
+  Here the basic Snells refraction was implemented using the Glm::refract function and a probability 
+  was assigned to get both reflections and refractions on the material 
+
 * OBJ Mesh loading and rendering with Bounding boxes
+  The Obj loading was implemented earlier for ray tracer , but in this assignmnet the maximum and minimum
+  co-ordinates of the mesh were calculated and sent to the GPU and hence a max min box intersection test 
+  was done
+
 * Interactive camera
+  A interactive mouse has been implemented by imagining a camera attched to the sphere and hence the new 
+  positions are calculated based on that. To do this feature CIS 563 cloth simulation assignmnet was referred,
+  and it partially acted as a guide for path tracer interaction feature. 
+
 * Depth of field
+  DOF was implemneted by selecting a depth plane away from the camera and jittering the camera position during 
+  each iteration.  
 
 -------------------------------------------------------------------------------
 ScreenShots :
