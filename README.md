@@ -7,8 +7,11 @@ It has the following features:
  4. Depth of field effect
  5. OBJ model rendering support  
 
-**Recording of execution: http://www.youtube.com/watch?v=noNKCQpq5iA&feature=youtu.be**
-![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot4.png "Result after 2000 iterations")
+**Recording of execution: http://www.youtube.com/watch?v=noNKCQpq5iA&feature=youtu.be**  
+Result after 2000 iterations:  
+
+![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot4.png "Result after 2000 iterations")  
+Result after 120 iterations:  
 ![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot6_120iteration.png "Result after 120 iterations")
 
 ##Implementation Details:
@@ -35,8 +38,10 @@ It has the following features:
  **Depth of field effect is realized by randomly offsetting the eye position at the start of each iteration.**
  
 ##Performance evaluation:
-  **Coupled with Russian Roulette, stream compaction can greatly reduce path traversing time, as shown in the following chart:
- ![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot6.png "chart")
+  **Coupled with Russian Roulette, stream compaction can greatly reduce path traversing time, as shown in the following chart:  
+  
+ ![alt text](https://raw.github.com/otaku690/Project2-Pathtracer/master/screenshot6.png "chart")  
+ 
 Stream compaction ensures that kernel invocations work on valid rays, reducing the chances of branch divergences.
 
 ##Third-party code
