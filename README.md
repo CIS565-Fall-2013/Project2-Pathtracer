@@ -45,6 +45,8 @@ For loading the obj mesh, change the cube or sphere in the scene file to the obj
 
 TinyObjLoader [https://github.com/syoyo/tinyobjloader](https://github.com/syoyo/tinyobjloader "TinyOBJLoader")
 
+The OBJ file I found it here [http://people.sc.fsu.edu/~jburkardt/data/obj/obj.html](http://people.sc.fsu.edu/~jburkardt/data/obj/obj.html "OBJ FILES")
+
 **Screen Shots:**
 
 ![Alt text](/renders/test5000.0MB.bmp "With Motion Blur")
