@@ -90,6 +90,7 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, int x, int
 	return r;
 }
 
+
 //Kernel that blacks out a given image buffer
 __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -137,6 +138,42 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
 
+//reflection
+__host__ __device__ void reflect(glm::vec3& incoming, glm::vec3 normal, float nDotV){
+	
+	incoming = glm::normalize(incoming - 2.0f*nDotV*normal);
+
+}
+
+//refraction
+__host__ __device__ void refract(glm::vec3 & incoming, glm::vec3 normal, float n1, float n2, bool fresnel, int index, int time){
+
+	float n = n1/n2;
+	float c1 = glm::dot(-incoming, normal);			//cos of angle between normal and incident ray
+	float c2 = 1.0f - n*n*(1.0f - c1*c1);
+
+	//total internal reflection
+	if(c2 < 0){
+		//incoming = glm::normalize(incoming - 2.0f*glm::dot(incoming, normal)*normal);
+		//why is this working???
+		reflect(incoming, normal, c1);
+		return;
+	}
+
+	//schlick's approximation
+	float r0 = (n1-n2)*(n1-n2)/(n1+n2)/(n1+n2);
+	float rTheta = r0 + (1.0f-r0)*pow((1.0f-c1), 5);
+
+	thrust::default_random_engine rng(hash(index*time));
+	thrust::uniform_real_distribution<float> u01(0,1);
+
+	if(!fresnel || (float)u01(rng) > rTheta)
+		incoming = glm::normalize( n*incoming + (n*c1-sqrt(c2))*normal);
+	else
+		reflect(incoming, normal, -c1);
+
+}
+
 //Does intersection on all of the objects and returns length of closest intersection
 __host__ __device__ float testGeomIntersection(staticGeom* geoms, int numberOfGeoms, ray& r, glm::vec3& intersectionPoint, glm::vec3& normal, int& objID){
 
@@ -173,7 +210,6 @@ __host__ __device__ float testGeomIntersection(staticGeom* geoms, int numberOfGe
 
 }
 
-
 __global__ void streamCompact(int numRays, int* compactIn, int* compactOut, int d){
 
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -204,26 +240,7 @@ __global__ void buildRayPool(int* compactIn, rayBounce* rayTempPass, rayBounce* 
 	}
 }
 
-__host__ __device__ cudaMat4 buildTransformationMatrix(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale){
- 
-	glm::mat4 translationMat = glm::translate(glm::mat4(), translation);
-  glm::mat4 rotationMat = glm::rotate(glm::mat4(), rotation.x, glm::vec3(1,0,0));
-  rotationMat = rotationMat*glm::rotate(glm::mat4(), rotation.y, glm::vec3(0,1,0));
-  rotationMat = rotationMat*glm::rotate(glm::mat4(), rotation.z, glm::vec3(0,0,1));
-  glm::mat4 scaleMat = glm::scale(glm::mat4(), scale);
-
-  glm::mat4 transform = translationMat*rotationMat*scaleMat;
-    cudaMat4 m; 
-	transform = glm::transpose(transform);
-    m.x = transform[0];
-    m.y = transform[1];
-    m.z = transform[2];
-    m.w = transform[3];
-    return m;
-
-}
-
-//creates and stores first bounce rays, always at depth 1
+//pixel parallel pathtrace
 __global__ void pathTrace(glm::vec2 resolution, cameraData cam, int maxDepth, int time, staticGeom* geoms, int numberOfGeoms, material* materials, 
 						 int numLights, int* lightID, glm::vec3* colors){
 
@@ -383,114 +400,17 @@ __global__ void createRay(glm::vec2 resolution, cameraData cam, int maxDepth, in
 		int objID = -1;
 		float len = testGeomIntersection(geoms, numberOfGeoms, firstRay, intersection, normal, objID);
 
-		//start building the first pool of rays
+		//start building the first pool of rays 
 		rayBounce firstBounce = rayBounce();
 		firstBounce.pixID = index;
 		firstBounce.thisRay = firstRay;
 		firstBounce.currDepth = 1;
 		firstBounce.color = glm::vec3(1);
 
-		//if no intersection, return
-		if(objID == -1){
-			colors[index] += glm::vec3(0,0,0);					//set to black
-			firstBounce.dead = true;
-			firstPass[index] = firstBounce;
-			compactIn[index] = 0;
-			return;	
-		}
-
-		int matID = geoms[objID].materialid;
-		material firstMat = materials[matID];
-
-		//check if material is light
-		if(firstMat.emittance > 0){
-			colors[index] += firstMat.color * firstMat.emittance; 
-			firstBounce.dead = true;
-			firstPass[index] = firstBounce;
-			compactIn[index] = 0;
-			return;
-		}
-
-		float nDotv = glm::dot(normal, firstRay.direction);
-		
-		//pure freflection
-		if(firstMat.hasReflective == 1 && firstMat.hasRefractive == 0){
-			firstRay.direction = glm::normalize(firstRay.direction - 2.0f*nDotv*normal);
-		}
-		//pure refraction
-		else if(firstMat.hasRefractive == 1 && firstMat.hasReflective == 0){
-			float n1 = 1.0f;
-			float n2 = firstMat.indexOfRefraction;
-			
-			//check if ray is inside the object
-			if(nDotv > 0){
-				n1 = n2;
-				n2 = 1.0f;
-				normal *= -1.0f;			//flip normal
-			}
-
-			float n = n1/n2;
-			float c1 = glm::dot(-firstRay.direction, normal);
-			float c2 = 1.0f - n*n *(1.0f- c1*c1);
-			
-			if(c2 < 0)
-				firstRay.direction = glm::normalize(firstRay.direction - 2.0f*c1*normal);
-			else{
-				firstRay.direction = glm::normalize( n*firstRay.direction + (n*c1-sqrt(c2))*normal);
-			}
-		}
-		else if(firstMat.hasRefractive == 1 && firstMat.hasReflective == 1){
-			float n1 = 1.0f;
-			float n2 = firstMat.indexOfRefraction;
-			
-			//check if ray is inside the object
-			if(nDotv > 0){
-				n1 = n2;
-				n2 = 1.0f;
-				normal *= -1.0f;			//flip normal
-			}
-
-			float n = n1/n2;
-			float c1 = glm::dot(-firstRay.direction, normal);
-			float c2 = 1.0f - n*n *(1.0f- c1*c1);
-			
-			if(c2 < 0)
-				firstRay.direction = glm::normalize(firstRay.direction - 2.0f*c1*normal);
-			else{
-				//schlick's approximation
-				float r0 = pow((n1-n2)/(n1+n2), 2);
-				float rTheta = r0 +(1-r0)*pow((1.0f-c1), 5);
-			
-				thrust::default_random_engine rng(hash(index*time));
-				thrust::uniform_real_distribution<float> u01(0,1);
-			
-				if((float)u01(rng) > rTheta)
-					firstRay.direction = glm::normalize( n*firstRay.direction + (n*c1-sqrt(c2))*normal);
-				else
-					firstRay.direction = glm::normalize(firstRay.direction - 2.0f*glm::dot(firstRay.direction, normal)*normal);
-			}
-		}
-		else{
-			//calculate diffuse direction
-			glm::vec3 seed = generateRandomNumberFromThread(resolution, time+1, x, y);
-
-			if(time % 2 ==0)
-				firstRay.direction = calculateRandomDirectionInHemisphere(normal, seed.x, seed.y);
-			else
-				firstRay.direction = calculateRandomDirectionInHemisphere(normal, seed.y, seed.z);
-		}
-
-		firstBounce.dead = false;
+		//set all rays to alive
 		compactIn[index] = 1;
 
-		//offset a little to prevent self intersection
-		firstBounce.thisRay.direction = firstRay.direction;
-		firstBounce.thisRay.origin = intersection + 0.001f * firstRay.direction;
-
-		//store the color
-		firstBounce.color *= firstMat.color;
-
-		//store first bounce
+		//save first bounce
 		firstPass[index] = firstBounce;
 	}
 
@@ -542,11 +462,10 @@ __global__ void rayParallelTrace(glm::vec2 resolution, int time, cameraData cam,
 		float nDotv = glm::dot(normal, currRay.direction);
 		//basic reflection
 		if(currMat.hasReflective == 1 && currMat.hasRefractive == 0){
-			currRay.direction = glm::normalize(currRay.direction - 2.0f*nDotv*normal);
+			reflect(currRay.direction, normal, nDotv);
 		}
-
-		//basic refraction
-		else if(currMat.hasRefractive == 1 && currMat.hasReflective == 0){
+		//refraction
+		else if(currMat.hasRefractive == 1){
 			float n1 = 1.0f;
 			float n2 = currMat.indexOfRefraction;
 			
@@ -557,46 +476,12 @@ __global__ void rayParallelTrace(glm::vec2 resolution, int time, cameraData cam,
 				normal *= -1.0f;			//flip normal
 			}
 
-			float n = n1/n2;
-			float c1 = glm::dot(-currRay.direction, normal);
-			float c2 = 1.0f - n*n *(1.0f- c1*c1);
-			
-			if(c2 < 0)
-				currRay.direction = glm::normalize(currRay.direction - 2.0f*c1*normal);
+			//refract without using fresnel
+			if(currMat.hasReflective == 0)
+				refract(currRay.direction, normal, n1, n2, false, index, time);
 			else
-				currRay.direction = glm::normalize( n*currRay.direction + (n*c1-sqrt(c2))*normal);
-		}
-		else if(currMat.hasReflective == 1 && currMat.hasRefractive == 1){
-			float n1 = 1.0f;
-			float n2 = currMat.indexOfRefraction;
-			
-			//check if ray is inside the object
-			if(nDotv > 0){
-				n1 = n2;
-				n2 = 1.0f;
-				normal *= -1.0f;			//flip normal
-			}
-
-			float n = n1/n2;
-
-			float c1 = glm::dot(-currRay.direction, normal);
-			float c2 = 1.0f - n*n *(1.0f- c1*c1);
-			
-			if(c2 < 0 )
-				currRay.direction = glm::normalize(currRay.direction - 2.0f*c1*normal);
-			else{
-				//schlick's approximation
-				float r0 = (n1-n2)*(n1-n2)/(n1+n2)/(n1+n2);
-				float rTheta = r0 + (1.0f-r0)*pow((1.0f-c1), 5);
-
-				thrust::default_random_engine rng(hash(index*time));
-				thrust::uniform_real_distribution<float> u01(0,1);
-						
-				if((float)u01(rng) > rTheta)
-					currRay.direction = glm::normalize( n*currRay.direction + (n*c1-sqrt(c2))*normal);
-				else
-					currRay.direction = glm::normalize(currRay.direction - 2.0f*glm::dot(currRay.direction, normal)*normal);	
-			}
+				//reract with fresnel flag = true
+				refract(currRay.direction, normal, n1, n2, true, index, time);
 		}
 		else{
 			//find new direction
@@ -618,13 +503,6 @@ __global__ void rayParallelTrace(glm::vec2 resolution, int time, cameraData cam,
 
 }
 
-
-__global__ void resetCompactVals(int* compactA, int* compactB, int imageSize){
-	
-	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-	if(index < imageSize)
-		compactA[index] = compactB[index] = 0;
-}
 
 //allocate memory on cuda
 void cudaAllocMemory(camera* renderCam, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
