@@ -18,6 +18,7 @@ struct ray {
 	glm::vec3 direction;
 	glm::vec3 color;
 	int pixelID;
+	bool alive;
 };
 
 struct geom {

@@ -116,14 +116,11 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 //Core raytracer kernel
 __global__ void raytraceRay(ray* cudarays, glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms, int numberOfCubes, int numberOfSpheres, material* cudamaterials, 
-							int numberOfMaterials, int* cudalights, int numberOfLights, int numBounce, int* cudaalive,
-							int* numAliveRays, int initialMaxRays){
+							int numberOfMaterials, int numBounce, int* cudaalive, int initialMaxRays){
 
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	int x = cudarays[index].pixelID/resolution.x;
-	int y = cudarays[index].pixelID-resolution.y*x;
-
-	//printf("%d ", numAliveRays[0]);
+	int y = cudarays[index].pixelID/resolution.y;
+	int x = cudarays[index].pixelID-resolution.x*y;
 
 	if (index < initialMaxRays){
 
@@ -178,17 +175,13 @@ __global__ void raytraceRay(ray* cudarays, glm::vec2 resolution, float time, cam
 			reflectedDir = normalize(reflectedDir);
 			vec3 refractedDir = vec3(0,0,0);
 			
-			for (int i = 0; i < numberOfLights; i++){
-				if (closestObjectid == cudalights[i]){
-					cudarays[index].color *= cudamaterials[geoms[closestObjectid].materialid].color*cudamaterials[geoms[closestObjectid].materialid].emittance;
-					cudarays[index].origin = vec3(0,0,0);
-					cudarays[index].direction = vec3(0,0,0);
-					colors[cudarays[index].pixelID] += cudarays[index].color;
-					cudaalive[index] = 0; //dead
-					atomicAdd(&numAliveRays[0], -1);
-					//numAliveRays[0]--;
-					return;
-				}
+			
+			if (cudamaterials[geoms[closestObjectid].materialid].emittance > 0){
+				cudarays[index].color *= cudamaterials[geoms[closestObjectid].materialid].color*cudamaterials[geoms[closestObjectid].materialid].emittance;
+				cudarays[index].alive = false;
+				colors[cudarays[index].pixelID] += cudarays[index].color;
+				cudaalive[index] = 0; //dead
+				return;
 			}
 
 			float n1 = 0, n2 = 0;
@@ -257,21 +250,15 @@ __global__ void raytraceRay(ray* cudarays, glm::vec2 resolution, float time, cam
 
 		}//if intersects with anything
 		else{
-			cudarays[index].origin = vec3(0,0,0);
-			cudarays[index].direction = vec3(0,0,0);
 			cudarays[index].color *= vec3(0,0,0);
+			cudarays[index].alive = false;
 			colors[cudarays[index].pixelID] += cudarays[index].color;
 			cudaalive[index] = 0; //dead
-			atomicAdd(&numAliveRays[0], -1);
 			//numAliveRays[0]--;
 			return;
 		}
 
-		//colors[index] += realColor;
 	}//end of ifstatement
-	else{
-		//colors[cudarays[index].pixelID] += cudarays[index].color;
-	}
 }
 
 //INITIALIZES A POOL OF RAYS
@@ -297,6 +284,7 @@ __global__ void initializeRays(glm::vec2 resolution, float time, cameraData cam,
 		ray currentRay = rayFromCamera; //jitteredRay;
 		currentRay.pixelID = index;
 		currentRay.color = vec3(1,1,1);
+		currentRay.alive = true;
 		cudarays[index] = currentRay;	//stores ray
 
 	}
@@ -311,19 +299,18 @@ __global__ void scan(int* cudacondition, int* cudatemp, int d){
 	int e = pow(2.0f,d-1);	//speed up this later
 	if (index >= e){
 		cudatemp[index] = cudacondition[index-e] + cudacondition[index];
+	}else{
+		cudatemp[index]  = cudacondition[index];
 	}
 
 }
 
-__global__ void streamCompact( int* cudaalive, int* cudaprescanalive, ray* cudarays, ray* cudaraysTemp, int numRays){
+__global__ void streamCompact( int* cudaalive, ray* cudarays, ray* cudaraysTemp, int numRays){
 	
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index < numRays){
-		if(cudaprescanalive[index]){						//compare to see if ray is alive or dead
-			cudarays[cudaalive[index]-1].color = cudaraysTemp[index].color;
-			cudarays[cudaalive[index]-1].direction = cudaraysTemp[index].direction;
-			cudarays[cudaalive[index]-1].origin = cudaraysTemp[index].origin;
-			cudarays[cudaalive[index]-1].pixelID = cudaraysTemp[index].pixelID;
+		if(cudarays[index].alive){						//compare to see if ray is alive or dead
+			cudaraysTemp[cudaalive[index]-1] = cudarays[index];
 		}
 	}
 }
@@ -337,7 +324,7 @@ __global__ void resetAliveConditionArray( int* cudaalive){
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, int numberOfCubes, int numberOfSpheres, bool cameraMoved){
   
-  int traceDepth = 15; //determines how many bounces the pathtracer traces
+  int traceDepth = 200; //determines how many bounces the pathtracer traces
   std::vector<int> lightsid;
 
   // set up crucial magic
@@ -367,15 +354,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     newStaticGeom.transform = geoms[i].transforms[frame];
     newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
     geomList[i] = newStaticGeom;
-	if (materials[newStaticGeom.materialid].emittance > 0)
-		lightsid.push_back(i);
   }
-
-  int* lightsList = new int[lightsid.size()];
-  for (int i = 0; i < lightsid.size(); i++){
-	  lightsList[i] = lightsid[i];
-  }
-
      
   staticGeom* cudageoms = NULL;
   cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
@@ -384,10 +363,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   material* cudamaterials = NULL;
   cudaMalloc((void**)&cudamaterials, numberOfMaterials*sizeof(material));
   cudaMemcpy( cudamaterials, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
-
-  int* cudalights = NULL;
-  cudaMalloc((void**)&cudalights, lightsid.size()*sizeof(int));
-  cudaMemcpy( cudalights, lightsList, lightsid.size()*sizeof(int), cudaMemcpyHostToDevice);
 
   int numberOfPixels = renderCam->resolution.x*renderCam->resolution.y;
   ray* cudarays = NULL;
@@ -414,12 +389,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   //initial pool of rays
   initializeRays<<<fullBlocksPerGrid2d, threadsPerBlock2d>>>(renderCam->resolution, (float)iterations, cam, cudarays);
 
-  int* numAliveRaysCPU = new int[1];
-  numAliveRaysCPU[0] = numberOfPixels;
-  int* numAliveRays = new int[1];
-  cudaMalloc((void**)&numAliveRays, sizeof(int));
-  cudaMemcpy( numAliveRays, numAliveRaysCPU, sizeof(int), cudaMemcpyHostToDevice);
-
   //intialize the alive array 
   int* cudaalive = NULL;
   cudaMalloc((void**)&cudaalive, numberOfPixels*sizeof(int));
@@ -428,66 +397,41 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   int* cudatemp = NULL;
   cudaMalloc((void**)&cudatemp, numberOfPixels*sizeof(int));
 
-  int* cudaprescanalive = NULL;
-  cudaMalloc((void**)&cudaprescanalive, numberOfPixels*sizeof(int));
 
   ray* cudaraysTemp = NULL;
   cudaMalloc((void**)&cudaraysTemp, numberOfPixels*sizeof(ray));
 
-
   int numRays = renderCam->resolution.x*renderCam->resolution.y;
 
   //kernel launches
-  for (int i = 0; i < traceDepth; i++){
+  for (int i = 0; i < traceDepth && numRays > 0; i++){
 
 	raytraceRay<<<fullBlocksPerGrid1d, threadsPerBlock1d>>>(cudarays, renderCam->resolution, (float)iterations, cam, traceDepth, 
-	cudaimage, cudageoms, numberOfGeoms, numberOfCubes, numberOfSpheres, cudamaterials, numberOfMaterials, cudalights, lightsid.size(), 
-	i, cudaalive, numAliveRays, numRays);
-		  
- /* ray* debugrays = new ray[numberOfPixels];
-	cudaMemcpy(debugrays, cudarays, numberOfPixels*sizeof(ray), cudaMemcpyDeviceToHost);
-	int* debug = new int[numberOfPixels];
-	cudaMemcpy(debug, cudaalive, numberOfPixels*sizeof(int), cudaMemcpyDeviceToHost);
-	std::cout<<numRays<<std::endl;
-	for (int i = 0; i < numRays; i++){
-		std::cout<<"ray: "<<debugrays[i].pixelID<<" alive: "<<debug[i]<<std::endl;
-	}
-  getchar();
-  */
-	cudaMemcpy(cudaprescanalive, cudaalive, numberOfPixels*sizeof(int), cudaMemcpyDeviceToDevice);		//store original alive before scan
-	cudaMemcpy(numAliveRaysCPU, numAliveRays, sizeof(int), cudaMemcpyDeviceToHost);
-	cudaMemcpy(cudaraysTemp, cudarays, numberOfPixels*sizeof(ray), cudaMemcpyDeviceToDevice);
+	cudaimage, cudageoms, numberOfGeoms, numberOfCubes, numberOfSpheres, cudamaterials, numberOfMaterials, i, cudaalive, numRays);
 
-	/*ray* debugrays = new ray[numberOfPixels];
-	cudaMemcpy(debugrays, cudarays, numberOfPixels*sizeof(ray), cudaMemcpyDeviceToHost);
-	for (int i = 0; i < 20; i++){
-		std::cout<<"ray: "<<debugrays[i].pixelID<<", ";
-	}
-	std::cout<<std::endl;
-	*/
 	int log2n = (int)ceil(log(float(numRays)) / log(2.0f));
 	for (int d = 1; d <= log2n; d++){
 		scan<<<fullBlocksPerGrid1d, threadsPerBlock1d>>>( cudaalive, cudatemp, d);			//scan
-		cudaMemcpy(cudaalive, cudatemp, numberOfPixels*sizeof(int), cudaMemcpyDeviceToDevice);	//swap
-	}
-	/*
-	int* debug = new int[numberOfPixels];
-	cudaMemcpy(debug, cudaalive, numberOfPixels*sizeof(int), cudaMemcpyDeviceToHost);
-	for (int i = 0; i < 20; i++){
-		std::cout<<debug[i]<<", ";
+		int* temp = cudaalive;
+		cudaalive = cudatemp;
+		cudatemp = temp;
 	}
 
-	getchar();
-	*/
+    int numAliveRaysCPU = 0;
+
 	//cudaalive now has the summed corresponding new indices for the alive rays
+	cudaMemcpy(&numAliveRaysCPU, &cudaalive[numRays-1], sizeof(int), cudaMemcpyDeviceToHost);
+	
+	streamCompact<<<fullBlocksPerGrid1d, threadsPerBlock1d>>>( cudaalive, cudarays, cudaraysTemp, numRays);
 
-	streamCompact<<<fullBlocksPerGrid1d, threadsPerBlock1d>>>( cudaalive, cudaprescanalive, cudarays, cudaraysTemp, numRays);
+	ray* tempR = cudarays;
+	cudarays = cudaraysTemp;
+	cudaraysTemp = tempR;
 
 	resetAliveConditionArray<<<fullBlocksPerGrid1d, threadsPerBlock1d>>>( cudaalive);
 
-	numRays = numAliveRaysCPU[0];
-	dim3 fullBlocksPerGrid1d((int)ceil((float(numRays)/float(tileSize*tileSize))));
-
+	numRays = numAliveRaysCPU;
+	fullBlocksPerGrid1d = dim3((int)ceil((float(numRays)/float(tileSize*tileSize))));
   }
 
   sendImageToPBO<<<fullBlocksPerGrid2d, threadsPerBlock2d>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);
@@ -499,15 +443,11 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudaimage );
   cudaFree( cudageoms );
   cudaFree( cudarays  );
-  cudaFree( cudalights);
   cudaFree(cudaalive);
   cudaFree(cudatemp);
-  cudaFree(numAliveRays);
-  cudaFree(cudaprescanalive);
   cudaFree(cudaraysTemp);
   delete geomList;
-  delete lightsList;
-  delete numAliveRaysCPU;
+
 
 
   // make certain the kernel has completed
