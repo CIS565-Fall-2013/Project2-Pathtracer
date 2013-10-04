@@ -259,7 +259,7 @@ void runCuda(){
 	//		frames = 0;
 	//	}
 	//	++frames;
-		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations | Execution Time: " + utilityCore::convertFloatToString(executionTime) + "ms";
+		string title = "GPU Path Tracer | " + utilityCore::convertIntToString(iterations) + " Iterations | Execution Time: " + utilityCore::convertFloatToString(executionTime) + "ms";
 
 		runCuda();
 

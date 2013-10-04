@@ -43,35 +43,27 @@ __host__ __device__ Fresnel calculateFresnel(glm::vec3 surfaceNormal, glm::vec3 
   
 	Fresnel fresnel;
 
-    glm::vec3 normal = glm::normalize(surfaceNormal);
+//    glm::vec3 normal = glm::normalize(surfaceNormal);
     glm::vec3 inDir = glm::normalize(incidentDir);
 
-    float cosIncidentAngle = glm::dot(inDir, -normal);
-	float sinIncidentAngle = glm::length(glm::cross(inDir, normal));
+    float cosIncidentAngle = glm::dot(inDir, -surfaceNormal);
+	float sinIncidentAngle = glm::length(glm::cross(inDir, surfaceNormal));
 	float cosTransmitAngle;
-		
-	//	printf("refractionIndex1: %f refractionIndex2: %f\n", refractionIndex1, refractionIndex2);
-	//	printf("%f %f %f\n", normal.x, normal.y, normal.z);
+
 	if(incidentIOR < transmittedIOR) // from air to glass
 	{
 		cosTransmitAngle = cos(asin(incidentIOR / transmittedIOR * sinIncidentAngle));
-//		printf("\nincidentIOR: %f, transmittedIOR: %f, cosIncidentAngle: %f, cosTransmitAngle: %f\n", incidentIOR, transmittedIOR, cosIncidentAngle, cosTransmitAngle);
 		fresnel.reflectionCoefficient  = pow(abs((incidentIOR * cosIncidentAngle - transmittedIOR * cosTransmitAngle) 
 			                                   / (incidentIOR * cosIncidentAngle + transmittedIOR * cosTransmitAngle)), 2);
 		fresnel.reflectionCoefficient += pow(abs((incidentIOR * cosTransmitAngle - transmittedIOR * cosIncidentAngle) 
 			                                   / (incidentIOR * cosTransmitAngle + transmittedIOR * cosIncidentAngle)), 2);
 		fresnel.reflectionCoefficient /= 2.0f;
-//		printf("reflectionCoefficient: %f\n\n", fresnel.reflectionCoefficient);
-		//		printf("refraDirection: %f %f %f\n", refraDirection.x, refraDirection.y, refraDirection.z);
 	}
 	else                                    // from glass to air
 	{
-		//		printf("from glass to air\n");
 		float sinCriticalAngle = transmittedIOR / incidentIOR;
-		//		printf("IncidentAngle: %f, CriticalAngle: %f\n", glm::degrees(asin(sinIncidentAngle)), glm::degrees(asin(sinCriticalAngle)));
 		if(sinIncidentAngle > sinCriticalAngle) 
 		{
-			//	printf("internal reflection\n");
 			fresnel.reflectionCoefficient = 1.0f;
 		}
 		else
@@ -79,12 +71,9 @@ __host__ __device__ Fresnel calculateFresnel(glm::vec3 surfaceNormal, glm::vec3 
 			cosTransmitAngle = cos(asin(incidentIOR / transmittedIOR * sinIncidentAngle));
 			fresnel.reflectionCoefficient  = pow(abs((incidentIOR * cosIncidentAngle - transmittedIOR * cosTransmitAngle) 
 				/ (incidentIOR * cosIncidentAngle + transmittedIOR * cosTransmitAngle)), 2);
-//			printf("\nincidentIOR: %f, transmittedIOR: %f, cosIncidentAngle: %f, cosTransmitAngle: %f\n", incidentIOR, transmittedIOR, cosIncidentAngle, cosTransmitAngle);
 			fresnel.reflectionCoefficient += pow(abs((incidentIOR * cosTransmitAngle - transmittedIOR * cosIncidentAngle) 
 				/ (incidentIOR * cosTransmitAngle + transmittedIOR * cosIncidentAngle)), 2);
-//			printf("reflectionCoefficient: %f\n", fresnel.reflectionCoefficient);
 			fresnel.reflectionCoefficient /= 2.0f;
-//			printf("reflectionCoefficient: %f\n\n", fresnel.reflectionCoefficient);
 		}
 		
 	}

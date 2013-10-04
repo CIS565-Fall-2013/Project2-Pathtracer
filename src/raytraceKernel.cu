@@ -21,7 +21,8 @@
 #include "interactions.h"
 
 //#define DEPTH_OF_FIELD
-#define MOTION_BLUR
+//#define MOTION_BLUR
+#define STREAM_COMPACTION
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
@@ -131,7 +132,7 @@ __host__ __device__ int rayIntersect(const ray& r, staticGeom* geoms, int number
 	float tempDistance = -1.0f;
 	glm::vec3 tempIntersctionPoint(0.0f), tempIntersectionNormal(0.0f);
 	int intersIndex = -1;
-
+//#pragma unroll numberOfGeoms
 	for(int i = 0; i < numberOfGeoms; i++)
 	{
 		tempDistance = -1.0f;
@@ -296,27 +297,15 @@ __global__ void rayTracerIterative(int iteration, int depth, int tileSize, ray *
 
 		if(intersIndex == -1) 
 		{
-			colors[r.index] += glm::vec3(0.0f);
-			r.index = -1;
-			rayPool[index] = r;
-			return;
-		}
-		else if(materials[geoms[intersIndex].materialid].emittance > 0.0f) // intersected with light source geometry
-		{
-			r.accumulatedColor *= materials[geoms[intersIndex].materialid].color * materials[geoms[intersIndex].materialid].emittance;	
-			colors[r.index] += r.accumulatedColor;
-			r.index = -1;
-			rayPool[index] = r;
-			return;
+			r.index = -1;		
 		}
 		else // intersected with actual geometry
 		{
 			glm::vec3 reflDir, refraDir;
-			float nextIndexOfRefraction;
-			Fresnel fresnel;
-
+		
 			if(materials[geoms[intersIndex].materialid].hasRefractive == 1) // for fresnel, if refractive, it will be reflective
 			{
+				float nextIndexOfRefraction;
 				if(abs(r.mediaIOR - 1) < 0.00001f)  // current ray is in air
 				{
 					refraDir = calculateTransmissionDirection(r.direction, intersectionNormal, r.mediaIOR, materials[geoms[intersIndex].materialid].indexOfRefraction, nextIndexOfRefraction);
@@ -329,7 +318,7 @@ __global__ void rayTracerIterative(int iteration, int depth, int tileSize, ray *
 				}
 
 				reflDir = calculateReflectionDirection(r.direction, intersectionNormal);
-				fresnel = calculateFresnel(intersectionNormal, r.direction, r.mediaIOR, nextIndexOfRefraction, reflDir, refraDir);
+				Fresnel fresnel = calculateFresnel(intersectionNormal, r.direction, r.mediaIOR, nextIndexOfRefraction, reflDir, refraDir);
 
 				thrust::default_random_engine rng(hash(iteration *(depth + 1)* index));
 				thrust::uniform_real_distribution<float> u01(0,1);
@@ -338,17 +327,12 @@ __global__ void rayTracerIterative(int iteration, int depth, int tileSize, ray *
 				{
 					r.origin = intersectionPoint + 0.01f * reflDir;
 					r.direction = reflDir;
-					r.mediaIOR = r.mediaIOR;
-					r.accumulatedColor = r.accumulatedColor;
-					rayPool[index] = r;
 				}				
 				else
 				{
 					r.origin = intersectionPoint + 0.01f * refraDir;
 					r.direction = refraDir;
 					r.mediaIOR = nextIndexOfRefraction;
-					r.accumulatedColor = r.accumulatedColor;
-					rayPool[index] = r;
 				}
 
 			}
@@ -357,25 +341,26 @@ __global__ void rayTracerIterative(int iteration, int depth, int tileSize, ray *
 				reflDir = calculateReflectionDirection(r.direction, intersectionNormal);
 				r.origin = intersectionPoint + 0.01f * reflDir;
 				r.direction = reflDir;
-				r.index = r.index;
-				r.accumulatedColor = r.accumulatedColor;
-				rayPool[index] = r;
 			}
 			else
 			{
+				colors[r.index] += r.tempColor * materials[geoms[intersIndex].materialid].emittance * materials[geoms[intersIndex].materialid].color;
 				thrust::default_random_engine rng(hash(iteration *(depth + 1)* index));
-				thrust::uniform_real_distribution<float> u01(0,1), v01(0, 1);
-				float russianroulette1 = (float)u01(rng);
-				float russianroulette2 = (float)v01(rng);
-
-				glm::vec3 newdir = calculateRandomDirectionInHemisphere(intersectionNormal, russianroulette1, russianroulette2);
-				r.origin =  intersectionPoint + 0.01f * newdir;
-				r.direction = newdir;
-				r.accumulatedColor = 0.8f * r.accumulatedColor * glm::clamp(glm::dot(intersectionNormal, newdir), 0.0f, 1.0f) * materials[geoms[intersIndex].materialid].color;
-				rayPool[index] = r;
-
+				thrust::uniform_real_distribution<float> u01(0,1);
+				if((float)u01(rng) < 0.2) // russian roulette rule: ray is absorbed
+				{
+					r.index = -1;
+				}
+				else
+				{
+					glm::vec3 newdir = calculateRandomDirectionInHemisphere(intersectionNormal, (float)u01(rng), (float)u01(rng));
+					r.origin =  intersectionPoint + 0.01f * newdir;
+					r.direction = newdir;
+					r.tempColor *= glm::clamp(glm::dot(intersectionNormal, newdir), 0.0f, 1.0f) * materials[geoms[intersIndex].materialid].color;				
+				}
 			}
-		}
+		}	
+		rayPool[index] = r;
 	}
 }
 
@@ -390,7 +375,7 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 	    jitteredScreenCoords = generateRandomNumberFromThreadForSSAA(resolution, time, x, y, 0.5f);
 	    r = raycastFromCameraKernel(resolution, time, jitteredScreenCoords.x, jitteredScreenCoords.y, cam.position, cam.view, cam.up, cam.fov);
         r.index = index;
-	    r.accumulatedColor = glm::vec3(1.0f);
+		r.tempColor = glm::vec3(1.0f);
 	    r.mediaIOR = 1.0f;	    
     }
 
@@ -437,8 +422,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
        newStaticGeom.type = geoms[i].type;
        newStaticGeom.materialid = geoms[i].materialid;
        newStaticGeom.translation = geoms[i].translations[frame];
-//	   if(i == 6) 
-//		   newStaticGeom.translation += (float)iterations * glm::vec3(-0.1f, 0.0f, 0.0f);
        newStaticGeom.rotation = geoms[i].rotations[frame];
        newStaticGeom.scale = geoms[i].scales[frame];
        newStaticGeom.transform = geoms[i].transforms[frame];
@@ -478,7 +461,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     ray* rayPool = new ray[rayPoolCount]; 
 
   // set up crucial magic
-    int tileSize = 12;
+    int tileSize = 8;
     dim3 threadsPerBlock(tileSize, tileSize);
     dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
 
@@ -494,10 +477,12 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  // resize block and grid 
 	    dim3 blocksPerGrid((int)ceil((float)rayPoolCount/(float)(tileSize*tileSize)));
 	    rayTracerIterative<<<blocksPerGrid, threadsPerBlock>>>(iterations, i, tileSize, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+#if defined(STREAM_COMPACTION)
 	  // do stream compaction
 	    thrust::device_ptr<ray> ray_ptr = thrust::device_pointer_cast(cudaray);
 	    thrust::device_ptr<ray> rayPool_last = thrust::remove_if(ray_ptr, ray_ptr + rayPoolCount, ray_is_dead());
-	    rayPoolCount = thrust::distance(ray_ptr, rayPool_last) + 1;	 
+	    rayPoolCount = thrust::distance(ray_ptr, rayPool_last);	 
+#endif
     }
 
 

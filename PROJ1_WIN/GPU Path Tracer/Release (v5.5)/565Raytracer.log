@@ -1,4 +1,4 @@
-﻿Build started 10/3/2013 11:55:03 PM.
+﻿Build started 10/4/2013 3:57:45 PM.
      1>Project "G:\GitHub\Project2-Pathtracer\PROJ1_WIN\GPU Path Tracer\565Raytracer.vcxproj" on node 2 (build target(s)).
      1>InitializeBuildStatus:
          Creating "Release (v5.5)\PathTracer.unsuccessfulbuild" because "AlwaysCreate" was specified.
@@ -8,7 +8,7 @@
        Skipping target "AddCudaCompilePropsDeps" because all output files are up-to-date with respect to the input files.
        CudaBuild:
          Compiling CUDA source file ..\..\src\raytraceKernel.cu...
-         cmd.exe /C "C:\Users\Nemo\AppData\Local\Temp\tmpa577fc4187594280998367be4f7323c7.cmd"
+         cmd.exe /C "C:\Users\Nemo\AppData\Local\Temp\tmp3ab8e3c6ff1740b9a4d260d18b9371ee.cmd"
          "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin\nvcc.exe" -gencode=arch=compute_30,code=\"sm_30,compute_30\" --use-local-env --cl-version 2010 -ccbin "D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin"  -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc" -I../shared/glew/includes -I../shared/freeglut/includes -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I../shared/glew/include -I../shared/freeglut/include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include"     --keep-dir "Release (v5.5)" -maxrregcount=0  --machine 32 --compile -cudart static    -use_fast_math -DWIN32 -DNDEBUG -D_CONSOLE -D_UNICODE -DUNICODE -Xcompiler "/EHsc /W3 /nologo /O2 /Zi  /MD  " -o "G:\GitHub\Project2-Pathtracer\PROJ1_WIN\GPU Path Tracer\Win32/Release (v5.5)/raytraceKernel.cu.obj" "G:\GitHub\Project2-Pathtracer\src\raytraceKernel.cu"
          
          G:\GitHub\Project2-Pathtracer\PROJ1_WIN\GPU Path Tracer>"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin\nvcc.exe" -gencode=arch=compute_30,code=\"sm_30,compute_30\" --use-local-env --cl-version 2010 -ccbin "D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin"  -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc" -I../shared/glew/includes -I../shared/freeglut/includes -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I../shared/glew/include -I../shared/freeglut/include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include"     --keep-dir "Release (v5.5)" -maxrregcount=0  --machine 32 --compile -cudart static    -use_fast_math -DWIN32 -DNDEBUG -D_CONSOLE -D_UNICODE -DUNICODE -Xcompiler "/EHsc /W3 /nologo /O2 /Zi  /MD  " -o "G:\GitHub\Project2-Pathtracer\PROJ1_WIN\GPU Path Tracer\Win32/Release (v5.5)/raytraceKernel.cu.obj" "G:\GitHub\Project2-Pathtracer\src\raytraceKernel.cu" 
@@ -596,7 +596,7 @@
      1>g:\github\project2-pathtracer\src\intersections.h(275): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
      1>g:\github\project2-pathtracer\src\intersections.h(321): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
      1>g:\github\project2-pathtracer\src\intersections.h(327): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
-     1>g:\github\project2-pathtracer\src\interactions.h(103): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>g:\github\project2-pathtracer\src\interactions.h(92): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
      1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(50): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
      1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(52): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
      1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(59): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
@@ -633,4 +633,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:13.06
+Time Elapsed 00:00:12.84

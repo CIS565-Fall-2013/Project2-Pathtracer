@@ -123,8 +123,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	
 	glm::vec3 intersectionPointOS = getPointOnRay(rOS, t);
 	intersectionPoint = multiplyMV(box.transform, glm::vec4(intersectionPointOS, 1.0f));
-//	printf("%f %f %f\n", normal.x, normal.y, normal.z);
-//	printf("%f %f\n", intersectionPointOS.x, bounds[0].x);
+
 	if(fabs(intersectionPointOS.x - bounds[0].x) < EPSILON) 
 		normal = glm::vec3(-1.0f, 0.0f, 0.0f);
 	else if(fabs(intersectionPointOS.x - bounds[1].x) < EPSILON) 
@@ -141,18 +140,9 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 		std::cout<<"Box intersection test error!"<<std::endl;
 	glm::vec3 normalTip = intersectionPointOS + normal;
 	glm::vec3 normalTipWS = multiplyMV(box.transform, glm::vec4(normalTip, 1.0f));
-//		normal = glm::vec3(1.0f, 1.0f, 1.0f);
-//	printf("%f %f %f\n", normalTipWS.x, normalTipWS.y, normalTipWS.z);
-//	cudaMat4 invTransMat = transposeMat(box.inverseTransform);
-//	cudaMat4 invTransMat = utilityCore::glmMat4ToCudaMat4(glm::inverse(utilityCore::cudaMat4ToGlmMat4(transposeMat(box.transform))));
-//	normal = multiplyMV(invTransMat, glm::vec4(normal, 0.0f));
-//	normal = glm::vec3(0.0f, 0.0f, 1.0f);
+
 	normal = glm::normalize(normalTipWS - intersectionPoint);
-//	float l = glm::length(normalTipWS - intersectionPoint);
-//    normal = multiplyMV(box.transform, glm::vec4(normal, 0.0f));
-//	printf("%f %f %f\n", normal.x, normal.y, normal.z);
-	
-//	printf("%f\n", l);
+
     return t;
 }
 
@@ -196,6 +186,75 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
         
   return glm::length(r.origin - realIntersectionPoint);
 }
+
+/*__host__ __device__ float Test_RayPolyIntersect(Ray const&r, vec3 const& p1, vec3 const& p2, vec3 const& p3, mat4 const& inv_trans_T, vec3 &r_normal, float &tNow) {
+/ *	mat4 TInverse = inverse(T);
+	mat4 TNormInverse = inverse(mat4(T[0], T[1], T[2], vec4(0.0f, 0.0f, 0.0f, T[3][3])));
+	vec4 P1 = TInverse * vec4(P0, 1.0f);
+	vec4 V1 = TNormInverse * vec4(V0, 0.0f);
+
+	vec3 r.orig = vec3(P1.x, P1.y, P1.z); // 3d eyePos in object coordinates
+	vec3 r.dir = vec3(V1.x, V1.y, V1.z); // 3d lookDir in object coordinates 
+* /
+	bool intersected = false;
+	glm::vec3   u, v, n;             // triangle vectors
+    glm::vec3   w0, w;          // ray vectors
+    float  q, a, b;             // params to calc ray-plane intersect
+	glm::vec3   I(0.0f);
+
+    // get triangle edge vectors and plane normal
+    u = p2 - p1;
+    v = p3 - p1;
+    n = glm::cross(u, v);             // cross product
+    if (length(n) < SMALL_NUM)            // triangle is degenerate
+        return false;                 // do not deal with this case
+
+    w0 = r.orig - p1;
+    a = glm::dot(n, w0);
+    b = -glm::dot(n, r.dir);
+    if (fabs(b) < SMALL_NUM)       // ray is parallel to triangle plane
+		return false;
+    if (fabs(a) < SMALL_NUM)        // eye lies in triangle plane	      
+		return false; 
+
+    // get intersect point of ray with triangle plane
+    q = a / b;
+    if (q < 0.0)                   // ray goes away from triangle
+        return false;                  // => no intersect
+
+    I = r.orig + q * r.dir;           // intersect point of ray and plane
+
+    // is I inside T?
+    float    uu, uv, vv, wu, wv, D;
+    uu = glm::dot(u,u);
+    uv = glm::dot(u,v);
+    vv = glm::dot(v,v);
+    w = I - p1;
+    wu = glm::dot(w,u);
+    wv = glm::dot(w,v);
+    D = uv * uv - uu * vv;
+
+    // get and test parametric coords
+    float s, t;
+    s = (uv * wv - vv * wu) / D;
+    if (s < 0.0 || s > 1.0)        // I is outside T
+        return false;
+    t = (uv * wu - uu * wv) / D;
+    if (t < 0.0 || (s + t) > 1.0)  // I is outside T
+        return false;
+
+
+	if(q < tNow)
+		{
+			intersected = true;
+			tNow = q; // update global minimum intersection distance
+			// caculate normal in WS
+			glm::vec4 r_normal_4 = inv_trans_T * glm::vec4(n, 1.0f);
+			r_normal = glm::vec3(r_normal_4.x, r_normal_4.y, r_normal_4.z);
+		}
+    return intersected;                      // I is in T
+
+}*/
 
 //returns x,y,z half-dimensions of tightest bounding box
 __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){
