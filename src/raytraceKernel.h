@@ -20,6 +20,10 @@
     #include <cutil_math.h>
 #endif
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, globalAttributes globalAttr, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms);
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int iterations,
+											staticGeom* cudageoms, int numberOfGeoms, material* cudamtls,
+											glm::vec3* cudaimage, ray* raypool1, ray* raypool2, int numberOfRays,
+											int* scanArray, int* sumArray1, int* sumArray2);
+void checkCUDAError(const char *msg);
 
 #endif

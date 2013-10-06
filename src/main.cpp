@@ -6,6 +6,7 @@
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
 #include "main.h"
+#include <set>
 
 //-------------------------------
 //-------------MAIN--------------
@@ -58,6 +59,8 @@ int main(int argc, char** argv){
     targetFrame = 0;
   }
 
+	sendDataToGPU();
+
   // Launch CUDA/GL
 
   #ifdef __APPLE__
@@ -96,12 +99,103 @@ int main(int argc, char** argv){
   return 0;
 }
 
+// Send static data, such as geometry, lights, materials at the first frame to GPU
+void sendDataToGPU() {
+	// the image we are rendering to
+  cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
+  cudaMemcpy(cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+
+	// pack geom and material arrays
+	numberOfGeoms = renderScene->materials.size();
+	numberOfMaterials = renderScene->materials.size();
+
+	geom* geoms = new geom[numberOfGeoms];
+	material* materials = new material[numberOfMaterials];
+    
+	for(int i=0; i<numberOfGeoms; i++){
+    geoms[i] = renderScene->objects[i];
+  }
+	for(int i=0; i<numberOfMaterials; i++){
+    materials[i] = renderScene->materials[i];
+  }
+	
+	// package geometry and materials and sent to GPU
+  staticGeom* geomList = new staticGeom[numberOfGeoms];
+  for(int i=0; i<numberOfGeoms; i++){
+    staticGeom newStaticGeom;
+    newStaticGeom.type = geoms[i].type;
+    newStaticGeom.materialid = geoms[i].materialid;
+    newStaticGeom.translation = geoms[i].translations[0];
+    newStaticGeom.rotation = geoms[i].rotations[0];
+    newStaticGeom.scale = geoms[i].scales[0];
+    newStaticGeom.transform = geoms[i].transforms[0];
+    newStaticGeom.inverseTransform = geoms[i].inverseTransforms[0];
+    geomList[i] = newStaticGeom;
+  }
+  
+	// copy geometry to CUDA
+  cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
+  cudaMemcpy(cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+
+	// copy materials to CUDA
+	cudaMalloc((void**)&cudamtls, numberOfMaterials*sizeof(material));
+  cudaMemcpy(cudamtls, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
+  
+  // package camera
+  cam.resolution = renderCam->resolution;
+  cam.position = renderCam->positions[0];
+  cam.view = renderCam->views[0];
+  cam.up = renderCam->ups[0];
+  cam.fov = renderCam->fov;
+	cam.focal = renderCam->focal;
+	cam.aperture = renderCam->aperture;
+
+	// set up ray pools and scan arrays
+	numberOfRays = (int)cam.resolution.x * (int)cam.resolution.y;
+	cudaMalloc((void**)&raypool1, (int)cam.resolution.x * (int)cam.resolution.y * sizeof(ray));
+	cudaMalloc((void**)&raypool2, (int)cam.resolution.x * (int)cam.resolution.y * sizeof(ray));
+	cudaMalloc((void**)&scanArray, numberOfRays * sizeof(int));
+	cudaMalloc((void**)&sumArray1, ceil((float)numberOfRays/(float)64) * sizeof(int));
+	cudaMalloc((void**)&sumArray2, ceil((float)numberOfRays/(float)64) * sizeof(int));
+
+	// delete pointers
+	delete [] geomList;
+}
+
+// update geometry and camera with data of current frame
+void uploadDataOfCurrentFrame() {
+	geom* geoms = new geom[numberOfGeoms];
+	for(int i=0; i<numberOfGeoms; i++){
+    geoms[i] = renderScene->objects[i];
+  }
+
+	staticGeom* geomList = new staticGeom[numberOfGeoms];
+  for(int i=0; i<numberOfGeoms; i++){
+    staticGeom newStaticGeom;
+    newStaticGeom.type = geoms[i].type;
+    newStaticGeom.materialid = geoms[i].materialid;
+		newStaticGeom.translation = geoms[i].translations[targetFrame];
+    newStaticGeom.rotation = geoms[i].rotations[targetFrame];
+    newStaticGeom.scale = geoms[i].scales[targetFrame];
+    newStaticGeom.transform = geoms[i].transforms[targetFrame];
+    newStaticGeom.inverseTransform = geoms[i].inverseTransforms[targetFrame];
+    geomList[i] = newStaticGeom;
+  }
+
+	// update geometry data on GPU
+	cudaMemcpy(cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+
+	// update camera info
+	cam.position = renderCam->positions[targetFrame];
+  cam.view = renderCam->views[targetFrame];
+  cam.up = renderCam->ups[targetFrame];
+}
+
 //-------------------------------
 //---------RUNTIME STUFF---------
 //-------------------------------
 
 void runCuda(){
-
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
@@ -111,26 +205,18 @@ void runCuda(){
     iterations++;
     cudaGLMapBufferObject((void**)&dptr, pbo);
   
-    //pack geom and material arrays
-    geom* geoms = new geom[renderScene->objects.size()];
-    material* materials = new material[renderScene->materials.size()];
-    
-    for(int i=0; i<renderScene->objects.size(); i++){
-      geoms[i] = renderScene->objects[i];
-    }
-    for(int i=0; i<renderScene->materials.size(); i++){
-      materials[i] = renderScene->materials[i];
-    }
-    
-  
     // execute the kernel
-		cudaRaytraceCore(dptr, renderCam, renderScene->globalAttr, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+		cudaRaytraceCore(dptr, renderCam, cam, iterations, cudageoms, numberOfGeoms, cudamtls, cudaimage,
+			raypool1, raypool2, numberOfRays, scanArray, sumArray1, sumArray2);
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
   }else{
 
     if(!finishedRender){
+			//retrieve image from GPU
+			cudaMemcpy(renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+
       //output image file
       image outputImage(renderCam->resolution.x, renderCam->resolution.y);
 
@@ -156,18 +242,27 @@ void runCuda(){
       outputImage.saveImageRGB(filename);
       cout << "Saved frame " << s << " to " << filename << endl;
       finishedRender = true;
-      if(singleFrameMode==true){
-        cudaDeviceReset(); 
+      if(singleFrameMode==true || targetFrame==renderCam->frames-1){
+        cudaDeviceReset();
+				// free cuda memory
+				cudaFree(cudageoms);
+				cudaFree(cudamtls);
+				cudaFree(cudaimage);
+				cudaFree(raypool1);
+				cudaFree(raypool2);
+				cudaFree(scanArray);
+				cudaFree(sumArray1);
+				cudaFree(sumArray2);
+
+				checkCUDAError("Kernel failed!");
         exit(0);
       }
     }
     if(targetFrame<renderCam->frames-1){
 			//clear image buffer and move onto next frame
 			targetFrame++;
-			iterations = 0;
-			for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
-				renderCam->image[i] = glm::vec3(0,0,0);
-			}
+			uploadDataOfCurrentFrame();
+			clearImage();
 			cudaDeviceReset(); 
 			finishedRender = false;
     }
@@ -181,6 +276,7 @@ void clearImage() {
   for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
     renderCam->image[i] = glm::vec3(0,0,0);
   }
+	cudaMemcpy(cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
 }
 
 #ifdef __APPLE__
@@ -207,8 +303,8 @@ void clearImage() {
 #else
 
 	void display(){
-		//// Keep track of time
-  //  theFpsTracker.timestamp();
+		// Keep track of time
+    theFpsTracker.timestamp();
 
 		runCuda();
 
@@ -228,7 +324,7 @@ void clearImage() {
 		glutPostRedisplay();
 		glutSwapBuffers();
 
-		//cout << "Framerate: " << theFpsTracker.fpsAverage() << endl;
+		cout << "Framerate: " << theFpsTracker.fpsAverage() << endl;
 	}
 
 	void keyboard(unsigned char key, int x, int y)
@@ -241,35 +337,35 @@ void clearImage() {
 			   exit(1);
 			   break;
 			 case(97): //a
-				 renderCam->positions[0] += glm::vec3(1, 0, 0) * step;
+				 cam.position += glm::vec3(1, 0, 0) * step;
 				 clearImage();
 				 break;
 			 case(119): //w
-				 renderCam->positions[0] += glm::vec3(0, 1, 0) * step;
+				 cam.position += glm::vec3(0, 1, 0) * step;
 				 clearImage();
 				 break;
 			 case(100): //d
-				 renderCam->positions[0] += glm::vec3(-1, 0, 0) * step;
+				 cam.position += glm::vec3(-1, 0, 0) * step;
 				 clearImage();
 				 break;
 			 case(115): //s
-				 renderCam->positions[0] += glm::vec3(0, -1, 0) * step;
+				 cam.position += glm::vec3(0, -1, 0) * step;
 				 clearImage();
 				 break;
 			 case(122): //z
-				 renderCam->positions[0] += glm::vec3(0, 0, -1) * step;
+				 cam.position += glm::vec3(0, 0, -1) * step;
 				 clearImage();
 				 break;
 			 case(120): //x
-				 renderCam->positions[0] += glm::vec3(0, 0, 1) * step;
+				 cam.position += glm::vec3(0, 0, 1) * step;
 				 clearImage();
 				 break;
 			 //case(91): //[
-				// renderCam->focal -= 0.5;
+				// cam.focal -= 0.5;
 				// clearImage();
 				// break;
 			 //case(93): //]
-				// renderCam->focal += 0.5;
+				// cam.focal += 0.5;
 				// clearImage();
 				// break;
 		}

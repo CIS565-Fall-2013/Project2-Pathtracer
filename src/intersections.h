@@ -225,8 +225,7 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   float firstTerm = -vDotDirection;
   float t1 = firstTerm + squareRoot;
   float t2 = firstTerm - squareRoot;
-  
-	bool inverseNormal = false;
+
   float t = 0;
   if (t1 < 0 && t2 < 0) {
       return -1;

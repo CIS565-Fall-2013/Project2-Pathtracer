@@ -58,6 +58,28 @@ bool finishedRender;
 bool singleFrameMode;
 
 //-------------------------------
+//--------PATHTRACE DATA---------
+//-------------------------------
+
+// geometry, materials and camera
+int numberOfGeoms;
+int numberOfMaterials;
+staticGeom* cudageoms;
+material* cudamtls;
+cameraData cam;
+
+// the image buffer to render to
+glm::vec3* cudaimage;
+
+// ray pools and scan arrays fo stream compaction
+int numberOfRays;
+ray* raypool1;
+ray* raypool2;
+int* scanArray;
+int* sumArray1;
+int* sumArray2;
+
+//-------------------------------
 //------------GL STUFF-----------
 //-------------------------------
 
@@ -108,6 +130,9 @@ void initCuda();
 void initTextures();
 void initVAO();
 GLuint initShader(const char *vertexShaderPath, const char *fragmentShaderPath);
+
+void sendDataToGPU();
+void uploadDataOfCurrentFrame();
 
 //-------------------------------
 //---------CLEANUP STUFF---------

@@ -8,11 +8,6 @@
 
 #include "intersections.h"
 
-struct Fresnel {
-  float reflectionCoefficient;
-  float transmissionCoefficient;
-};
-
 struct AbsorptionAndScatteringProperties{
     glm::vec3 absorptionCoefficient;
     float reducedScatteringCoefficient;
@@ -22,9 +17,10 @@ struct AbsorptionAndScatteringProperties{
 __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, AbsorptionAndScatteringProperties& currentAbsorptionAndScattering, glm::vec3& unabsorbedColor, material m, float randomFloatForScatteringDistance, float randomFloat2, float randomFloat3);
 __host__ __device__ glm::vec3 getRandomDirectionInSphere(float xi1, float xi2);
 __host__ __device__ glm::vec3 calculateTransmission(glm::vec3 absorptionCoefficient, float distance);
-__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR);
-__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident);
-__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection);
+__host__ __device__ glm::vec3 getReflectedRay(glm::vec3 d, glm::vec3 n);
+__host__ __device__ glm::vec3 getRefractedRay(glm::vec3 d, glm::vec3 n, float IOR);
+__host__ __device__ bool isDiffuseRay(float randomSeed, float hasDiffuse);
+__host__ __device__  bool isRefractedRay(float randomSeed, float IOR, glm::vec3 d, glm::vec3 n, glm::vec3 t);
 __host__ __device__ glm::vec3 calculateRandomDirectionInHemisphere(glm::vec3 normal, float xi1, float xi2);
 
 //TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
@@ -38,24 +34,66 @@ __host__ __device__ bool calculateScatterAndAbsorption(ray& r, float& depth, Abs
   return false;
 }
 
-//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ glm::vec3 calculateTransmissionDirection(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR) {
-  return glm::vec3(0,0,0);
+// Get the reflected ray direction from ray direction and normal
+__host__ __device__ glm::vec3 getReflectedRay(glm::vec3 d, glm::vec3 n) {
+	glm::vec3 VR; // reflected ray direction
+	if (glm::length(-d - n) < THRESHOLD) {
+		VR = n;
+	}
+	else if (abs(glm::dot(-d, n)) < THRESHOLD) {
+		VR = d;
+	}
+	else {
+		VR = glm::normalize(d - 2.0f * glm::dot(d, n) * n);
+	}
+	return VR;
 }
 
-//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ glm::vec3 calculateReflectionDirection(glm::vec3 normal, glm::vec3 incident) {
-  //nothing fancy here
-  return glm::vec3(0,0,0);
+// Get the refracted ray direction from ray direction, normal and index of refraction (IOR)
+__host__ __device__ glm::vec3 getRefractedRay(glm::vec3 d, glm::vec3 n, float IOR) {
+	glm::vec3 VT; // refracted ray direction
+	float t = 1 / IOR;
+	float base = 1 - t * t * (1 - pow(glm::dot(n, d), 2));
+	if (base < 0) {
+		 VT = glm::vec3(0, 0, 0);
+	}
+	else {
+		VT = (-t * glm::dot(n, d) - sqrt(base)) * n + t * d; // refracted ray
+		VT = glm::normalize(VT);
+	}
+	return VT;
 }
 
-//TODO (OPTIONAL): IMPLEMENT THIS FUNCTION
-__host__ __device__ Fresnel calculateFresnel(glm::vec3 normal, glm::vec3 incident, float incidentIOR, float transmittedIOR, glm::vec3 reflectionDirection, glm::vec3 transmissionDirection) {
-  Fresnel fresnel;
+// Determine if the reflected ray is a diffuse ray or not
+__host__ __device__ bool isDiffuseRay(float randomSeed, float hasDiffuse) {
+	// determine if ray is reflected according to the proportion
+	thrust::default_random_engine rng(hash(randomSeed));
+	thrust::uniform_real_distribution<float> u01(0,1);
+	if (u01(rng) <= hasDiffuse) {
+		return true;
+	}
+	else {
+		return false;
+	}
+}
 
-  fresnel.reflectionCoefficient = 1;
-  fresnel.transmissionCoefficient = 0;
-  return fresnel;
+// Determine if the randomly generated ray is a refracted ray or a reflected ray
+__host__ __device__  bool isRefractedRay(float randomSeed, float IOR, glm::vec3 d, glm::vec3 n, glm::vec3 t) {
+	float rpar = (IOR * glm::dot(n, d) - glm::dot(n, t)) / (IOR * glm::dot(n, d) + glm::dot(n, t));
+	float rperp = (glm::dot(n, d) - IOR * glm::dot(n, t)) / (glm::dot(n, d) + IOR * glm::dot(n, t));
+
+	// compute proportion of the light reflected
+	float fr = 0.5 * (rpar * rpar + rperp * rperp);
+
+	// determine if ray is reflected according to the proportion
+	thrust::default_random_engine rng(hash(randomSeed));
+	thrust::uniform_real_distribution<float> u01(0,1);
+	if (u01(rng) <= fr) {
+		return false;
+	}
+	else {
+		return true;
+	}
 }
 
 //LOOK: This function demonstrates cosine weighted random direction generation in a sphere!

@@ -1,10 +1,10 @@
-﻿Build started 10/2/2013 11:53:28 PM.
+﻿Build started 10/6/2013 4:05:48 PM.
      1>Project "C:\Users\lucy\Documents\School\2013fall\CIS565\Project2-Pathtracer\PROJ1_WIN\565Raytracer\565Raytracer.vcxproj" on node 2 (Build target(s)).
      1>AddCudaCompileDeps:
          C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin\cl.exe /E /nologo /showIncludes /TP /D__CUDACC__ /DWIN32 /DNDEBUG /D_CONSOLE /D_UNICODE /DUNICODE /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I"C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc" /I../shared/glew/includes /I../shared/freeglut/includes /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" /I../shared/glew/include /I../shared/freeglut/include /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin" /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I. /FIcuda_runtime.h /c C:\Users\lucy\Documents\School\2013fall\CIS565\Project2-Pathtracer\src\raytraceKernel.cu 
        CudaBuild:
          Compiling CUDA source file ..\..\src\raytraceKernel.cu...
-         cmd.exe /C "C:\Users\lucy\AppData\Local\Temp\tmp24e303aabab649d6a6676cef1937335f.cmd"
+         cmd.exe /C "C:\Users\lucy\AppData\Local\Temp\tmp97bcc05ec73548e1b5893bd7526b2f4f.cmd"
          "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin\nvcc.exe" -gencode=arch=compute_10,code=\"sm_10,compute_10\" --use-local-env --cl-version 2012 -ccbin "C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin"  -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc" -I../shared/glew/includes -I../shared/freeglut/includes -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I../shared/glew/include -I../shared/freeglut/include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include"     --keep-dir "Release (v5.5)" -maxrregcount=0  --machine 32 --compile -cudart static     -DWIN32 -DNDEBUG -D_CONSOLE -D_UNICODE -DUNICODE -Xcompiler "/EHsc /W3 /nologo /O2 /Zi  /MD  " -o "C:\Users\lucy\Documents\School\2013fall\CIS565\Project2-Pathtracer\PROJ1_WIN\565Raytracer\Win32/Release (v5.5)/raytraceKernel.cu.obj" "C:\Users\lucy\Documents\School\2013fall\CIS565\Project2-Pathtracer\src\raytraceKernel.cu"
          
          C:\Users\lucy\Documents\School\2013fall\CIS565\Project2-Pathtracer\PROJ1_WIN\565Raytracer>"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin\nvcc.exe" -gencode=arch=compute_10,code=\"sm_10,compute_10\" --use-local-env --cl-version 2012 -ccbin "C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin"  -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc" -I../shared/glew/includes -I../shared/freeglut/includes -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I../shared/glew/include -I../shared/freeglut/include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include"     --keep-dir "Release (v5.5)" -maxrregcount=0  --machine 32 --compile -cudart static     -DWIN32 -DNDEBUG -D_CONSOLE -D_UNICODE -DUNICODE -Xcompiler "/EHsc /W3 /nologo /O2 /Zi  /MD  " -o "C:\Users\lucy\Documents\School\2013fall\CIS565\Project2-Pathtracer\PROJ1_WIN\565Raytracer\Win32/Release (v5.5)/raytraceKernel.cu.obj" "C:\Users\lucy\Documents\School\2013fall\CIS565\Project2-Pathtracer\src\raytraceKernel.cu" 
@@ -258,38 +258,26 @@
      1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\glm\core\func_integer.inl(278): warning : a __host__ function("glm::bitfieldExtract") redeclared with __host__ __device__, hence treated as a __host__ __device__ function
      1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\glm\core\func_integer.inl(339): warning : a __host__ function("glm::bitfieldInsert") redeclared with __host__ __device__, hence treated as a __host__ __device__ function
      1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\glm\core\func_integer.inl(407): warning : a __host__ function("glm::bitfieldReverse") redeclared with __host__ __device__, hence treated as a __host__ __device__ function
-     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(229): warning : variable "inverseNormal" was declared but never referenced
-     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(438): warning : variable "traceDepth" was declared but never referenced
      1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\glm\core\_swizzle.hpp(194): warning : missing return statement at end of non-void function "glm::detail::_swizzle_base2<ValueType, VecType, N, E0, E1, E2, E3, 1>::operator=(const glm::detail::_swizzle_base2<ValueType, VecType, N, E0, E1, E2, E3, 1>::Stub &)"
-     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(229): warning : variable "inverseNormal" was declared but never referenced
-     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(438): warning : variable "traceDepth" was declared but never referenced
      1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(120): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
      1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(121): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
      1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(139): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
      1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(140): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
      1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(158): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
      1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(159): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
-     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(279): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(324): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(278): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(323): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(324): warning C4305: 'argument' : truncation from 'double' to 'float'
      1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(325): warning C4305: 'argument' : truncation from 'double' to 'float'
-     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\intersections.h(326): warning C4305: 'argument' : truncation from 'double' to 'float'
-     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\interactions.h(68): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
-     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(93): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
-     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(95): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(119): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(174): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(190): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
-     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(193): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(475): warning C4018: '<' : signed/unsigned mismatch
-     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(520): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
-       ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin\CL.exe /c /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" /I../shared/glew/include /I../shared/freeglut/include /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" /Zi /nologo /W3 /WX- /O2 /Oi /Oy- /GL /D WIN32 /D NDEBUG /D _CONSOLE /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Release (v5.5)\\" /Fd"Release (v5.5)\vc110.pdb" /Gd /TP /analyze- /errorReport:prompt ..\..\src\main.cpp
-         main.cpp
-         Note: including lib: glut32.lib
-         
-     1>..\..\src\main.cpp(108): warning C4018: '<' : signed/unsigned mismatch
-     1>..\..\src\main.cpp(118): warning C4018: '<' : signed/unsigned mismatch
-     1>..\..\src\main.cpp(121): warning C4018: '<' : signed/unsigned mismatch
+     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\interactions.h(70): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\interactions.h(86): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\interactions.h(89): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>c:\users\lucy\documents\school\2013fall\cis565\project2-pathtracer\src\interactions.h(106): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(92): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(94): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(118): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(315): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>C:/Users/lucy/Documents/School/2013fall/CIS565/Project2-Pathtracer/src/raytraceKernel.cu(333): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\lucy\Documents\School\2013fall\CIS565\Project2-Pathtracer\PROJ1_WIN\Release (v5.5)\565Raytracer.exe" /INCREMENTAL:NO /NOLOGO /LIBPATH:../shared/glew/lib /LIBPATH:../shared/freeglut/lib /LIBPATH:"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\lib\Win32" cudart.lib glew32.lib glu32.lib opengl32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\lucy\Documents\School\2013fall\CIS565\Project2-Pathtracer\PROJ1_WIN\Release (v5.5)\565Raytracer.pdb" /SUBSYSTEM:CONSOLE /OPT:REF /OPT:ICF /LTCG /TLBID:1 /ENTRY:"mainCRTStartup" /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\lucy\Documents\School\2013fall\CIS565\Project2-Pathtracer\PROJ1_WIN\Release (v5.5)\565Raytracer.lib" /MACHINE:X86 /SAFESEH "C:\Users\lucy\Documents\School\2013fall\CIS565\Project2-Pathtracer\PROJ1_WIN\565Raytracer\Win32/Release (v5.5)/raytraceKernel.cu.obj"
          "Release (v5.5)\fps.obj"
@@ -307,4 +295,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:11.20
+Time Elapsed 00:00:08.84

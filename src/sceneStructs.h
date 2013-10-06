@@ -81,11 +81,4 @@ struct material {
 	float emittance;
 };
 
-struct globalAttributes {
-	float Ka;
-	float Kd;
-	float Ks;
-	glm::vec3 ambient; // ambient light
-};
-
 #endif //CUDASTRUCTS_H

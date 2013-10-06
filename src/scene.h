@@ -19,7 +19,6 @@ using namespace std;
 class scene{
 private:
     ifstream fp_in;
-		int loadGlobalAttr();
     int loadMaterial(string materialid);
     int loadObject(string objectid);
     int loadCamera();
@@ -30,7 +29,6 @@ public:
     vector<geom> objects;
     vector<material> materials;
     camera renderCam;
-		globalAttributes globalAttr;
 };
 
 #endif

@@ -20,10 +20,7 @@ scene::scene(string filename){
 			if(!line.empty()){
 				vector<string> tokens = utilityCore::tokenizeString(line);
 
-				if(strcmp(tokens[0].c_str(), "GLOBAL")==0){
-				    loadGlobalAttr(); // load global attributes
-				    cout << " " << endl;
-				}else if(strcmp(tokens[0].c_str(), "MATERIAL")==0){
+				if(strcmp(tokens[0].c_str(), "MATERIAL")==0){
 				    loadMaterial(tokens[1]);
 				    cout << " " << endl;
 				}else if(strcmp(tokens[0].c_str(), "OBJECT")==0){
@@ -36,28 +33,6 @@ scene::scene(string filename){
 			}
 		}
 	}
-}
-
-int scene::loadGlobalAttr() {
-	cout << "Loading global attributes ..." << endl;
-
-	for(int i=0; i<4; i++){
-		string line;
-        utilityCore::safeGetline(fp_in,line);
-		vector<string> tokens = utilityCore::tokenizeString(line);
-		if(strcmp(tokens[0].c_str(), "Ka")==0){
-			globalAttr.Ka = atof(tokens[1].c_str());
-		}else if(strcmp(tokens[0].c_str(), "Kd")==0){
-			globalAttr.Kd = atof(tokens[1].c_str());
-		}else if(strcmp(tokens[0].c_str(), "Ks")==0){
-			globalAttr.Ks = atof(tokens[1].c_str());
-		}else if(strcmp(tokens[0].c_str(), "ambient")==0){
-			globalAttr.ambient = glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
-		}
-	}
-
-	cout << "Loaded global attributes" << endl;
-	return 1;
 }
 
 int scene::loadObject(string objectid){

@@ -16,7 +16,6 @@
 #include "intersections.h"
 #include "interactions.h"
 #include <vector>
-#include <set>
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
@@ -138,94 +137,6 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
   return r;
 }
 
-// Get the reflected ray direction from ray direction and normal
-__host__ __device__ glm::vec3 getReflectedRay(glm::vec3 d, glm::vec3 n) {
-	glm::vec3 VR; // reflected ray direction
-	if (glm::length(-d - n) < THRESHOLD) {
-		VR = n;
-	}
-	else if (abs(glm::dot(-d, n)) < THRESHOLD) {
-		VR = d;
-	}
-	else {
-		VR = glm::normalize(d - 2.0f * glm::dot(d, n) * n);
-	}
-	return VR;
-}
-
-// Get the refracted ray direction from ray direction, normal and index of refraction (IOR)
-__host__ __device__ glm::vec3 getRefractedRay(glm::vec3 d, glm::vec3 n, float IOR) {
-	glm::vec3 VT; // refracted ray direction
-	float t = 1 / IOR;
-	float base = 1 - t * t * (1 - pow(glm::dot(n, d), 2));
-	if (base < 0) {
-		 VT = glm::vec3(0, 0, 0);
-	}
-	else {
-		VT = (-t * glm::dot(n, d) - sqrt(base)) * n + t * d; // refracted ray
-		VT = glm::normalize(VT);
-	}
-	return VT;
-}
-
-// Determine if the reflected ray is a diffuse ray or not
-__host__ __device__ bool isDiffuseRay(float randomSeed, float hasDiffuse) {
-	// determine if ray is reflected according to the proportion
-	thrust::default_random_engine rng(hash(randomSeed));
-	thrust::uniform_real_distribution<float> u01(0,1);
-	if (u01(rng) <= hasDiffuse) {
-		return true;
-	}
-	else {
-		return false;
-	}
-}
-
-// Determine if the randomly generated ray is a refracted ray or a reflected ray
-__host__ __device__  bool isRefractedRay(float randomSeed, float IOR, glm::vec3 d, glm::vec3 n, glm::vec3 t) {
-	float rpar = (IOR * glm::dot(n, d) - glm::dot(n, t)) / (IOR * glm::dot(n, d) + glm::dot(n, t));
-	float rperp = (glm::dot(n, d) - IOR * glm::dot(n, t)) / (glm::dot(n, d) + IOR * glm::dot(n, t));
-
-	// compute proportion of the light reflected
-	float fr = 0.5 * (rpar * rpar + rperp * rperp);
-
-	// determine if ray is reflected according to the proportion
-	thrust::default_random_engine rng(hash(randomSeed));
-	thrust::uniform_real_distribution<float> u01(0,1);
-	if (u01(rng) <= fr) {
-		return false;
-	}
-	else {
-		return true;
-	}
-}
-
-// Decide if the intersection point is in the shadow of a light
-__host__ __device__ bool isInShadow(staticGeom* geoms, int numberOfGeoms, int lightIdx, glm::vec3 intersection,
-																		int pixelIdx, float time, glm::vec3& L /*out*/) {
-	// generate shadow feeler
-	glm::vec3 pointOnLight = getRandomPointOnGeom(geoms[lightIdx], pixelIdx * time); // area light
-	float distToLight = glm::distance(intersection, pointOnLight);
-	L = glm::normalize(intersection - pointOnLight); // direction from light to point
-	ray shadowFeeler;
-	shadowFeeler.origin = intersection + (-L) * (float)THRESHOLD;
-	shadowFeeler.direction = -L;
-	
-	// find out if the shadow feeler intersects other objects
-	bool shadow = false;
-	for (int j=0; j<numberOfGeoms; ++j) {
-		if (j != lightIdx) {
-			glm::vec3 intersection, normal;
-			float dist = geomIntersectionTest(geoms[j], shadowFeeler, intersection, normal);
-			if (abs(dist+1) > THRESHOLD && dist < distToLight) {
-				shadow = true;
-				break;
-			}
-		}
-	}
-	return shadow;
-}
-
 // Kernel that populates the pool of rays with rays from camera to pixels
 __global__ void generateRay(cameraData cam, float time, ray* raypool) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -240,7 +151,7 @@ __global__ void generateRay(cameraData cam, float time, ray* raypool) {
 }
 
 __global__ void pathtraceRay(cameraData cam, float time, int rayDepth, ray* rays, int numberOfRays, glm::vec3* colors,
-														 staticGeom* geoms, int numberOfGeoms, material* materials, int* lightIds, int numberOfLights){
+														 staticGeom* geoms, int numberOfGeoms, material* materials){
 	int rayIdx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (rayIdx < numberOfRays) {
 		int pixelIdx = rays[rayIdx].index;
@@ -304,257 +215,142 @@ __global__ void pathtraceRay(cameraData cam, float time, int rayDepth, ray* rays
 	}
 }
 
-//TODO: IMPLEMENT THIS FUNCTION
-//Core raytracer kernel
-__global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, globalAttributes globalAttr, int rayDepth, glm::vec3* colors,
-														staticGeom* geoms, int numberOfGeoms, material* materials, int* lightIds, int numberOfLights){
-
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
-
-  if((x<=resolution.x && y<=resolution.y)){
-		glm::vec3 color;
-
-		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov, cam.focal, cam.aperture);
-		glm::vec3 baseColor(1, 1, 1);
-
-		for (int iteration=0; iteration<MAXDEPTH; ++iteration) {
-			glm::vec3 minIntersection, minNormal; // closest intersection point and the normal at that point
-			int minIdx = getClosestIntersection(geoms, numberOfGeoms, r, minIntersection, minNormal);
-
-			if (minIdx != -1) {
-				material mtl = materials[geoms[minIdx].materialid]; // does caching make it faster?
-				if (mtl.emittance > THRESHOLD) { // light
-					color = glm::clamp(mtl.color * mtl.emittance, glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-				}
-				else {
-					if (mtl.hasReflective < THRESHOLD && mtl.hasRefractive < THRESHOLD) { // use phong shading model
-						glm::vec3 ambient = globalAttr.ambient * mtl.color;
-						ambient = glm::clamp(ambient, glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-						glm::vec3 diffuse(0, 0, 0);
-						glm::vec3 specular(0, 0, 0);
-
-						if (glm::dot(r.direction, minNormal) > 0) { // reverse normal if we are inside the object
-							minNormal *= -1;
-						}
-						
-						for (int i=0; i<numberOfLights; ++i) {
-							glm::vec3 L;
-							if (!isInShadow(geoms, numberOfGeoms, lightIds[i], minIntersection, index, time, L)) {
-								material lightMtl = materials[geoms[lightIds[i]].materialid];
-								glm::vec3 lightColor = glm::clamp(lightMtl.color * lightMtl.emittance, glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-								
-								// compute diffuse color
-								diffuse += lightColor * mtl.color * glm::clamp(glm::dot(-L, minNormal), 0.0f, 1.0f);
-								if (componentCompare(diffuse, mtl.color)) {
-									break;
-								}
-
-								if (mtl.specularExponent > THRESHOLD) {
-									// compute specular color
-									glm::vec3 LR = getReflectedRay(L, minNormal); 
-									specular += lightColor * mtl.specularColor * pow(glm::clamp(glm::dot(LR, -r.direction), 0.0f, 1.0f), mtl.specularExponent);
-									if (componentCompare(specular, mtl.specularColor)) {
-										break;
-									}
-								}
-							}
-						}
-						diffuse = glm::clamp(diffuse, glm::vec3(0, 0, 0), mtl.color);
-						specular = glm::clamp(specular, glm::vec3(0, 0, 0), mtl.specularColor);
-						color = glm::clamp(globalAttr.Ka * ambient + globalAttr.Kd * diffuse + globalAttr.Ks * specular, glm::vec3(0, 0, 0), glm::vec3(1, 1, 1));
-						color = color * baseColor;
-						break;
-					}
-					else { // reflection/refraction
-						float IOR = mtl.indexOfRefraction;
-						if (glm::dot(r.direction, minNormal) > 0) { // reverse normal and index of refraction if we are inside the object
-							minNormal *= -1;
-							IOR = 1/(IOR + THRESHOLD);
-						}
-						if (mtl.hasRefractive > THRESHOLD) { // if the surface has refraction
-							glm::vec3 VT = getRefractedRay(r.direction, minNormal, IOR);
-							if (glm::length(VT) > THRESHOLD && (mtl.hasReflective < THRESHOLD || isRefractedRay(index*time, IOR, r.direction, minNormal, VT))) {
-								r.direction = VT;
-								r.origin = minIntersection + VT * (float)THRESHOLD;
-								//baseColor *= mtl.color;
-								continue;
-							}
-						}
-						// if the surface only has reflection
-						glm::vec3 VR = getReflectedRay(r.direction, minNormal);
-						r.origin = minIntersection + VR * (float)THRESHOLD;
-						r.direction = VR;
-						baseColor *= mtl.color;
-					}
-				}
-			}
-			else {
-				color = glm::vec3(0, 0, 0);
-			}
-		}
-		colors[index] = (colors[index] * (time-1) + color)/time;
-  }
-}
-
 // Copy ray active data to scanArray
 __global__ void copy(ray* raypool, int* scanArray, int numberOfRays) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index < numberOfRays) {
-		scanArray[index] = (int)(raypool[index].active);
+	scanArray[index] = (int)(raypool[index].active);
+}
+
+// Scan using shared memory
+__global__ void sharedMemoryScan(int* scanArray, int* sumArray) {
+	__shared__ int subArray1[64];
+	__shared__ int subArray2[64];
+
+	int index = blockIdx.x * 64 + threadIdx.x;
+	subArray1[threadIdx.x] = scanArray[index];
+	__syncthreads();
+
+	int d = 1;
+	for (; d<=ceil(log((float)blockDim.x)/log(2.0f)); ++d) {
+		if (threadIdx.x >= ceil(pow((float)2, (float)(d-1)))) {
+			int prevIdx = threadIdx.x - ceil(pow((float)2, (float)(d-1)));
+			if (d % 2 == 1) {
+				subArray2[threadIdx.x] = subArray1[threadIdx.x] + subArray1[prevIdx];
+			}
+			else {
+				subArray1[threadIdx.x] = subArray2[threadIdx.x] + subArray2[prevIdx];
+			}
+		}
+		else {
+			if (d % 2 == 1) {
+				subArray2[threadIdx.x] = subArray1[threadIdx.x];
+			}
+			else {
+				subArray1[threadIdx.x] = subArray2[threadIdx.x];
+			}
+		}
+		__syncthreads();
+	}
+
+	if (d % 2 == 1) {
+		scanArray[index] = subArray1[threadIdx.x];
+		if (threadIdx.x == 63) {
+			sumArray[blockIdx.x] = subArray1[threadIdx.x];
+		}
+	}
+	else {
+		scanArray[index] = subArray2[threadIdx.x];
+		if (threadIdx.x == 63) {
+			sumArray[blockIdx.x] = subArray2[threadIdx.x];
+		}
 	}
 }
 
-// Scan kernel for stream compaction, scanArray1 is the source array, scanArray2 is the destination array
-__global__ void scan(int* scanArray1, int* scanArray2, int d, int numberOfRays) {
+// Naive scan, for scanning the sum array
+__global__ void naiveScan(int* scanArray1, int* scanArray2, int d, int numberOfRays) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index < numberOfRays) {
-		if (index >= ceil(pow((float)2, (float)(d-1)))) {
-			int prevIndex = index - (int)ceil(pow((float)2, (float)(d-1)));
-			scanArray2[index] = scanArray1[index] + scanArray1[prevIndex];
-		}
-		else {
-			scanArray2[index] = scanArray1[index];
-		}
+	if (index >= ceil(pow((float)2, (float)(d-1)))) {
+		int prevIndex = index - (int)ceil(pow((float)2, (float)(d-1)));
+		scanArray2[index] = scanArray1[index] + scanArray1[prevIndex];
 	}
+	else {
+		scanArray2[index] = scanArray1[index];
+	}
+}
+
+// Add the elements in the sum array to the scan array
+__global__ void addToScanArray(int* scanArray, int* sumArray) {
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	scanArray[index] += sumArray[blockIdx.x];
 }
 
 // Scatter kernel for stream compaction
 __global__ void scatter(ray* raypool, int* scanArray, ray* newraypool, int numberOfRays) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index < numberOfRays) {
-		if (raypool[index].active) {
-			newraypool[scanArray[index]-1] = raypool[index];
-		}
+	if (raypool[index].active) {
+		newraypool[scanArray[index]-1] = raypool[index];
 	}
 }
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, globalAttributes globalAttr, int frame, int iterations,
-											material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
-  
-  int traceDepth = 1; //determines how many bounces the raytracer traces
-
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int iterations,
+											staticGeom* cudageoms, int numberOfGeoms, material* cudamtls,
+											glm::vec3* cudaimage, ray* raypool1, ray* raypool2, int numberOfRays,
+											int* scanArray, int* sumArray1, int* sumArray2) {
   // set up crucial magic
   int tileSize = 8;
   dim3 threadsPerBlock(tileSize, tileSize);
   dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));  //send image to GPU
-  glm::vec3* cudaimage = NULL;
-  cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
-  cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
-  
-  // keep track of the IDs of light materials
-	std::set<int> lightMtlIds;
-	for (int i=0; i<numberOfMaterials; ++i) {
-		if (materials[i].emittance > 0) {
-			lightMtlIds.insert(i);
-		}
-	}
-	
-	//package geometry and materials and sent to GPU
-	// keep track of the IDs of light geometries
-  staticGeom* geomList = new staticGeom[numberOfGeoms];
-	std::vector<int> lightIds;
-  for(int i=0; i<numberOfGeoms; i++){
-    staticGeom newStaticGeom;
-    newStaticGeom.type = geoms[i].type;
-    newStaticGeom.materialid = geoms[i].materialid;
-		if (lightMtlIds.find(newStaticGeom.materialid) != lightMtlIds.end()) {
-			lightIds.push_back(i);
-		}
-    newStaticGeom.translation = geoms[i].translations[frame];
-    newStaticGeom.rotation = geoms[i].rotations[frame];
-    newStaticGeom.scale = geoms[i].scales[frame];
-    newStaticGeom.transform = geoms[i].transforms[frame];
-    newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
-    geomList[i] = newStaticGeom;
-  }
-	int* lightIdList = new int[lightIds.size()];
-	for (int i=0; i<lightIds.size(); i++) {
-		lightIdList[i] = lightIds[i];
-	}
-  
-  staticGeom* cudageoms = NULL;
-  cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
-  cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
 
-	// copy materials to CUDA
-	material* cudamtls = NULL;
-	cudaMalloc((void**)&cudamtls, numberOfMaterials*sizeof(material));
-  cudaMemcpy( cudamtls, materials, numberOfMaterials*sizeof(material), cudaMemcpyHostToDevice);
-
-	// copy lights to CUDA
-	int* cudalights = NULL;
-	cudaMalloc((void**)&cudalights, lightIds.size()*sizeof(int));
-	cudaMemcpy( cudalights, lightIdList, lightIds.size()*sizeof(int), cudaMemcpyHostToDevice);
-  
-  //package camera
-  cameraData cam;
-  cam.resolution = renderCam->resolution;
-  cam.position = renderCam->positions[frame];
-  cam.view = renderCam->views[frame];
-  cam.up = renderCam->ups[frame];
-  cam.fov = renderCam->fov;
-	cam.focal = renderCam->focal;
-	cam.aperture = renderCam->aperture;
-
-	// create a pool of rays on CUDA
-	ray* raypool1 = NULL;
-	int numberOfRays = (int)cam.resolution.x * (int)cam.resolution.y;
-	cudaMalloc((void**)&raypool1, (int)cam.resolution.x * (int)cam.resolution.y * sizeof(ray));
+	// populate the two ray pools
 	generateRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cam, (float)iterations, raypool1);
-
-	ray* raypool2 = NULL;
-	cudaMalloc((void**)&raypool2, (int)cam.resolution.x * (int)cam.resolution.y * sizeof(ray));
-	generateRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cam, (float)iterations, raypool2);
-
-	int* scanArray1 = NULL;
-	int* scanArray2 = NULL;
-	cudaMalloc((void**)&scanArray1, numberOfRays * sizeof(int));
-	cudaMalloc((void**)&scanArray2, numberOfRays * sizeof(int));
+	cudaMemcpy(raypool2, raypool1, numberOfRays * sizeof(ray), cudaMemcpyDeviceToDevice);
 
 	for (int i=0; i<MAXDEPTH; ++i) {
-		int rayBlocksPerGrid = max((int)ceil((float)numberOfRays/(float)64), 24); // 24 is the number of SMs on my GPU
-		int rayThreadsPerBlock = ceil((float)numberOfRays/(float)rayBlocksPerGrid);
+		//int rayBlocksPerGrid = max((int)ceil((float)numberOfRays/(float)64), 24); // 24 is the number of SMs on my GPU
+		//int rayThreadsPerBlock = ceil((float)numberOfRays/(float)rayBlocksPerGrid);
 
-		//// for no stream compaction
-		//pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool1,
-		//		numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudamtls, cudalights, lightIds.size());
+		int rayThreadsPerBlock = 64;
+		int rayBlocksPerGrid = ceil((float)numberOfRays/(float)rayThreadsPerBlock);
 
 		if (i % 2 == 0) {
 			pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool1,
-				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudamtls, cudalights, lightIds.size());
+				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudamtls);
 
-			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray1, numberOfRays);
+			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray, numberOfRays);
 		}
 		else {
 			pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool2,
-				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudamtls, cudalights, lightIds.size());
+				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudamtls);
 
-			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray1, numberOfRays);
+			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray, numberOfRays);
 		}
 
+		sharedMemoryScan<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(scanArray, sumArray1);
+		int sumArrayLength = rayBlocksPerGrid;
+		int naiveScanBlocksPerGrid = ((int)ceil((float)sumArrayLength/(float)64), 24); // 24 is the number of SMs on my GPU
+		int naiveScanThreadsPerBlock = ceil((float)sumArrayLength/(float)naiveScanBlocksPerGrid);
 		int d = 1;
-		for (; d<=ceil(log(numberOfRays)/log(2)); ++d) {
+		for (; d<=ceil(log(sumArrayLength)/log(2)); ++d) {
 			// use double buffer
 			if (d % 2 == 1) {
-				scan<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(scanArray1, scanArray2, d, numberOfRays);
+				naiveScan<<<naiveScanBlocksPerGrid, naiveScanThreadsPerBlock>>>(sumArray1, sumArray2, d, sumArrayLength);
 			}
 			else {
-				scan<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(scanArray2, scanArray1, d, numberOfRays);
+				naiveScan<<<naiveScanBlocksPerGrid, naiveScanThreadsPerBlock>>>(sumArray2, sumArray1, d, sumArrayLength);
 			}
+		}
+		if (d % 2 == 1) {
+			addToScanArray<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(scanArray, sumArray1);
+		}
+		else {
+			addToScanArray<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(scanArray, sumArray2);
 		}
 
 		// get number of active rays
 		int* numberOfActiveRays = new int[1];
-		if (d % 2 == 0) {
-			cudaMemcpy(numberOfActiveRays, scanArray2 + numberOfRays -1, sizeof(int), cudaMemcpyDeviceToHost);
-		}
-		else {
-			cudaMemcpy(numberOfActiveRays, scanArray1 + numberOfRays -1, sizeof(int), cudaMemcpyDeviceToHost);
-		}
+		cudaMemcpy(numberOfActiveRays, scanArray + numberOfRays -1, sizeof(int), cudaMemcpyDeviceToHost);
 
 		if (numberOfActiveRays[0] <= 0) {
 			break;
@@ -562,20 +358,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, globalAttributes global
 
 		// scatter
 		if (i % 2 == 0) {
-			if (d % 2 == 0) {
-				scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray2, raypool2, numberOfRays);
-			}
-			else {
-				scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray1, raypool2, numberOfRays);
-			}
+			scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray, raypool2, numberOfRays);
 		}
 		else {
-			if (d % 2 == 0) {
-				scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray2, raypool1, numberOfRays);
-			}
-			else {
-				scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray1, raypool1, numberOfRays);
-			}
+			scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray, raypool1, numberOfRays);
 		}
 
 		numberOfRays = numberOfActiveRays[0];
@@ -583,30 +369,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, globalAttributes global
 		delete [] numberOfActiveRays;
 	}
 
-	cudaFree(scanArray1);
-	cudaFree(scanArray2);
-	cudaFree(raypool1);
-	cudaFree(raypool2);
-
- // //kernel launches
-	//raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, globalAttr, traceDepth, cudaimage,
-	//	cudageoms, numberOfGeoms, cudamtls, cudalights, lightIds.size());
-
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);
-
-  //retrieve image from GPU
-  cudaMemcpy(renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
-
-  //free up stuff, or else we'll leak memory like a madman
-  cudaFree(cudaimage);
-  cudaFree(cudageoms);
-	cudaFree(cudamtls);
-	cudaFree(cudalights);
-  delete [] geomList;
-	delete [] lightIdList;
 
   // make certain the kernel has completed
   cudaThreadSynchronize();
-
-  checkCUDAError("Kernel failed!");
 }
