@@ -17,8 +17,10 @@ __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
-__host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
-__host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float boxIntersectionTest(const staticGeom& box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float sphereIntersectionTest(const staticGeom& sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float meshIntersectionTest(const staticGeom& mesh, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float triangleIntersectionTest(const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
 
 //Handy dandy little hashing function that provides seeds for random number generation
@@ -79,16 +81,27 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
-__host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+__host__ __device__ float boxIntersectionTest(const staticGeom& box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 
-	glm::vec3 bounds[2];
-	bounds[0] = glm::vec3(-0.5f, -0.5f, -0.5f); // unit cube in OS with unit length on each edge
-	bounds[1] = glm::vec3(0.5f, 0.5f, 0.5f);
-	// transform the ray to object space
 	ray rOS;
-	rOS.origin = multiplyMV(box.inverseTransform, glm::vec4(r.origin, 1.0f));
-	rOS.direction = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction, 0.0f)));
-		
+	glm::vec3 bounds[2];
+
+	if(box.type == MESH)// bounding box test
+	{
+		bounds[0] = box.boundingBoxMin;
+		bounds[1] = box.boundingBoxMax;
+	    rOS.origin = r.origin;
+		rOS.direction = r.direction;
+	}
+	else
+	{
+		bounds[0] = glm::vec3(-0.5f, -0.5f, -0.5f); // unit cube in OS with unit length on each edge
+		bounds[1] = glm::vec3(0.5f, 0.5f, 0.5f);
+		// transform the ray to object space
+		rOS.origin = multiplyMV(box.inverseTransform, glm::vec4(r.origin, 1.0f));
+		rOS.direction = glm::normalize(multiplyMV(box.inverseTransform, glm::vec4(r.direction, 0.0f)));
+	}
+			
 	glm::vec3 invDirOfRay = getInverseDirectionOfRay(rOS);
 	int signOfRay[3];
 	signOfRay[0] = (invDirOfRay.x < 0);
@@ -149,7 +162,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 
 //LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
 //Sphere intersection test, return -1 if no intersection, otherwise, distance to intersection
-__host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+__host__ __device__ float sphereIntersectionTest(const staticGeom& sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
   
   float radius = .5;
         
@@ -187,16 +200,43 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   return glm::length(r.origin - realIntersectionPoint);
 }
 
-/*__host__ __device__ float Test_RayPolyIntersect(Ray const&r, vec3 const& p1, vec3 const& p2, vec3 const& p3, mat4 const& inv_trans_T, vec3 &r_normal, float &tNow) {
-/ *	mat4 TInverse = inverse(T);
-	mat4 TNormInverse = inverse(mat4(T[0], T[1], T[2], vec4(0.0f, 0.0f, 0.0f, T[3][3])));
-	vec4 P1 = TInverse * vec4(P0, 1.0f);
-	vec4 V1 = TNormInverse * vec4(V0, 0.0f);
+__host__ __device__ float meshIntersectionTest(const staticGeom& mesh, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 
-	vec3 r.orig = vec3(P1.x, P1.y, P1.z); // 3d eyePos in object coordinates
-	vec3 r.dir = vec3(V1.x, V1.y, V1.z); // 3d lookDir in object coordinates 
-* /
-	bool intersected = false;
+	ray rOS;
+	rOS.origin = multiplyMV(mesh.inverseTransform, glm::vec4(r.origin, 1.0f));
+	rOS.direction = glm::normalize(multiplyMV(mesh.inverseTransform, glm::vec4(r.direction, 0.0f)));
+	float distance = 8000.0f;
+	float tempDistance = -1.0f;
+	glm::vec3 tempIntersctionPoint(0.0f), tempIntersectionNormal(0.0f);
+
+	if(abs(boxIntersectionTest(mesh, rOS, tempIntersctionPoint, tempIntersectionNormal) + 1.0f) > EPSILON)
+	{
+		for(int i = 0; i < mesh.faceCount; i++)
+		{
+			tempDistance = triangleIntersectionTest(mesh.vertexList[(int)mesh.faceList[i].x], mesh.vertexList[(int)mesh.faceList[i].y], mesh.vertexList[(int)mesh.faceList[i].z], rOS, tempIntersctionPoint, tempIntersectionNormal);
+			if(abs(tempDistance + 1.0f) > EPSILON && tempDistance < distance)
+			{
+				distance = tempDistance;
+				intersectionPoint = tempIntersctionPoint;
+				normal = tempIntersectionNormal;
+			}
+
+		}
+		glm::vec3 normalTip = intersectionPoint + normal;
+		glm::vec3 normalTipWS = multiplyMV(mesh.transform, glm::vec4(normalTip, 1.0f));
+
+		intersectionPoint = multiplyMV(mesh.transform, glm::vec4(intersectionPoint, 1.0f));
+
+		normal = glm::normalize(normalTipWS - intersectionPoint);
+
+		return distance;
+	}
+	
+	return -1.0f;
+
+}
+__host__ __device__ float triangleIntersectionTest(const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, ray r, glm::vec3& intersectionPoint, glm::vec3& normal) {
+
 	glm::vec3   u, v, n;             // triangle vectors
     glm::vec3   w0, w;          // ray vectors
     float  q, a, b;             // params to calc ray-plane intersect
@@ -206,23 +246,23 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
     u = p2 - p1;
     v = p3 - p1;
     n = glm::cross(u, v);             // cross product
-    if (length(n) < SMALL_NUM)            // triangle is degenerate
-        return false;                 // do not deal with this case
+    if (glm::length(n) < 0.00001f)            // triangle is degenerate
+        return -1.0f;                 // do not deal with this case
 
-    w0 = r.orig - p1;
+    w0 = r.origin - p1;
     a = glm::dot(n, w0);
-    b = -glm::dot(n, r.dir);
-    if (fabs(b) < SMALL_NUM)       // ray is parallel to triangle plane
-		return false;
-    if (fabs(a) < SMALL_NUM)        // eye lies in triangle plane	      
-		return false; 
+    b = -glm::dot(n, r.direction);
+    if (fabs(b) < 0.00001f)       // ray is parallel to triangle plane
+		return -1.0f;
+    if (fabs(a) < 0.00001f)        // eye lies in triangle plane	      
+		return -1.0f; 
 
     // get intersect point of ray with triangle plane
     q = a / b;
     if (q < 0.0)                   // ray goes away from triangle
-        return false;                  // => no intersect
+        return -1.0f;                  // => no intersect
 
-    I = r.orig + q * r.dir;           // intersect point of ray and plane
+    I = r.origin + q * r.direction;           // intersect point of ray and plane
 
     // is I inside T?
     float    uu, uv, vv, wu, wv, D;
@@ -238,23 +278,16 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
     float s, t;
     s = (uv * wv - vv * wu) / D;
     if (s < 0.0 || s > 1.0)        // I is outside T
-        return false;
+        return -1.0f;
     t = (uv * wu - uu * wv) / D;
     if (t < 0.0 || (s + t) > 1.0)  // I is outside T
-        return false;
+        return -1.0f;
 
+	intersectionPoint = getPointOnRay(r, q);
+	normal = glm::normalize(n);
+    return q;                      // I is in T
 
-	if(q < tNow)
-		{
-			intersected = true;
-			tNow = q; // update global minimum intersection distance
-			// caculate normal in WS
-			glm::vec4 r_normal_4 = inv_trans_T * glm::vec4(n, 1.0f);
-			r_normal = glm::vec3(r_normal_4.x, r_normal_4.y, r_normal_4.z);
-		}
-    return intersected;                      // I is in T
-
-}*/
+}
 
 //returns x,y,z half-dimensions of tightest bounding box
 __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){

@@ -67,11 +67,9 @@ int main(int argc, char** argv){
 	  glfwOpenWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   #endif
 	  
-	  cudaDeviceProp devProp;
-
-	  cudaGetDeviceProperties(&devProp, 0);
-
-	  printDevProp(devProp);
+  cudaDeviceProp devProp;
+  cudaGetDeviceProperties(&devProp, 0);
+  printDevProp(devProp);
   // Set up pathtracer stuff
   bool loadedScene = false;
   finishedRender = false;
@@ -357,12 +355,33 @@ void initPBO(GLuint* pbo){
   }
 }
 
+void initMeshObjects(){
+
+	for(int i = 0; i < renderScene->objects.size(); ++i)
+	{
+		if(renderScene->objects[i].type == MESH)
+		{
+			glm::vec3* cudapositions = NULL;
+			cudaMalloc((void**)&cudapositions, renderScene->objects[i].vertexCount*sizeof(glm::vec3));
+			cudaMemcpy( cudapositions, renderScene->objects[i].vertexList, renderScene->objects[i].vertexCount*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+			renderScene->objects[i].vertexList = cudapositions;
+
+			glm::vec3* cudafaces = NULL;
+			cudaMalloc((void**)&cudafaces, renderScene->objects[i].faceCount*sizeof(glm::vec3));
+			cudaMemcpy( cudafaces, renderScene->objects[i].faceList, renderScene->objects[i].faceCount*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+			renderScene->objects[i].faceList = cudafaces;
+		}
+	}
+
+
+}
 void initCuda(){
   // Use device with highest Gflops/s
   cudaGLSetGLDevice( compat_getMaxGflopsDeviceId() );
 
   initPBO(&pbo);
 
+  initMeshObjects();
   // Clean up on program exit
   atexit(cleanupCuda);
 
@@ -435,8 +454,18 @@ GLuint initShader(const char *vertexShaderPath, const char *fragmentShaderPath){
 void cleanupCuda(){
   if(pbo) deletePBO(&pbo);
   if(displayImage) deleteTexture(&displayImage);
+  deleteMeshData();
+
 }
 
+void deleteMeshData(){
+	for(int i = 0; i < renderScene->objects.size(); ++i){
+		if(renderScene->objects[i].type == MESH){
+			cudaFree(renderScene->objects[i].vertexList);
+			cudaFree(renderScene->objects[i].faceList);
+		}
+	}
+}
 void deletePBO(GLuint* pbo){
   if (pbo) {
     // unregister this buffer object with CUDA

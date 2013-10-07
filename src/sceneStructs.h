@@ -30,6 +30,15 @@ struct geom {// for moving geometry
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+
+	int vertexCount;
+	glm::vec3* vertexList;
+	int faceCount;
+	glm::vec3* faceList;
+
+	glm::vec3 boundingBoxMin;
+	glm::vec3 boundingBoxMax;
+	
 };
 
 struct staticGeom {// for static geometry
@@ -40,6 +49,14 @@ struct staticGeom {// for static geometry
 	glm::vec3 scale;
 	cudaMat4 transform;
 	cudaMat4 inverseTransform;
+
+	int vertexCount;
+	glm::vec3* vertexList;
+	int faceCount;
+	glm::vec3* faceList;
+
+	glm::vec3 boundingBoxMin;
+	glm::vec3 boundingBoxMax;
 };
 
 struct cameraData {// for static camera

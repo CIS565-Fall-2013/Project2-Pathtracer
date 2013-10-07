@@ -13,6 +13,7 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include "tinyOBJ/tiny_obj_loader.h"
 
 using namespace std;
 

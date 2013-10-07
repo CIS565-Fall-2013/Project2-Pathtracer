@@ -135,23 +135,22 @@ __host__ __device__ int rayIntersect(const ray& r, staticGeom* geoms, int number
 //#pragma unroll numberOfGeoms
 	for(int i = 0; i < numberOfGeoms; i++)
 	{
-		tempDistance = -1.0f;
+//		tempDistance = -1.0f;
 		if(geoms[i].type == GEOMTYPE::SPHERE){
 			tempDistance = sphereIntersectionTest(geoms[i], r, tempIntersctionPoint, tempIntersectionNormal);
 		}
 		else if(geoms[i].type == GEOMTYPE::CUBE){
 			tempDistance = boxIntersectionTest(geoms[i], r, tempIntersctionPoint, tempIntersectionNormal);
 		}
-		else 
-			continue;
-		if(!(abs(tempDistance + 1.0f) < EPSILON))
+		else if(geoms[i].type == GEOMTYPE::MESH){
+			tempDistance = meshIntersectionTest(geoms[i], r, tempIntersctionPoint, tempIntersectionNormal);
+		}
+		if(abs(tempDistance + 1.0f) > EPSILON && tempDistance < distance)
 		{
-			if(tempDistance < distance) {
-				intersIndex = i;
-				distance = tempDistance;
-				intersectionPoint = tempIntersctionPoint;
-				intersectionNormal = tempIntersectionNormal;
-			}
+			intersIndex = i;
+			distance = tempDistance;
+			intersectionPoint = tempIntersctionPoint;
+			intersectionNormal = tempIntersectionNormal;
 		}
 	}
 	return intersIndex;
@@ -344,10 +343,10 @@ __global__ void rayTracerIterative(int iteration, int depth, int tileSize, ray *
 			}
 			else
 			{
-				colors[r.index] += r.tempColor * materials[geoms[intersIndex].materialid].emittance * materials[geoms[intersIndex].materialid].color;
+				colors[r.index] += r.tempColor * (/*depth == 1? 0 : */materials[geoms[intersIndex].materialid].emittance) * materials[geoms[intersIndex].materialid].color;
 				thrust::default_random_engine rng(hash(iteration *(depth + 1)* index));
 				thrust::uniform_real_distribution<float> u01(0,1);
-				if((float)u01(rng) < 0.2) // russian roulette rule: ray is absorbed
+				if((float)u01(rng) < 0.2 /*&& depth > 3|| glm::length(r.tempColor) < 0.01f*/) // russian roulette rule: ray is absorbed
 				{
 					r.index = -1;
 				}
@@ -364,7 +363,9 @@ __global__ void rayTracerIterative(int iteration, int depth, int tileSize, ray *
 	}
 }
 
-__global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, cameraData cam, ray *rayPool){
+
+__global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, cameraData cam, ray *rayPool, int rayCount, glm::vec3* colors,
+                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * resolution.x);
@@ -377,6 +378,21 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
         r.index = index;
 		r.tempColor = glm::vec3(1.0f);
 	    r.mediaIOR = 1.0f;	    
+
+/*
+		glm::vec3 intersectionPoint, intersectionNormal;
+		int intersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials); 
+		glm::vec3 lightPos = getRandomPointOnCube(geoms[8], index*time);
+		if(ShadowRayUnblocked(intersectionPoint, lightPos, geoms, numberOfGeoms, materials))
+		{
+			glm::vec3 L = glm::normalize(lightPos - intersectionPoint);
+			float dot1 = glm::clamp(glm::dot(intersectionNormal, L), 0.0f, 1.0f);
+			glm::vec3 diffuse = materials[geoms[8].materialid].emittance * materials[geoms[intersIndex].materialid].color * dot1;*/
+//			colors[index] += diffuse;
+//		}
+//		if(intersIndex == 8)
+//			colors[index] += glm::vec3(1.0f);
+
     }
 
 	// depth of field
@@ -435,7 +451,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 		   newStaticGeom.inverseTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
 	   }
 #endif
-//       newStaticGeom.inverseTransform = geoms[i].inverseTransforms[frame];
+	   newStaticGeom.vertexCount = geoms[i].vertexCount;
+	   newStaticGeom.vertexList = geoms[i].vertexList;
+	   newStaticGeom.faceCount = geoms[i].faceCount;
+	   newStaticGeom.faceList = geoms[i].faceList;
+	   newStaticGeom.boundingBoxMax = geoms[i].boundingBoxMax;
+	   newStaticGeom.boundingBoxMin = geoms[i].boundingBoxMin;
+	   
        geomList[i] = newStaticGeom;
     }
   
@@ -470,7 +492,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     cudaMemcpy( cudaray, rayPool, rayPoolCount*sizeof(ray), cudaMemcpyHostToDevice);
 
 	// first kernel launch to populate ray pool
-    rayTracerIterativePrimary<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, iterations, cam, cudaray);
+    rayTracerIterativePrimary<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, iterations, cam, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+
+//	rayTracerIterativeDirect<<<fullBlocksPerGrid, threadsPerBlock>>>(iterations, renderCam->resolution, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
     // multiple kernel launches to evaluate color
     for(int i = 0; i < traceDepth; ++i)
     {
@@ -483,7 +507,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	    thrust::device_ptr<ray> rayPool_last = thrust::remove_if(ray_ptr, ray_ptr + rayPoolCount, ray_is_dead());
 	    rayPoolCount = thrust::distance(ray_ptr, rayPool_last);	 
 #endif
-    }
+    }	
 
 
     sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, iterations);

@@ -59,38 +59,113 @@ int scene::loadObject(string objectid){
         utilityCore::safeGetline(fp_in,line);
         if (!line.empty() && fp_in.good())
 		{
-            if(strcmp(line.c_str(), "sphere")==0)
-			{
+            if(strcmp(line.c_str(), "sphere")==0){
                 cout << "Creating new sphere..." << endl;
 				newObject.type = SPHERE;
-            }
-			else if(strcmp(line.c_str(), "cube")==0)
-			{
+            }else if(strcmp(line.c_str(), "cube")==0){
                 cout << "Creating new cube..." << endl;
 				newObject.type = CUBE;
-            }
-			else
-			{
+            }else{
 				string objline = line;
                 string name;
                 string extension;
                 istringstream liness(objline);
                 getline(liness, name, '.');
                 getline(liness, extension, '.');
-                if(strcmp(extension.c_str(), "obj")==0)
-				{
+                if(strcmp(extension.c_str(), "obj")==0){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
 		    		newObject.type = MESH;
-                }
-				else
-				{
+                }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;
                 }
             }
         }
        
+		//load obj file
+		if(newObject.type == MESH)
+		{
+			newObject.boundingBoxMax = glm::vec3(FLT_MIN);
+			newObject.boundingBoxMin = glm::vec3(FLT_MAX);
+			vector<glm::vec3> positions;
+			vector<glm::vec3> faces;
+
+			glm::vec3 tpos, tIndex;
+
+			std::ifstream obj_file_stream(line);
+			if(!obj_file_stream.is_open())
+			{
+				fprintf(stderr, "Error reading file: %s\n", line);
+				return -1;
+			}
+
+			char currentLine[500];
+			char *pch;
+
+			// vertex list and face(indices) list can be stored directly from file reading
+			while(obj_file_stream.getline(currentLine, 500))
+			{
+				char current_token = currentLine[0];
+				//skip comments
+				if( current_token == '#') continue;		
+
+				//parse objects
+				else if( current_token == 'v') //process vertex
+				{
+					pch = strtok (currentLine," v");
+					tpos.x = (float)atof (pch); 
+					newObject.boundingBoxMax.x = std::max(newObject.boundingBoxMax.x, tpos.x);
+					newObject.boundingBoxMin.x = std::min(newObject.boundingBoxMin.x, tpos.x);
+					for(int i = 1; i < 3; i++)
+					{			
+						pch = strtok (NULL," v");
+						switch(i)
+						{
+						case 1: 
+							tpos.y = atof (pch);
+							newObject.boundingBoxMax.y = std::max(newObject.boundingBoxMax.y, tpos.y);
+							newObject.boundingBoxMin.y = std::min(newObject.boundingBoxMin.y, tpos.y);
+							break;
+						case 2: 
+							tpos.z = atof (pch);
+							newObject.boundingBoxMax.z = std::max(newObject.boundingBoxMax.z, tpos.z);
+							newObject.boundingBoxMin.z = std::min(newObject.boundingBoxMin.z, tpos.z);
+							break;
+						default: std::cout<<"Error in extracting OBJ"<<std::endl;
+						}
+					}
+					positions.push_back(tpos);
+				}
+				else if( current_token == 'f') //process face
+				{
+					pch = strtok (currentLine," f");
+					tIndex.x = (float)atoi (pch) - 1; // if contains non-digit characters like "/", it will be ignored
+					for(int i = 1; i < 3; i++)
+					{			
+						pch = strtok (NULL," f");
+						tIndex[i] = (float)atoi (pch) - 1; 						
+					}
+					faces.push_back(tIndex);
+				}
+				else continue;
+			}
+			obj_file_stream.close();
+
+			//move data into CUDA readable arrays
+			newObject.vertexCount = positions.size();			
+			newObject.vertexList = new glm::vec3[newObject.vertexCount];
+			for(int i = 0; i < newObject.vertexCount; ++i){
+				newObject.vertexList[i] = positions[i];
+			}
+
+			newObject.faceCount = faces.size();
+			newObject.faceList = new glm::vec3[newObject.faceCount];
+			for(int i = 0; i < newObject.faceCount; ++i){
+				newObject.faceList[i] = faces[i];
+			}
+
+		}
 		//link material
 		utilityCore::safeGetline(fp_in,line);
 		if(!line.empty() && fp_in.good())

@@ -30,6 +30,7 @@
     <ClInclude Include="..\..\src\sceneStructs.h" />
     <ClInclude Include="..\..\src\stb_image\stb_image.h" />
     <ClInclude Include="..\..\src\stb_image\stb_image_write.h" />
+    <ClInclude Include="..\..\src\tinyOBJ\tiny_obj_loader.h" />
     <ClInclude Include="..\..\src\utilities.h" />
   </ItemGroup>
   <ItemGroup>
@@ -39,6 +40,7 @@
     <ClCompile Include="..\..\src\scene.cpp" />
     <ClCompile Include="..\..\src\stb_image\stb_image.c" />
     <ClCompile Include="..\..\src\stb_image\stb_image_write.c" />
+    <ClCompile Include="..\..\src\tinyOBJ\tiny_obj_loader.cc" />
     <ClCompile Include="..\..\src\utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -52,7 +54,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\README.md" />
-    <None Include="..\..\scenes\sampleScene.txt" />
+    <None Include="..\..\scenes\FullScene.txt" />
+    <None Include="..\..\scenes\TestScene.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{FF21CA49-522E-4E86-B508-EE515B248FC4}</ProjectGuid>
