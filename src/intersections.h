@@ -75,6 +75,7 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
 __host__ __device__ int getClosestIntersection(staticGeom* geoms, int numberOfGeoms, ray r, glm::vec3& minIntersection, glm::vec3& minNormal) {
 	int minIdx = -1;
 	float minDist = FLT_MAX;
+#pragma unroll
 	for (int i=0; i<numberOfGeoms; ++i) {
 		glm::vec3 intersection, normal;
 		float dist = geomIntersectionTest(geoms[i], r, intersection, normal);

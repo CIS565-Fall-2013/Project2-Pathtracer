@@ -216,7 +216,7 @@ __global__ void pathtraceRay(cameraData cam, float time, int rayDepth, ray* rays
 }
 
 // Copy ray active data to scanArray
-__global__ void copy(ray* raypool, int* scanArray, int numberOfRays) {
+__global__ void copy(ray* raypool, int* scanArray) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	scanArray[index] = (int)(raypool[index].active);
 }
@@ -226,11 +226,13 @@ __global__ void sharedMemoryScan(int* scanArray, int* sumArray) {
 	__shared__ int subArray1[64];
 	__shared__ int subArray2[64];
 
-	int index = blockIdx.x * 64 + threadIdx.x;
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	subArray1[threadIdx.x] = scanArray[index];
+	subArray2[threadIdx.x] = scanArray[index];
 	__syncthreads();
 
 	int d = 1;
+#pragma unroll
 	for (; d<=ceil(log((float)blockDim.x)/log(2.0f)); ++d) {
 		if (threadIdx.x >= ceil(pow((float)2, (float)(d-1)))) {
 			int prevIdx = threadIdx.x - ceil(pow((float)2, (float)(d-1)));
@@ -267,8 +269,9 @@ __global__ void sharedMemoryScan(int* scanArray, int* sumArray) {
 }
 
 // Naive scan, for scanning the sum array
-__global__ void naiveScan(int* scanArray1, int* scanArray2, int d, int numberOfRays) {
+__global__ void naiveScan(int* scanArray1, int* scanArray2, int d) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
+
 	if (index >= ceil(pow((float)2, (float)(d-1)))) {
 		int prevIndex = index - (int)ceil(pow((float)2, (float)(d-1)));
 		scanArray2[index] = scanArray1[index] + scanArray1[prevIndex];
@@ -281,11 +284,13 @@ __global__ void naiveScan(int* scanArray1, int* scanArray2, int d, int numberOfR
 // Add the elements in the sum array to the scan array
 __global__ void addToScanArray(int* scanArray, int* sumArray) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	scanArray[index] += sumArray[blockIdx.x];
+	if (blockIdx.x > 0) {
+		scanArray[index] += sumArray[blockIdx.x-1];
+	}
 }
 
 // Scatter kernel for stream compaction
-__global__ void scatter(ray* raypool, int* scanArray, ray* newraypool, int numberOfRays) {
+__global__ void scatter(ray* raypool, int* scanArray, ray* newraypool) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (raypool[index].active) {
 		newraypool[scanArray[index]-1] = raypool[index];
@@ -308,9 +313,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int ite
 	cudaMemcpy(raypool2, raypool1, numberOfRays * sizeof(ray), cudaMemcpyDeviceToDevice);
 
 	for (int i=0; i<MAXDEPTH; ++i) {
-		//int rayBlocksPerGrid = max((int)ceil((float)numberOfRays/(float)64), 24); // 24 is the number of SMs on my GPU
-		//int rayThreadsPerBlock = ceil((float)numberOfRays/(float)rayBlocksPerGrid);
-
 		int rayThreadsPerBlock = 64;
 		int rayBlocksPerGrid = ceil((float)numberOfRays/(float)rayThreadsPerBlock);
 
@@ -318,14 +320,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int ite
 			pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool1,
 				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudamtls);
 
-			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray, numberOfRays);
+			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray);
 		}
 		else {
 			pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool2,
 				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudamtls);
 
-			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray, numberOfRays);
-		}
+			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray);
+		}	
 
 		sharedMemoryScan<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(scanArray, sumArray1);
 		int sumArrayLength = rayBlocksPerGrid;
@@ -335,10 +337,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int ite
 		for (; d<=ceil(log(sumArrayLength)/log(2)); ++d) {
 			// use double buffer
 			if (d % 2 == 1) {
-				naiveScan<<<naiveScanBlocksPerGrid, naiveScanThreadsPerBlock>>>(sumArray1, sumArray2, d, sumArrayLength);
+				naiveScan<<<naiveScanBlocksPerGrid, naiveScanThreadsPerBlock>>>(sumArray1, sumArray2, d);
 			}
 			else {
-				naiveScan<<<naiveScanBlocksPerGrid, naiveScanThreadsPerBlock>>>(sumArray2, sumArray1, d, sumArrayLength);
+				naiveScan<<<naiveScanBlocksPerGrid, naiveScanThreadsPerBlock>>>(sumArray2, sumArray1, d);
 			}
 		}
 		if (d % 2 == 1) {
@@ -358,10 +360,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int ite
 
 		// scatter
 		if (i % 2 == 0) {
-			scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray, raypool2, numberOfRays);
+			scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray, raypool2);
 		}
 		else {
-			scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray, raypool1, numberOfRays);
+			scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray, raypool1);
 		}
 
 		numberOfRays = numberOfActiveRays[0];

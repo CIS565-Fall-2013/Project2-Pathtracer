@@ -1,9 +1,3 @@
-GLOBAL
-Ka			0.1
-Kd			0.9
-Ks			0.5
-ambient		1 1 1
-
 MATERIAL 0				//white diffuse
 RGB         1 1 1       
 SPECEX      0      

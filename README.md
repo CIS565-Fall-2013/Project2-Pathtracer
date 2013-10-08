@@ -46,8 +46,8 @@ https://vimeo.com/76024508
 Performance analysis:
 -------------------------------------------------------------------------------
 
+Fps with stream compaction using shared memory: 4.15
+
 Fps with stream compaction: 3.08
 
 Fps without stream compaction: 1.67
-
-There is a 2x speed enhancement with my stream compaction. I think the reason that it is still pretty slow is that I used too many cudaMalloc's in my stream compaction. In the future I will try to use less cudaMalloc's and do a performance analysis with that. I also want to do a performance comparison with thrust.

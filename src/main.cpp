@@ -106,7 +106,7 @@ void sendDataToGPU() {
   cudaMemcpy(cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
 
 	// pack geom and material arrays
-	numberOfGeoms = renderScene->materials.size();
+	numberOfGeoms = renderScene->objects.size();
 	numberOfMaterials = renderScene->materials.size();
 
 	geom* geoms = new geom[numberOfGeoms];
