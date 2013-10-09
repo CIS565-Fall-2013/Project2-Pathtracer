@@ -12,7 +12,7 @@
 	#include <GL/glfw.h>
 #else
 	#include <GL/glew.h>
-	#include <GL/glut.h>
+	#include <GL/freeglut.h>
 #endif
 
 #include <stdlib.h>
@@ -77,13 +77,30 @@ int width=800; int height=800;
 int main(int argc, char** argv);
 
 //-------------------------------
-//---------RUNTIME STUFF---------
-//-------------------------------
+//-------------TIME--------------
+//------------------------------
 
 int timeSinceLastFrame;
 int frames;
 int fps;
+double now, lastTime;
+float delta_t = 0.0f;
 
+//-------------------------------
+//----------Mouse Control--------
+//-------------------------------
+
+int mouse_old_x, mouse_old_y;
+unsigned char button_mask = 0x00;
+
+float viewPhi = PI;
+float viewTheta = HALF_PI;
+
+float moveSensitivity = 0.5f;
+
+//-------------------------------
+//---------RUNTIME STUFF---------
+//-------------------------------
 
 void runCuda();
 
@@ -92,11 +109,15 @@ void runCuda();
 #else
 	void display();
 	void keyboard(unsigned char key, int x, int y);
+	void mouseClick(int button, int state, int x, int y);
+	void mouseMotion(int x, int y);
+	void mouseWheel(int, int, int, int);
 #endif
 
 //-------------------------------
 //----------SETUP STUFF----------
 //-------------------------------
+
 
 #ifdef __APPLE__
 	void init();

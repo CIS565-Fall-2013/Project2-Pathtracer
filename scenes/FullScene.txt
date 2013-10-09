@@ -157,7 +157,9 @@ EMITTANCE   0
 CAMERA
 RES         1200 800
 FOVY        30
-ITERATIONS  100
+FOCUS       13
+APERTURE    1
+ITERATIONS  1000
 FILE        test.bmp
 frame 0
 EYE         0 4.5 18
@@ -196,7 +198,7 @@ material 1 // red diffuse
 frame 0
 TRANS       -10 5 5
 ROTAT       0 0 0
-SCALE       .01 20 20
+SCALE       .01 10 20
 
 OBJECT 4  // right wall
 cube
@@ -204,7 +206,7 @@ material 2  //green diffuse
 frame 0
 TRANS       10 5 5
 ROTAT       0 0 0
-SCALE       .01 20 20
+SCALE       .01 10 20
 
 OBJECT 5
 sphere

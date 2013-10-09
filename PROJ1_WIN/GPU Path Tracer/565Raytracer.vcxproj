@@ -30,7 +30,6 @@
     <ClInclude Include="..\..\src\sceneStructs.h" />
     <ClInclude Include="..\..\src\stb_image\stb_image.h" />
     <ClInclude Include="..\..\src\stb_image\stb_image_write.h" />
-    <ClInclude Include="..\..\src\tinyOBJ\tiny_obj_loader.h" />
     <ClInclude Include="..\..\src\utilities.h" />
   </ItemGroup>
   <ItemGroup>
@@ -40,7 +39,6 @@
     <ClCompile Include="..\..\src\scene.cpp" />
     <ClCompile Include="..\..\src\stb_image\stb_image.c" />
     <ClCompile Include="..\..\src\stb_image\stb_image_write.c" />
-    <ClCompile Include="..\..\src\tinyOBJ\tiny_obj_loader.cc" />
     <ClCompile Include="..\..\src\utilities.cpp" />
   </ItemGroup>
   <ItemGroup>

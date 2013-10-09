@@ -22,9 +22,6 @@
     <ClCompile Include="..\..\src\utilities.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\tinyOBJ\tiny_obj_loader.cc">
-      <Filter>tinyOBJ</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\stb_image\stb_image_write.h">
@@ -63,9 +60,6 @@
     <ClInclude Include="..\..\src\sceneStructs.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\tinyOBJ\tiny_obj_loader.h">
-      <Filter>tinyOBJ</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\..\src\raytraceKernel.cu" />
@@ -79,9 +73,6 @@
     </Filter>
     <Filter Include="Source Files">
       <UniqueIdentifier>{417e01b4-4823-48f2-86cb-fb49182d90a6}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="tinyOBJ">
-      <UniqueIdentifier>{c1ac4fbb-633c-42b1-9ea8-98a3d3fafe21}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

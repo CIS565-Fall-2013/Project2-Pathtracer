@@ -20,7 +20,7 @@
 #include "intersections.h"
 #include "interactions.h"
 
-//#define DEPTH_OF_FIELD
+#define DEPTH_OF_FIELD
 //#define MOTION_BLUR
 #define STREAM_COMPACTION
 
@@ -398,8 +398,6 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 	// depth of field
 #if defined(DEPTH_OF_FIELD)
 	
-	float focalLength = 13.0f;
-	float aperture = 1.0f;
 
 	thrust::default_random_engine rng(hash(index*time));
     thrust::uniform_real_distribution<float> u(0,1);
@@ -408,9 +406,9 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 	float v1 = u(rng);
 
 //	glm::vec3 offset = aperture * glm::vec3(u1 * cos((float)TWO_PI*v1), u1 * sin((float)TWO_PI*v1), 0.0f);
-	glm::vec3 offset = aperture * glm::normalize(generateRandomNumberFromThread(resolution, time, x, y));
+	glm::vec3 offset = cam.aperture * glm::normalize(generateRandomNumberFromThread(resolution, time, x, y));
 	offset.z = 0.0f;
-	glm::vec3 focalPlaneIntersection = r.origin + focalLength * r.direction;
+	glm::vec3 focalPlaneIntersection = r.origin + cam.focalLength * r.direction;
 	r.origin += offset;
 	r.direction = glm::normalize(focalPlaneIntersection - r.origin);
 #endif
@@ -476,6 +474,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     cam.view = renderCam->views[frame];
     cam.up = renderCam->ups[frame];
     cam.fov = renderCam->fov;
+	cam.focalLength = renderCam->focalLength;
+	cam.aperture = renderCam->aperture;
 
   
   // construct initial ray pool
@@ -496,7 +496,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 //	rayTracerIterativeDirect<<<fullBlocksPerGrid, threadsPerBlock>>>(iterations, renderCam->resolution, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
     // multiple kernel launches to evaluate color
-    for(int i = 0; i < traceDepth; ++i)
+    for(int i = 0; i < traceDepth && rayPoolCount != 0; ++i)
     {
 	  // resize block and grid 
 	    dim3 blocksPerGrid((int)ceil((float)rayPoolCount/(float)(tileSize*tileSize)));

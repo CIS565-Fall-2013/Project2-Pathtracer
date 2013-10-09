@@ -171,12 +171,12 @@ ROTAT       0 0 0
 SCALE       .01 10 10
 
 OBJECT 5
-bunny_shrinked.obj
+sphere
 material 5 
 frame 0
-TRANS       0 0 0
+TRANS       0 2 0
 ROTAT       0 0 0
-SCALE       0.7 0.7 0.7
+SCALE       3 3 3
 
 OBJECT 6
 cube

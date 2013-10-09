@@ -12,50 +12,28 @@
 //-------------------------------
 void printDevProp(cudaDeviceProp devProp)
 {
-
 	printf("Major revision number:         %d\n",  devProp.major);
-
 	printf("Minor revision number:         %d\n",  devProp.minor);
-
 	printf("Name:                          %s\n",  devProp.name);
-
 	printf("Total global memory:           %u\n",  devProp.totalGlobalMem);
-
 	printf("Total shared memory per block: %u\n",  devProp.sharedMemPerBlock);
-
 	printf("Total registers per block:     %d\n",  devProp.regsPerBlock);
-
 	printf("Warp size:                     %d\n",  devProp.warpSize);
-
 	printf("Maximum memory pitch:          %u\n",  devProp.memPitch);
-
 	printf("Maximum threads per block:     %d\n",  devProp.maxThreadsPerBlock);
-
 	for (int i = 0; i < 3; ++i)
-
 		printf("Maximum dimension %d of block:  %d\n", i, devProp.maxThreadsDim[i]);
-
 	for (int i = 0; i < 3; ++i)
-
 		printf("Maximum dimension %d of grid:   %d\n", i, devProp.maxGridSize[i]);
-
 	printf("Clock rate:                    %d\n",  devProp.clockRate);
-
 	printf("Total constant memory:         %u\n",  devProp.totalConstMem);
-
 	printf("Texture alignment:             %u\n",  devProp.textureAlignment);
-
 	printf("Concurrent copy and execution: %s\n",  (devProp.deviceOverlap ? "Yes" : "No"));
-
 	printf("Unified Addressing enabled:    %s\n",  (devProp.unifiedAddressing? "Yes" : "No"));
-
 	printf("Number of multiprocessors:     %d\n",  devProp.multiProcessorCount);
-
 	printf("Kernel execution timeout:      %s\n",  (devProp.kernelExecTimeoutEnabled ? "Yes" : "No"));
-
 	printf("\n:");
 	return;
-
 }
 int main(int argc, char** argv){
 
@@ -66,7 +44,8 @@ int main(int argc, char** argv){
 	  glfwOpenWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	  glfwOpenWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   #endif
-	  
+	
+  // Display properties for CUDA device
   cudaDeviceProp devProp;
   cudaGetDeviceProperties(&devProp, 0);
   printDevProp(devProp);
@@ -85,7 +64,8 @@ int main(int argc, char** argv){
     if(strcmp(header.c_str(), "scene")==0){
       renderScene = new scene(data);
       loadedScene = true;
-    }else if(strcmp(header.c_str(), "frame")==0){
+    }
+	else if(strcmp(header.c_str(), "frame")==0){
       targetFrame = atoi(data.c_str());
       singleFrameMode = true;
     }
@@ -139,6 +119,9 @@ int main(int argc, char** argv){
   #else
 	  glutDisplayFunc(display);
 	  glutKeyboardFunc(keyboard);
+	  glutMouseFunc(mouseClick);
+	  glutMotionFunc(mouseMotion);
+	  glutMouseWheelFunc(mouseWheel);
 
 	  glutMainLoop();
   #endif
@@ -282,11 +265,90 @@ void runCuda(){
 		std::cout << key << std::endl;
 		switch (key) 
 		{
-		   case(27):
-			   exit(1);
-			   break;
+			case('w'):
+			case('W'):
+				renderCam->positions[0] += moveSensitivity*renderCam->views[0];
+				break;
+			case('a'):
+			case('A'):
+				renderCam->positions[0] += moveSensitivity*glm::cross(renderCam->views[0], renderCam->ups[0]);
+				break;
+			case('s'):
+			case('S'):
+				renderCam->positions[0] -= moveSensitivity*renderCam->views[0];
+				break;
+			case('d'):
+			case('D'):
+				renderCam->positions[0] -= moveSensitivity*glm::cross(renderCam->views[0], renderCam->ups[0]);
+				break;
+			case(27):
+				exit(1);
+				break;
+		}
+		iterations = 0;
+		for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
+			renderCam->image[i] = glm::vec3(0,0,0);
 		}
 	}
+
+	void mouseClick(int button, int state, int x, int y)
+	{
+		if (state == GLUT_DOWN) {
+			button_mask |= 0x01 << button;
+		} 
+		else if (state == GLUT_UP) {
+			unsigned char mask_not = ~button_mask;
+			mask_not |= 0x01 << button;
+			button_mask = ~mask_not;
+		}
+
+		mouse_old_x = x;
+		mouse_old_y = y;
+	}
+
+	void mouseMotion(int x, int y)
+	{
+		float dx, dy;
+		dx = (float)(x - mouse_old_x);
+		dy = (float)(y - mouse_old_y);
+		
+		if (button_mask & 0x01) 
+		{// left button
+			viewPhi += dx * 0.002f;
+			viewTheta += dy * 0.002f;
+			renderCam->views[0].x = sin(viewTheta)*sin(viewPhi);
+			renderCam->views[0].y = cos(viewTheta);
+			renderCam->views[0].z = sin(viewTheta)*cos(viewPhi);
+			
+		} 
+		else if (button_mask & 0x02) 
+		{// middle button
+			renderCam->positions[0] += 0.02f*dx*glm::cross(renderCam->views[0], renderCam->ups[0]);
+			renderCam->positions[0] += 0.02f*dy*glm::cross(glm::cross(renderCam->views[0], renderCam->ups[0]), renderCam->views[0]);
+		}
+		else if (button_mask & 0x04)
+		{// right button
+			renderCam->positions[0] -= 0.02f*dy*renderCam->views[0];
+		}
+
+		iterations = 0;
+		for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
+			renderCam->image[i] = glm::vec3(0,0,0);
+		}
+
+		mouse_old_x = x;
+		mouse_old_y = y;
+	}
+
+	void mouseWheel(int button, int dir, int x, int y)
+	{
+		renderCam->focalLength += dir>0 ? 1.0f : -1.0f;
+		iterations = 0;
+		for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
+			renderCam->image[i] = glm::vec3(0,0,0);
+		}
+	}
+
 
 #endif
 
@@ -318,11 +380,9 @@ void runCuda(){
 		glutInit(&argc, argv);
 		glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
 		glutInitWindowSize(width, height);
-		glutCreateWindow("565Raytracer");
+		glutCreateWindow("GPU Path Tracer");
 
 		timeSinceLastFrame = glutGet(GLUT_ELAPSED_TIME);
-		fps = 0;
-		frames = 0;
 		// Init GLEW
 		glewInit();
 		GLenum err = glewInit();
