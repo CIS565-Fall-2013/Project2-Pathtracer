@@ -321,12 +321,12 @@ void runCuda(){
 			renderCam->views[0].z = sin(viewTheta)*cos(viewPhi);
 			
 		} 
-		else if (button_mask & 0x02) 
+		if (button_mask & 0x02) 
 		{// middle button
 			renderCam->positions[0] += 0.02f*dx*glm::cross(renderCam->views[0], renderCam->ups[0]);
 			renderCam->positions[0] += 0.02f*dy*glm::cross(glm::cross(renderCam->views[0], renderCam->ups[0]), renderCam->views[0]);
 		}
-		else if (button_mask & 0x04)
+		if (button_mask & 0x04)
 		{// right button
 			renderCam->positions[0] -= 0.02f*dy*renderCam->views[0];
 		}

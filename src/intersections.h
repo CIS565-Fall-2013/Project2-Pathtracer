@@ -340,7 +340,9 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
         //x-z-back face
         point = glm::vec3((float)u02(rng), -.5, (float)u02(rng));
     }
-    
+//----test--------------------------
+    point = glm::vec3((float)u02(rng), -.5, (float)u02(rng));
+//----test--------------------------
     glm::vec3 randPoint = multiplyMV(cube.transform, glm::vec4(point,1.0f));
 
     return randPoint;

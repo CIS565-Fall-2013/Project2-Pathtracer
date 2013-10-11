@@ -97,10 +97,4 @@ struct material{
 	float emittance;         // Used as light source
 };
 
-struct light{
-	glm::vec3 color;
-	glm::vec3 position;
-	float emittance;
-};
-
 #endif //CUDASTRUCTS_H

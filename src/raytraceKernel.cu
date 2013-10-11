@@ -20,7 +20,7 @@
 #include "intersections.h"
 #include "interactions.h"
 
-#define DEPTH_OF_FIELD
+//#define DEPTH_OF_FIELD
 //#define MOTION_BLUR
 #define STREAM_COMPACTION
 
@@ -100,7 +100,9 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
   
-  if(x<=resolution.x && y<=resolution.y){
+  if(x<=resolution.x && y<=resolution.y)
+//  if(x == 290 && y == 200)
+  {
 
       glm::vec3 color;
       color.x = image[index].x*255.0/float(iterations);
@@ -155,7 +157,7 @@ __host__ __device__ int rayIntersect(const ray& r, staticGeom* geoms, int number
 	}
 	return intersIndex;
 }
-__host__ __device__ bool ShadowRayUnblocked(glm::vec3 surfacePoint,glm::vec3 lightPosition, staticGeom* geoms, int numberOfGeoms, material* materials) // return true if unblocked
+__host__ __device__ bool ShadowRayUnblocked(glm::vec3 surfacePoint,glm::vec3 lightPosition, glm::vec3& lightNormal, staticGeom* geoms, int numberOfGeoms, material* materials) // return true if unblocked
 {
 	glm::vec3 rayDir = glm::normalize(lightPosition - surfacePoint);
 	ray shadowRay;
@@ -163,6 +165,7 @@ __host__ __device__ bool ShadowRayUnblocked(glm::vec3 surfacePoint,glm::vec3 lig
 	shadowRay.direction = rayDir;
 	glm::vec3 intersPoint, intersNormal;
 	int intersIndex = rayIntersect(shadowRay, geoms, numberOfGeoms, intersPoint, intersNormal, materials); 
+	lightNormal = glm::vec3(0.0f, -1.0f, 0.0f);
 	if(intersIndex == -1) return true;
 	else if(materials[geoms[intersIndex].materialid].emittance > 0.0f) return true;
 	else return false;
@@ -280,15 +283,17 @@ __global__ void raytracePrimary(glm::vec2 resolution, int time, cameraData cam, 
    }
 }
 #endif
-__global__ void rayTracerIterative(int iteration, int depth, int tileSize, ray *rayPool, int rayCount, glm::vec3* colors,
+__global__ void rayTracerIterative(int iteration, int depth, ray *rayPool, int rayCount, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
 
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;  // blockIdx.y is always zero
 
-	int index = tileSize * x + y;
+	int index = blockDim.y * x + y;
 
-	if(index < rayCount){
+//	if(index < rayCount)
+    if(x == 270 && y == 266)
+	{
 		// intersection test	
 		glm::vec3 intersectionPoint, intersectionNormal;
 		ray r = rayPool[index];
@@ -326,6 +331,8 @@ __global__ void rayTracerIterative(int iteration, int depth, int tileSize, ray *
 				{
 					r.origin = intersectionPoint + 0.01f * reflDir;
 					r.direction = reflDir;
+					int nextIntersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials);
+					colors[r.index] += r.tempColor * (materials[geoms[nextIntersIndex].materialid].emittance) * materials[geoms[intersIndex].materialid].color;
 				}				
 				else
 				{
@@ -340,10 +347,13 @@ __global__ void rayTracerIterative(int iteration, int depth, int tileSize, ray *
 				reflDir = calculateReflectionDirection(r.direction, intersectionNormal);
 				r.origin = intersectionPoint + 0.01f * reflDir;
 				r.direction = reflDir;
+				int nextIntersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials);
+				printf("nextIntersIndex: %d\n", nextIntersIndex);
+				colors[r.index] += r.tempColor * (materials[geoms[nextIntersIndex].materialid].emittance) * materials[geoms[intersIndex].materialid].color;
 			}
 			else
 			{
-				colors[r.index] += r.tempColor * (/*depth == 1? 0 : */materials[geoms[intersIndex].materialid].emittance) * materials[geoms[intersIndex].materialid].color;
+				colors[r.index] += r.tempColor * (depth == 1? 0 : materials[geoms[intersIndex].materialid].emittance) * materials[geoms[intersIndex].materialid].color;
 				thrust::default_random_engine rng(hash(iteration *(depth + 1)* index));
 				thrust::uniform_real_distribution<float> u01(0,1);
 				if((float)u01(rng) < 0.2 /*&& depth > 3|| glm::length(r.tempColor) < 0.01f*/) // russian roulette rule: ray is absorbed
@@ -372,6 +382,7 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
     glm::vec2 jitteredScreenCoords;
 	ray r;
     if((x<=resolution.x && y<=resolution.y))
+//	if(x == 290 && y == 200)
     {
 	    jitteredScreenCoords = generateRandomNumberFromThreadForSSAA(resolution, time, x, y, 0.5f);
 	    r = raycastFromCameraKernel(resolution, time, jitteredScreenCoords.x, jitteredScreenCoords.y, cam.position, cam.view, cam.up, cam.fov);
@@ -379,17 +390,21 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 		r.tempColor = glm::vec3(1.0f);
 	    r.mediaIOR = 1.0f;	    
 
-/*
 		glm::vec3 intersectionPoint, intersectionNormal;
 		int intersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials); 
+//		colors[index] += glm::vec3(intersIndex * 0.1f);
 		glm::vec3 lightPos = getRandomPointOnCube(geoms[8], index*time);
-		if(ShadowRayUnblocked(intersectionPoint, lightPos, geoms, numberOfGeoms, materials))
+		glm::vec3 lightNormal;
+		if(ShadowRayUnblocked(intersectionPoint, lightPos, lightNormal, geoms, numberOfGeoms, materials))
 		{
-			glm::vec3 L = glm::normalize(lightPos - intersectionPoint);
+			glm::vec3 distanceVector = lightPos - intersectionPoint;
+			glm::vec3 L = glm::normalize(distanceVector);
 			float dot1 = glm::clamp(glm::dot(intersectionNormal, L), 0.0f, 1.0f);
-			glm::vec3 diffuse = materials[geoms[8].materialid].emittance * materials[geoms[intersIndex].materialid].color * dot1;*/
-//			colors[index] += diffuse;
-//		}
+			float dot2 = glm::clamp(glm::dot(lightNormal, -L), 0.0f, 1.0f);
+			glm::vec3 diffuse = materials[geoms[8].materialid].emittance * materials[geoms[intersIndex].materialid].color * dot1 * dot2 / pow(glm::length(distanceVector), 2.0f) * 9.0f / (float)PI;
+			colors[index] += diffuse;
+//			colors[index] += glm::vec3(1.0f);
+		}
 //		if(intersIndex == 8)
 //			colors[index] += glm::vec3(1.0f);
 
@@ -500,7 +515,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     {
 	  // resize block and grid 
 	    dim3 blocksPerGrid((int)ceil((float)rayPoolCount/(float)(tileSize*tileSize)));
-	    rayTracerIterative<<<blocksPerGrid, threadsPerBlock>>>(iterations, i, tileSize, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+	    rayTracerIterative<<<blocksPerGrid, threadsPerBlock>>>(iterations, i, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
 #if defined(STREAM_COMPACTION)
 	  // do stream compaction
 	    thrust::device_ptr<ray> ray_ptr = thrust::device_pointer_cast(cudaray);
