@@ -177,7 +177,7 @@ SCALE       .01 10 10
 
 OBJECT 5
 sphere
-material 5
+material 0
 frame 0
 TRANS       0 2 0
 ROTAT       0 180 0
@@ -186,7 +186,7 @@ SCALE       3 3 3
 
 OBJECT 6
 sphere
-material 5
+material 1
 frame 0
 TRANS       2 5 2
 ROTAT       0 180 0
@@ -195,7 +195,7 @@ SCALE       2.5 2.5 2.5
 
 OBJECT 7
 sphere
-material 5
+material 2
 frame 0
 TRANS       -2 5 -2
 ROTAT       0 180 0
@@ -208,6 +208,6 @@ OBJECT 8
 cube
 material 8 
 frame 0
-TRANS       0 9.85 0
+TRANS       0 9.8 0
 ROTAT       0 0 0
-SCALE       3 .01 3
+SCALE       3 .3 3

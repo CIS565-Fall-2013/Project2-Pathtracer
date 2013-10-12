@@ -303,7 +303,7 @@ __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){
 
 //LOOK: Example for generating a random point on an object using thrust.
 //Generates a random point on a given cube
-__host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed){
+__host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed, float &area, glm::vec3 &normal){
 
     thrust::default_random_engine rng(hash(randomSeed));
     thrust::uniform_real_distribution<float> u01(0,1);
@@ -323,27 +323,41 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
     
     if(russianRoulette<(side1/totalarea)){
         //x-y face
-        point = glm::vec3((float)u02(rng), (float)u02(rng), .5);
+        point = glm::vec3((float)u02(rng), (float)u02(rng), .499);
+		area = side1;
+		normal = glm::vec3(0.0f, 0.0f, 1.0f);
     }else if(russianRoulette<((side1*2)/totalarea)){
         //x-y-back face
-        point = glm::vec3((float)u02(rng), (float)u02(rng), -.5);
+        point = glm::vec3((float)u02(rng), (float)u02(rng), -.499);
+		area = side1;
+		normal = glm::vec3(0.0f, 0.0f, -1.0f);
     }else if(russianRoulette<(((side1*2)+(side2))/totalarea)){
         //y-z face
-        point = glm::vec3(.5, (float)u02(rng), (float)u02(rng));
+        point = glm::vec3(.499, (float)u02(rng), (float)u02(rng));
+		area = side2;
+		normal = glm::vec3(1.0f, 0.0f, 0.0f);
     }else if(russianRoulette<(((side1*2)+(side2*2))/totalarea)){
         //y-z-back face
-        point = glm::vec3(-.5, (float)u02(rng), (float)u02(rng));
+        point = glm::vec3(-.499, (float)u02(rng), (float)u02(rng));
+		area = side2;
+		normal = glm::vec3(-1.0f, 0.0f, 0.0f);
     }else if(russianRoulette<(((side1*2)+(side2*2)+(side3))/totalarea)){
         //x-z face
-        point = glm::vec3((float)u02(rng), .5, (float)u02(rng));
+        point = glm::vec3((float)u02(rng), .499, (float)u02(rng));
+		area = side3;
+		normal = glm::vec3(0.0f, 1.0f, 0.0f);
     }else{
         //x-z-back face
-        point = glm::vec3((float)u02(rng), -.5, (float)u02(rng));
+        point = glm::vec3((float)u02(rng), -.499, (float)u02(rng));
+		area = side3;
+		normal = glm::vec3(0.0f, -1.0f, 0.0f);
     }
-//----test--------------------------
-    point = glm::vec3((float)u02(rng), -.5, (float)u02(rng));
-//----test--------------------------
+	
     glm::vec3 randPoint = multiplyMV(cube.transform, glm::vec4(point,1.0f));
+	glm::vec3 normalTip = point + normal;
+	glm::vec3 normalTipWS = multiplyMV(cube.transform, glm::vec4(normalTip, 1.0f));
+
+	normal = glm::normalize(normalTipWS - randPoint);
 
     return randPoint;
        

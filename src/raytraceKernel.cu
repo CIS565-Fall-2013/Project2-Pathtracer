@@ -157,7 +157,7 @@ __host__ __device__ int rayIntersect(const ray& r, staticGeom* geoms, int number
 	}
 	return intersIndex;
 }
-__host__ __device__ bool ShadowRayUnblocked(glm::vec3 surfacePoint,glm::vec3 lightPosition, glm::vec3& lightNormal, staticGeom* geoms, int numberOfGeoms, material* materials) // return true if unblocked
+__host__ __device__ bool ShadowRayUnblocked(glm::vec3 surfacePoint,glm::vec3 lightPosition, staticGeom* geoms, int numberOfGeoms, material* materials) // return true if unblocked
 {
 	glm::vec3 rayDir = glm::normalize(lightPosition - surfacePoint);
 	ray shadowRay;
@@ -165,8 +165,10 @@ __host__ __device__ bool ShadowRayUnblocked(glm::vec3 surfacePoint,glm::vec3 lig
 	shadowRay.direction = rayDir;
 	glm::vec3 intersPoint, intersNormal;
 	int intersIndex = rayIntersect(shadowRay, geoms, numberOfGeoms, intersPoint, intersNormal, materials); 
-	lightNormal = glm::vec3(0.0f, -1.0f, 0.0f);
-	if(intersIndex == -1) return true;
+	if(intersIndex == -1) {
+		printf("not intersected!\n");
+		return true;
+	}
 	else if(materials[geoms[intersIndex].materialid].emittance > 0.0f) return true;
 	else return false;
 
@@ -292,7 +294,6 @@ __global__ void rayTracerIterative(int iteration, int depth, ray *rayPool, int r
 	int index = blockDim.y * x + y;
 
 	if(index < rayCount)
-//    if(x == 270 && y == 266)
 	{
 		// intersection test	
 		glm::vec3 intersectionPoint, intersectionNormal;
@@ -392,16 +393,17 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 //----------------shadow ray for direct illumination part--------------------------------------
 		glm::vec3 intersectionPoint, intersectionNormal;
 		int intersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials); 
-//		colors[index] += glm::vec3(intersIndex * 0.1f);
-		glm::vec3 lightPos = getRandomPointOnCube(geoms[8], index*time);
 		glm::vec3 lightNormal;
-		if(ShadowRayUnblocked(intersectionPoint, lightPos, lightNormal, geoms, numberOfGeoms, materials))
+		float lightArea;
+		glm::vec3 lightPos = getRandomPointOnCube(geoms[8], index*time, lightArea, lightNormal);
+		
+		if(ShadowRayUnblocked(intersectionPoint, lightPos, geoms, numberOfGeoms, materials))
 		{
 			glm::vec3 distanceVector = lightPos - intersectionPoint;
 			glm::vec3 L = glm::normalize(distanceVector);
 			float dot1 = glm::clamp(glm::dot(intersectionNormal, L), 0.0f, 1.0f);
-			float dot2 = glm::clamp(glm::dot(lightNormal, -L), 0.0f, 1.0f);
-			glm::vec3 diffuse = materials[geoms[8].materialid].emittance * materials[geoms[intersIndex].materialid].color * dot1 * dot2 / pow(glm::length(distanceVector), 2.0f) * 9.0f / (float)PI;
+			float dot2 = glm::clamp(glm::dot(lightNormal, -L), 0.0f, 1.0f);  // light and illuminated point have to be on the same side
+			glm::vec3 diffuse = materials[geoms[8].materialid].emittance * materials[geoms[intersIndex].materialid].color * dot1 * dot2 * lightArea / pow(glm::length(distanceVector), 2.0f) / (float)PI;
 			colors[index] += diffuse;
 		}
 //----------------------------------------------------------------------------------------------
