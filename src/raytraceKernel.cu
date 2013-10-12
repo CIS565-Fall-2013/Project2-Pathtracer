@@ -291,8 +291,8 @@ __global__ void rayTracerIterative(int iteration, int depth, ray *rayPool, int r
 
 	int index = blockDim.y * x + y;
 
-//	if(index < rayCount)
-    if(x == 270 && y == 266)
+	if(index < rayCount)
+//    if(x == 270 && y == 266)
 	{
 		// intersection test	
 		glm::vec3 intersectionPoint, intersectionNormal;
@@ -332,7 +332,8 @@ __global__ void rayTracerIterative(int iteration, int depth, ray *rayPool, int r
 					r.origin = intersectionPoint + 0.01f * reflDir;
 					r.direction = reflDir;
 					int nextIntersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials);
-					colors[r.index] += r.tempColor * (materials[geoms[nextIntersIndex].materialid].emittance) * materials[geoms[intersIndex].materialid].color;
+					if(depth == 0 && nextIntersIndex != -1) // hack to let direct illumination method work with reflective surface
+						colors[r.index] += r.tempColor * (materials[geoms[nextIntersIndex].materialid].emittance) * materials[geoms[nextIntersIndex].materialid].color;
 				}				
 				else
 				{
@@ -348,8 +349,8 @@ __global__ void rayTracerIterative(int iteration, int depth, ray *rayPool, int r
 				r.origin = intersectionPoint + 0.01f * reflDir;
 				r.direction = reflDir;
 				int nextIntersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials);
-				printf("nextIntersIndex: %d\n", nextIntersIndex);
-				colors[r.index] += r.tempColor * (materials[geoms[nextIntersIndex].materialid].emittance) * materials[geoms[intersIndex].materialid].color;
+				if(depth == 0 && nextIntersIndex != -1)// hack to let direct illumination method work with reflective surface
+					colors[r.index] += r.tempColor * (materials[geoms[nextIntersIndex].materialid].emittance) * materials[geoms[nextIntersIndex].materialid].color;
 			}
 			else
 			{
@@ -379,17 +380,16 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * resolution.x);
-    glm::vec2 jitteredScreenCoords;
-	ray r;
+    
     if((x<=resolution.x && y<=resolution.y))
-//	if(x == 290 && y == 200)
     {
-	    jitteredScreenCoords = generateRandomNumberFromThreadForSSAA(resolution, time, x, y, 0.5f);
-	    r = raycastFromCameraKernel(resolution, time, jitteredScreenCoords.x, jitteredScreenCoords.y, cam.position, cam.view, cam.up, cam.fov);
+	    glm::vec2 jitteredScreenCoords = generateRandomNumberFromThreadForSSAA(resolution, time, x, y, 0.5f);
+	    ray r = raycastFromCameraKernel(resolution, time, jitteredScreenCoords.x, jitteredScreenCoords.y, cam.position, cam.view, cam.up, cam.fov);
         r.index = index;
 		r.tempColor = glm::vec3(1.0f);
 	    r.mediaIOR = 1.0f;	    
 
+//----------------shadow ray for direct illumination part--------------------------------------
 		glm::vec3 intersectionPoint, intersectionNormal;
 		int intersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials); 
 //		colors[index] += glm::vec3(intersIndex * 0.1f);
@@ -403,31 +403,25 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 			float dot2 = glm::clamp(glm::dot(lightNormal, -L), 0.0f, 1.0f);
 			glm::vec3 diffuse = materials[geoms[8].materialid].emittance * materials[geoms[intersIndex].materialid].color * dot1 * dot2 / pow(glm::length(distanceVector), 2.0f) * 9.0f / (float)PI;
 			colors[index] += diffuse;
-//			colors[index] += glm::vec3(1.0f);
 		}
-//		if(intersIndex == 8)
-//			colors[index] += glm::vec3(1.0f);
-
-    }
-
-	// depth of field
+//----------------------------------------------------------------------------------------------
 #if defined(DEPTH_OF_FIELD)
-	
+		thrust::default_random_engine rng(hash(index*time));
+		thrust::uniform_real_distribution<float> u(0,1);
 
-	thrust::default_random_engine rng(hash(index*time));
-    thrust::uniform_real_distribution<float> u(0,1);
+		float u1 = u(rng);
+		float v1 = u(rng);
 
-	float u1 = u(rng);
-	float v1 = u(rng);
-
-//	glm::vec3 offset = aperture * glm::vec3(u1 * cos((float)TWO_PI*v1), u1 * sin((float)TWO_PI*v1), 0.0f);
-	glm::vec3 offset = cam.aperture * glm::normalize(generateRandomNumberFromThread(resolution, time, x, y));
-	offset.z = 0.0f;
-	glm::vec3 focalPlaneIntersection = r.origin + cam.focalLength * r.direction;
-	r.origin += offset;
-	r.direction = glm::normalize(focalPlaneIntersection - r.origin);
+	//	glm::vec3 offset = aperture * glm::vec3(u1 * cos((float)TWO_PI*v1), u1 * sin((float)TWO_PI*v1), 0.0f);
+		glm::vec3 offset = cam.aperture * glm::normalize(generateRandomNumberFromThread(resolution, time, x, y));
+		offset.z = 0.0f;
+		glm::vec3 focalPlaneIntersection = r.origin + cam.focalLength * r.direction;
+		r.origin += offset;
+		r.direction = glm::normalize(focalPlaneIntersection - r.origin);
 #endif
-	rayPool[index] = r;
+
+		rayPool[index] = r;
+    }
 }
 
 
