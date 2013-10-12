@@ -22,7 +22,7 @@
 
 //#define DEPTH_OF_FIELD
 //#define MOTION_BLUR
-#define STREAM_COMPACTION
+//#define STREAM_COMPACTION
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
@@ -137,7 +137,6 @@ __host__ __device__ int rayIntersect(const ray& r, staticGeom* geoms, int number
 //#pragma unroll numberOfGeoms
 	for(int i = 0; i < numberOfGeoms; i++)
 	{
-//		tempDistance = -1.0f;
 		if(geoms[i].type == GEOMTYPE::SPHERE){
 			tempDistance = sphereIntersectionTest(geoms[i], r, tempIntersctionPoint, tempIntersectionNormal);
 		}
@@ -157,7 +156,7 @@ __host__ __device__ int rayIntersect(const ray& r, staticGeom* geoms, int number
 	}
 	return intersIndex;
 }
-__host__ __device__ bool ShadowRayUnblocked(glm::vec3 surfacePoint,glm::vec3 lightPosition, staticGeom* geoms, int numberOfGeoms, material* materials) // return true if unblocked
+__host__ __device__ bool ShadowRayUnblocked(glm::vec3 surfacePoint,glm::vec3 lightPosition, staticGeom* geoms, int numberOfGeoms, material* materials/*, float &lightArea, glm::vec3 &lightNormal*/) // return true if unblocked
 {
 	glm::vec3 rayDir = glm::normalize(lightPosition - surfacePoint);
 	ray shadowRay;
@@ -167,10 +166,11 @@ __host__ __device__ bool ShadowRayUnblocked(glm::vec3 surfacePoint,glm::vec3 lig
 	int intersIndex = rayIntersect(shadowRay, geoms, numberOfGeoms, intersPoint, intersNormal, materials); 
 	if(intersIndex == -1) {
 		printf("not intersected!\n");
+		return false;
+	}else if(materials[geoms[intersIndex].materialid].emittance > 0.0f){
+//		lightArea = getAreaAndNormalOnCube(geoms[intersIndex], intersPoint, lightNormal);
 		return true;
-	}
-	else if(materials[geoms[intersIndex].materialid].emittance > 0.0f) return true;
-	else return false;
+	}else return false;
 
 }
 #if 0
@@ -354,8 +354,9 @@ __global__ void rayTracerIterative(int iteration, int depth, ray *rayPool, int r
 					colors[r.index] += r.tempColor * (materials[geoms[nextIntersIndex].materialid].emittance) * materials[geoms[nextIntersIndex].materialid].color;
 			}
 			else
-			{
-				colors[r.index] += r.tempColor * (depth == 1? 0 : materials[geoms[intersIndex].materialid].emittance) * materials[geoms[intersIndex].materialid].color;
+			{   // exlude direct illumination here
+//				if(index == 35771) printf("intersIndex: %d\n",intersIndex);
+//				colors[r.index] += r.tempColor * (depth == 1? 0 : materials[geoms[intersIndex].materialid].emittance) * materials[geoms[intersIndex].materialid].color;
 				thrust::default_random_engine rng(hash(iteration *(depth + 1)* index));
 				thrust::uniform_real_distribution<float> u01(0,1);
 				if((float)u01(rng) < 0.2 /*&& depth > 3|| glm::length(r.tempColor) < 0.01f*/) // russian roulette rule: ray is absorbed
@@ -376,8 +377,8 @@ __global__ void rayTracerIterative(int iteration, int depth, ray *rayPool, int r
 }
 
 
-__global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, cameraData cam, ray *rayPool, int rayCount, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material* materials, int numberOfMaterials){
+__global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, cameraData cam, ray *rayPool, int rayCount, glm::vec3 *colors,
+                            staticGeom* geoms, int numberOfGeoms, material *materials, int numberOfMaterials, int *lights, int numberOfLights){
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * resolution.x);
@@ -390,21 +391,29 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 		r.tempColor = glm::vec3(1.0f);
 	    r.mediaIOR = 1.0f;	    
 
-//----------------shadow ray for direct illumination part--------------------------------------
+//----------------shadow ray for direct illumination part-------------------------------------
 		glm::vec3 intersectionPoint, intersectionNormal;
 		int intersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials); 
+
+		// choose which light to sample
+		thrust::default_random_engine rng(hash(index*time));
+		thrust::uniform_real_distribution<float> u01(0,1);
+		float russianRoulette = (float)u01(rng);
+		int sampleLightIndex = lights[int(russianRoulette * numberOfLights)];
+
+		// sample selected light
 		glm::vec3 lightNormal;
 		float lightArea;
-		glm::vec3 lightPos = getRandomPointOnCube(geoms[8], index*time, lightArea, lightNormal);
+		glm::vec3 lightPos = getRandomPointOnCube(geoms[sampleLightIndex], index*time, lightArea, lightNormal);
 		
-		if(ShadowRayUnblocked(intersectionPoint, lightPos, geoms, numberOfGeoms, materials))
+		if(ShadowRayUnblocked(intersectionPoint, lightPos, geoms, numberOfGeoms, materials/*, lightArea, lightNormal*/))
 		{
 			glm::vec3 distanceVector = lightPos - intersectionPoint;
 			glm::vec3 L = glm::normalize(distanceVector);
-			float dot1 = glm::clamp(glm::dot(intersectionNormal, L), 0.0f, 1.0f);
-			float dot2 = glm::clamp(glm::dot(lightNormal, -L), 0.0f, 1.0f);  // light and illuminated point have to be on the same side
-			glm::vec3 diffuse = materials[geoms[8].materialid].emittance * materials[geoms[intersIndex].materialid].color * dot1 * dot2 * lightArea / pow(glm::length(distanceVector), 2.0f) / (float)PI;
-			colors[index] += diffuse;
+			float cosineTerm = glm::clamp(glm::dot(intersectionNormal, L), 0.0f, 1.0f);
+			float projectedLightArea = glm::clamp(glm::dot(lightNormal, -L), 0.0f, 1.0f) * lightArea;  // light and illuminated point have to be on the same side
+			glm::vec3 directLighting = materials[geoms[sampleLightIndex].materialid].emittance * materials[geoms[intersIndex].materialid].color * cosineTerm * projectedLightArea *  float(numberOfLights) / pow(glm::length(distanceVector), 2.0f) / (float)PI;
+     		colors[index] += directLighting;
 		}
 //----------------------------------------------------------------------------------------------
 #if defined(DEPTH_OF_FIELD)
@@ -502,10 +511,23 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     cudaMalloc((void**)&cudaray, rayPoolCount*sizeof(ray));
     cudaMemcpy( cudaray, rayPool, rayPoolCount*sizeof(ray), cudaMemcpyHostToDevice);
 
-	// first kernel launch to populate ray pool
-    rayTracerIterativePrimary<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, iterations, cam, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+	// copy lights
+	std::vector<int> lightIndices;	
+	for(int i = 0; i < numberOfGeoms; ++i){
+		if(materials[geoms[i].materialid].emittance > 0) lightIndices.push_back(i);
+	}
+	int numberOfLights = lightIndices.size();
+	int *lights = new int[numberOfLights];
+	for(int i = 0; i < numberOfLights; ++i){
+		lights[i] = lightIndices[i];
+	}
 
-//	rayTracerIterativeDirect<<<fullBlocksPerGrid, threadsPerBlock>>>(iterations, renderCam->resolution, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials);
+	int* cudalight = NULL;
+    cudaMalloc((void**)&cudalight, numberOfLights*sizeof(int));
+    cudaMemcpy( cudalight, lights, numberOfLights*sizeof(int), cudaMemcpyHostToDevice);
+
+	// first kernel launch to populate ray pool
+    rayTracerIterativePrimary<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, iterations, cam, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalight, numberOfLights);
     // multiple kernel launches to evaluate color
     for(int i = 0; i < traceDepth && rayPoolCount != 0; ++i)
     {

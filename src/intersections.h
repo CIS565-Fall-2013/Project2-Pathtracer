@@ -22,6 +22,7 @@ __host__ __device__ float sphereIntersectionTest(const staticGeom& sphere, ray r
 __host__ __device__ float meshIntersectionTest(const staticGeom& mesh, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float triangleIntersectionTest(const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
+__host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed, float &area, glm::vec3 &normal);
 
 //Handy dandy little hashing function that provides seeds for random number generation
 __host__ __device__ unsigned int hash(unsigned int a){
@@ -48,7 +49,6 @@ __host__ __device__ glm::vec3 getPointOnRay(ray r, float t){
   return r.origin + t*glm::normalize(r.direction);
 }
 
-//LOOK: This is a custom function for multiplying cudaMat4 4x4 matrixes with vectors.
 //This is a workaround for GLM matrix multiplication not working properly on pre-Fermi NVIDIA GPUs.
 //Multiplies a cudaMat4 matrix and a vec4 and returns a vec3 clipped from the vec4
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
@@ -79,7 +79,6 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-//TODO: IMPLEMENT THIS FUNCTION
 //Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(const staticGeom& box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 
@@ -160,7 +159,6 @@ __host__ __device__ float boxIntersectionTest(const staticGeom& box, ray r, glm:
 }
 
 
-//LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
 //Sphere intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float sphereIntersectionTest(const staticGeom& sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
   
@@ -237,7 +235,7 @@ __host__ __device__ float meshIntersectionTest(const staticGeom& mesh, ray r, gl
 }
 __host__ __device__ float triangleIntersectionTest(const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, ray r, glm::vec3& intersectionPoint, glm::vec3& normal) {
 
-	glm::vec3   u, v, n;             // triangle vectors
+	glm::vec3   u, v, n;        // triangle vectors
     glm::vec3   w0, w;          // ray vectors
     float  q, a, b;             // params to calc ray-plane intersect
 	glm::vec3   I(0.0f);
@@ -246,7 +244,7 @@ __host__ __device__ float triangleIntersectionTest(const glm::vec3& p1, const gl
     u = p2 - p1;
     v = p3 - p1;
     n = glm::cross(u, v);             // cross product
-    if (glm::length(n) < 0.00001f)            // triangle is degenerate
+    if (glm::length(n) < 0.00001f)    // triangle is degenerate
         return -1.0f;                 // do not deal with this case
 
     w0 = r.origin - p1;
@@ -303,6 +301,98 @@ __host__ __device__ glm::vec3 getRadiuses(staticGeom geom){
 
 //LOOK: Example for generating a random point on an object using thrust.
 //Generates a random point on a given cube
+
+__host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed){
+
+
+	thrust::default_random_engine rng(hash(randomSeed));
+	thrust::uniform_real_distribution<float> u01(0,1);
+	thrust::uniform_real_distribution<float> u02(-0.5,0.5);
+
+
+	//get surface areas of sides
+	glm::vec3 radii = getRadiuses(cube);
+	float side1 = radii.x * radii.y * 4.0f; //x-y face
+	float side2 = radii.z * radii.y * 4.0f; //y-z face
+	float side3 = radii.x * radii.z* 4.0f; //x-z face
+	float totalarea = 2.0f * (side1+side2+side3);
+
+	//pick random face, weighted by surface area
+	float russianRoulette = (float)u01(rng);
+
+	glm::vec3 point = glm::vec3(.499,.499,.499);
+
+	if(russianRoulette<(side1/totalarea)){
+		//x-y face
+		point = glm::vec3((float)u02(rng), (float)u02(rng), .499);
+	}else if(russianRoulette<((side1*2)/totalarea)){
+		//x-y-back face
+		point = glm::vec3((float)u02(rng), (float)u02(rng), -.499);
+	}else if(russianRoulette<(((side1*2)+(side2))/totalarea)){
+		//y-z face
+		point = glm::vec3(.499, (float)u02(rng), (float)u02(rng));
+	}else if(russianRoulette<(((side1*2)+(side2*2))/totalarea)){
+		//y-z-back face
+		point = glm::vec3(-.499, (float)u02(rng), (float)u02(rng));
+	}else if(russianRoulette<(((side1*2)+(side2*2)+(side3))/totalarea)){
+		//x-z face
+		point = glm::vec3((float)u02(rng), .499, (float)u02(rng));
+	}else{
+		//x-z-back face
+		point = glm::vec3((float)u02(rng), -.499, (float)u02(rng));
+	}
+
+	glm::vec3 randPoint = multiplyMV(cube.transform, glm::vec4(point,1.0f));
+
+
+	return randPoint;
+
+}
+
+__host__ __device__ float getAreaAndNormalOnCube(staticGeom cube, glm::vec3 cubePoint, glm::vec3 &sideNormal){
+
+	float sideArea = 0.0f;
+	if(cube.type == CUBE)
+	{
+		glm::vec3 localPoint = multiplyMV(cube.inverseTransform,glm::vec4(cubePoint, 1.0f));
+		glm::vec3 radii = getRadiuses(cube);
+		float side1 = radii.x * radii.y * 4.0f; //x-y face
+		float side2 = radii.z * radii.y * 4.0f; //y-z face
+		float side3 = radii.x * radii.z* 4.0f; //x-z face
+		
+		if(fabs(localPoint.x + 0.5f) < EPSILON) {
+			sideNormal = glm::vec3(-1.0f, 0.0f, 0.0f);
+			sideArea = side2;
+		}else if(fabs(localPoint.x - 0.5f) < EPSILON) {
+			sideNormal = glm::vec3(1.0f, 0.0f, 0.0f);
+			sideArea = side2;
+		}else if(fabs(localPoint.y + 0.5f) < EPSILON) {
+			sideNormal = glm::vec3(0.0f, -1.0f, 0.0f);
+			sideArea = side3;
+		}else if(fabs(localPoint.y - 0.5f) < EPSILON) {
+			sideNormal = glm::vec3(0.0f, 1.0f, 0.0f);
+			sideArea = side3;
+		}else if(fabs(localPoint.z + 0.5f) < EPSILON) {
+			sideNormal = glm::vec3(0.0f, 0.0f, -1.0f);
+			sideArea = side1;
+		}else if(fabs(localPoint.z - 0.5f) < EPSILON) {
+			sideNormal = glm::vec3(0.0f, 0.0f, 1.0f);
+			sideArea = side1;
+		}else{
+			printf("EPSILON error!\n");
+		}
+
+		glm::vec3 normalTip = localPoint + sideNormal;
+		glm::vec3 normalTipWS = multiplyMV(cube.transform, glm::vec4(normalTip, 1.0f));
+
+		sideNormal = glm::normalize(normalTipWS - cubePoint);
+	}
+
+	return sideArea;
+
+}
+
+
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed, float &area, glm::vec3 &normal){
 
     thrust::default_random_engine rng(hash(randomSeed));
@@ -353,6 +443,10 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 		normal = glm::vec3(0.0f, -1.0f, 0.0f);
     }
 	
+	point = glm::vec3((float)u02(rng), -.499, (float)u02(rng));
+	area = side3;
+	normal = glm::vec3(0.0f, -1.0f, 0.0f);
+
     glm::vec3 randPoint = multiplyMV(cube.transform, glm::vec4(point,1.0f));
 	glm::vec3 normalTip = point + normal;
 	glm::vec3 normalTipWS = multiplyMV(cube.transform, glm::vec4(normalTip, 1.0f));
@@ -363,7 +457,6 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
        
 }
 
-//TODO: IMPLEMENT THIS FUNCTION
 //Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
 	// still uniformly distributed after scaling?

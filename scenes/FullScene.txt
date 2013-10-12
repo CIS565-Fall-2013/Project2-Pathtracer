@@ -237,41 +237,41 @@ OBJECT 8  // light source
 cube
 material 8 
 frame 0
-TRANS       0 9.9 0
-ROTAT       0 0 90
-SCALE       .3 3 3
+TRANS       0 10.1 0
+ROTAT       0 0 0
+SCALE       3 .3 3
 
 OBJECT 9  // light source
 cube
 material 8 
 frame 0
-TRANS       -6 9.9 -2
-ROTAT       0 0 90
-SCALE       .3 3 3
+TRANS       -6 10.1 -2
+ROTAT       0 0 0
+SCALE       3 .3 3
 
 OBJECT 10  // light source
 cube
 material 8 
 frame 0
-TRANS       -6 9.9 7
-ROTAT       0 0 90
-SCALE       .3 3 3
+TRANS       -6 10.3 7
+ROTAT       0 0 0
+SCALE       3 .3 3
 
 OBJECT 11  // light source
 cube
 material 8 
 frame 0
-TRANS       6 9.9 -2
-ROTAT       0 0 90
-SCALE       .3 3 3
+TRANS       6 10.1 -2
+ROTAT       0 0 0
+SCALE       3 .3 3
 
 OBJECT 12  // light source
 cube
 material 8 
 frame 0
-TRANS       6 9.9 7
-ROTAT       0 0 90
-SCALE       .3 3 3
+TRANS       6 10.1 7
+ROTAT       0 0 0
+SCALE       3 .3 3
 
 OBJECT 13
 sphere
