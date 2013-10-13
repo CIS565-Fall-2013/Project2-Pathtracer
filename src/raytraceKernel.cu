@@ -46,15 +46,16 @@ void checkCUDAError(const char *msg) {
 __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolution, float time, int x, int y){
   int index = x + (y * resolution.x);
    
-  thrust::default_random_engine rng(hash(index*time));
-  thrust::uniform_real_distribution<float> u01(0,1);
+  thrust::default_random_engine rng1(hash(index));
+  thrust::default_random_engine rng2(hash(index));
+  thrust::uniform_real_distribution<float> u01(-1,1);
 
-  return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
+  return glm::vec3((float) u01(rng1), (float) u01(rng1),(float) u01(rng1));
 }
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
-__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
+__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
     glm::vec3 A = glm::cross(view, up);
 	glm::vec3 B = glm::cross(A, view);
 	glm::vec3 M = eye + view;
@@ -123,7 +124,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
-__global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, cameraData cam, glm::vec3* colors,
+__global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, int traceDepth, cameraData cam, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms, material* mats, int* lightIds, int numberOfLights/*, mesh* meshes, int numberOfMeshes*/){
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -134,13 +135,15 @@ __global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, camera
 
 		if(!r.isContinue) return;
 	
-		float focal_length = 10.0f;
-		glm::vec3 focal_point = cam.position + focal_length * cam.view;
+		/*if(traceDepth == 0){
+			float focal_length = 10.0f;
+			glm::vec3 focal_point = cam.position + focal_length * cam.view;
 		
-		float t = 1.0f / glm::dot(r.direction, cam.view) * glm::dot(focal_point - r.origin, cam.view);
-		glm::vec3 aimed = r.origin + t * r.direction;
-		//r.origin = r.origin + .5f * generateRandomNumberFromThread(resolution, time, x, y);
-		//r.direction = 0.01f * generateRandomNumberFromThread(resolution, time, x, y) + glm::normalize(aimed - r.origin);
+			float t = 1.0f / glm::dot(r.direction, cam.view) * glm::dot(focal_point - r.origin, cam.view);
+			glm::vec3 aimed = r.origin + t * r.direction;
+			r.origin = r.origin + 1.0f * generateRandomNumberFromThread(resolution, time, x, y);
+			r.direction = glm::normalize(aimed - r.origin);
+		}*/
 	
 		float intersect;
 		int geomId;
@@ -156,7 +159,7 @@ __global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, camera
 			r.isContinue = false;
 		}else{
 			if(IS_LIGHT(mats, geoms, geomId)){
-				r.color = r.color * COLOR(mats, geoms[geomId]) * EMITTANCE(mats, geoms[geomId]), 0.0f, 1.0f;
+				r.color = r.color * COLOR(mats, geoms[geomId]) * EMITTANCE(mats, geoms[geomId]);
 				r.isContinue = false;
 			}else if(REFLECTIVE(mats, geoms[geomId]) > .001f){
 				r.color *= COLOR(mats, geoms[geomId]);
@@ -164,16 +167,16 @@ __global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, camera
 				else if(epsilonCheck(glm::dot(-1.0f * r.direction, normal), 0.0f)) reflectedRay = r.direction;
 				else reflectedRay = r.direction - 2.0f * normal * glm::dot(r.direction, normal);
 				r.direction = reflectedRay;
-				r.origin = intersectionPoint + .01f * r.direction;
+				r.origin = intersectionPoint + .001f * r.direction;
 			}else{
 				// DIFFUSE CASE
-				thrust::default_random_engine rng(hash(time * index));
+				thrust::default_random_engine rng(hash(time * index * (traceDepth + 1)));
 				thrust::uniform_real_distribution<float> u01(0,1);
 				r.color = r.color * COLOR(mats, geoms[geomId]), 0.0f, 1.0f;
 				
 				r.direction = calculateRandomDirectionInHemisphere(normal,(float)u01(rng),(float)u01(rng));
 
-				r.origin = intersectionPoint + .01f * r.direction;
+				r.origin = intersectionPoint + .001f * r.direction;
 			}
 		}
 		rays[index] = r;
@@ -186,7 +189,10 @@ void __global__ setUpRays(glm::vec2 resolution, float time, cameraData cam, ray*
 	int index = x + (y * resolution.x);
 
 	if(x <= resolution.x && y <= resolution.y){
-		ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+		thrust::default_random_engine rng(hash(index*time));
+		thrust::uniform_real_distribution<float> u01(-.5, .5);
+
+		ray r = raycastFromCameraKernel(resolution, time, x + (float)u01(rng), y + (float)u01(rng), cam.position, cam.view, cam.up, cam.fov);
 		r.isContinue = true;
 		r.px = index;
 		r.color = glm::vec3(1.0);
@@ -217,6 +223,150 @@ void __global__ setColor(glm::vec2 resolution, ray* rays){
 	}
 }
 
+void __global__ createPredicate(ray* rays, int* pred, glm::vec2 resolution){
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * resolution.x);
+
+	if(x <= resolution.x && y <= resolution.y){
+		pred[index] = rays[index].isContinue ? 1 : 0;
+	}
+}
+
+void __global__ scanByBlock(int* pred, int* outArr, int* interSums, int n, int numLiveRays){
+	int index = threadIdx.x;
+	int global_index = blockIdx.x * n + threadIdx.x;
+	__shared__ int temp[4];
+
+	int pout = 1, pin = 0;
+	temp[pout * n + index] = index > 0 && global_index < numLiveRays ? pred[global_index - 1] : 0;
+	temp[pin * n + index] = index > 0 && global_index < numLiveRays ? pred[global_index - 1] : 0;
+	__syncthreads();
+	for(int offset = 1; offset < n; offset *= 2){
+		if (index >= offset){
+			temp[pout * n + index] += temp[pin * n + index - offset];
+		}
+		__syncthreads();
+
+		// copy to buffer
+		temp[pin * n + index] = temp[pout * n + index];
+		__syncthreads();
+	}
+	if(index == n - 1) interSums[blockIdx.x] = temp[pout * n + index] + pred[global_index];
+	pred[global_index] = temp[pout * n + index];
+}
+
+void __global__ applySums(int* partialSums, int* scanArr, int n, int numLiveRays){
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+	if(index <= numLiveRays){
+		scanArr[index] += partialSums[index / n];
+	}
+}
+
+void __global__ scatter(ray* prev, int* scanArr, ray* buffer, int numRays){
+	int k = threadIdx.x;
+	if(k <= numRays){
+		if(prev[k].isContinue){
+			buffer[scanArr[k]] = prev[k];
+		}
+	}
+}
+
+void scan(int* pred, int* outArr, int numLiveRays){
+	int threadsPerBlock = 2;
+	int numBlocks = (int)ceil((double)numLiveRays / (double)threadsPerBlock);
+	
+	// Alloc space for summing array
+	int* interSums = NULL;
+	cudaMalloc((void**)&interSums, sizeof(int) * numBlocks);
+
+	int* interSumsBuffer = NULL;
+	cudaMalloc((void**)&interSumsBuffer, sizeof(int) * numBlocks);
+
+	// Scan predicate by block
+	scanByBlock<<<numBlocks, threadsPerBlock>>>(pred, outArr, interSums, threadsPerBlock, numLiveRays);
+
+	int numInterSumBlocks;
+	int numInterSums = numBlocks;
+	int offset = threadsPerBlock;
+
+	// Store each of the last index of blocks into summing array
+	do{
+		// Perform prefix sum on intermittent partial sums of arrays
+		numInterSumBlocks = (int)ceil((double)numInterSums / threadsPerBlock);
+		scanByBlock<<<numInterSumBlocks, threadsPerBlock>>>(interSums, outArr, interSumsBuffer, threadsPerBlock, numInterSums);
+		applySums<<<numBlocks, threadsPerBlock>>>(interSums, pred, offset, numLiveRays);
+		offset = offset * 2;
+
+		// Set variables to sum on a smaller partial sum array if needed
+		int* temp = interSums;
+		interSums = interSumsBuffer;
+		interSumsBuffer = interSums;
+		numInterSums = (int)ceil((double)numInterSums/2);
+	}while(numInterSumBlocks > 1);
+	cudaFree(interSums);
+	cudaFree(interSumsBuffer);
+}
+
+void testScan(){
+    // test scanByBlock
+	int* test_eight = new int[8];
+    test_eight[0] = 1, test_eight[1] = 0, test_eight[2] = 1, test_eight[3] = 1, test_eight[4] = 0, test_eight[5] = 1, test_eight[6] = 0, test_eight[7] = 1;
+
+	int* test_outscan = new int[8];
+
+  int* cuda_test_eight = NULL;
+  cudaMalloc((void**)&cuda_test_eight, 8 * sizeof(int));
+  cudaMemcpy(cuda_test_eight, test_eight, 8 * sizeof(int), cudaMemcpyHostToDevice);
+  
+  
+  int* cuda_test_outscan = NULL;
+  cudaMalloc((void**)&cuda_test_outscan, 8 * sizeof(int));
+
+  scan(cuda_test_eight, cuda_test_outscan, 7);
+
+  cudaMemcpy(test_eight, cuda_test_eight, 8 * sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(test_outscan, cuda_test_outscan, 8 * sizeof(int), cudaMemcpyDeviceToHost);
+
+  	std::cout << "INSCAN" << std::endl;
+	for(int idx = 0; idx < 8; idx++){
+	  std::cout << test_eight[idx] << std::endl;
+	}
+
+	std::cout << "OUTSCAN" << std::endl;
+	for(int idx = 0; idx < 8; idx++){
+		std::cout << test_outscan[idx] << std::endl;
+	}
+
+  cudaFree(cuda_test_eight);
+  cudaFree(cuda_test_outscan);
+}
+
+void testScanByBlock(int* test_eight, int* test_intersum, int* test_outscan){
+	  // test scanByBlock
+  int* cuda_test_eight = NULL;
+  cudaMalloc((void**)&cuda_test_eight, 7 * sizeof(int));
+  cudaMemcpy(cuda_test_eight, test_eight, 7 * sizeof(int), cudaMemcpyHostToDevice);
+  
+  int* cuda_test_intersum = NULL;
+  cudaMalloc((void**)&cuda_test_intersum, 7 * sizeof(int));
+  cudaMemcpy(cuda_test_intersum, test_intersum, 7 * sizeof(int), cudaMemcpyHostToDevice);
+  
+  int* cuda_test_outscan = NULL;
+  cudaMalloc((void**)&cuda_test_outscan, 8 * sizeof(int));
+
+  dim3 test_blocksPerGrid (1,0,0);
+  dim3 test_threadsPerBlock (8,0,0);
+  scanByBlock<<<1,8>>>(cuda_test_eight, cuda_test_outscan, cuda_test_intersum, 8, 7);
+
+  cudaMemcpy(test_eight, cuda_test_eight, 7 * sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(test_outscan, cuda_test_outscan, 7 * sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(test_intersum, cuda_test_intersum, 7 * sizeof(int), cudaMemcpyDeviceToHost);
+  
+  cudaFree(cuda_test_eight);
+  cudaFree(cuda_test_intersum);
+  cudaFree(cuda_test_outscan);
+}
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, 
@@ -269,18 +419,34 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.fov = renderCam->fov;
 
   // allocate ray array
-  ray* cudarays = NULL;
-  cudaMalloc((void**)&cudarays,(int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(ray));
+  ray* cudarays_a = NULL;
+  ray* cudarays_b = NULL;
+  cudaMalloc((void**)&cudarays_a,(int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(ray));
+  cudaMalloc((void**)&cudarays_b,(int)renderCam->resolution.x * (int)renderCam->resolution.y * sizeof(ray));
 
+  ray* cudarays;
+  ray* buffer;
+  int numRays = (int)renderCam->resolution.x * (int)renderCam->resolution.y;
+  glm::vec2 resolution = renderCam->resolution;
+  dim3 blockDimension(32, 1);
+  dim3 gridDimension(numRays/32, 1);
   // set up rays
-  setUpRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, cudarays);
+  setUpRays<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, cudarays_a);
 
   while(traceDepth < maxTraceDepth){
-	  pathtraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays, renderCam->resolution, (float)iterations * (traceDepth+1), cam, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightids, numberOfLights);
-	  // TODO : 
-	  // compactStream<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudarays, newcudarays, numLiveRays);
-	  // fullBlocksPerGrid = ??
-	  // threadsPerBlock = ??
+	  cudarays = traceDepth % 2 ? cudarays_a : cudarays_a;
+	  buffer = traceDepth % 2 ? cudarays_b : cudarays_a;
+	  pathtraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays, resolution, (float)iterations, traceDepth, cam, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightids, numberOfLights);
+
+	  //scatter<<<1, numRays>>>(cudarays, buffer, numRays);
+
+	  //// Reset kernel sizes
+	  //fullBlocksPerGrid = ((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize));
+
+	  // Free memory
+	  //cudaFree( pred );
+	  //cudaFree( scanArr );
+
 	  traceDepth++;
   }
 
@@ -295,7 +461,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudageoms );
   cudaFree( cudamats );
   cudaFree( cudalightids );
-  cudaFree( cudarays );
+  cudaFree( cudarays_a );
+  cudaFree( cudarays_b );
   delete geomList;
 
   // make certain the kernel has completed
@@ -321,4 +488,29 @@ void clearImageBuffer(camera* renderCam){
 
 	// Sync Threads
 	cudaThreadSynchronize();
+}
+
+void testScanBlock(int* inArr, int* outArr, int numElem){
+	  int threads = 8;
+	  int* pred = NULL;
+
+	  cudaMalloc((void**)&pred, numElem * sizeof(int));
+	  cudaMemcpy(inArr, pred, numElem * sizeof(int), cudaMemcpyHostToDevice);
+
+	  int* scanArr = NULL;
+	  cudaMalloc((void**)&scanArr, numElem * sizeof(int));
+
+	  int* testInterSum = NULL;
+	  cudaMalloc((void**)&testInterSum, numElem / threads * sizeof(int));
+	  
+	  dim3 t1(threads,1);
+	  dim3 t2(numElem / threads,1);
+	  
+	  scanByBlock<<<t2, t1>>>(pred, scanArr, testInterSum, threads, numElem);
+
+	  int* testOutArray = new int[8];
+	  cudaMemcpy(scanArr, testOutArray, sizeof(int) * numElem, cudaMemcpyDeviceToHost);
+
+	  cudaThreadSynchronize();
+	  checkCUDAError("scan failed");
 }

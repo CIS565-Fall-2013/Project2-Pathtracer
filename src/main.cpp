@@ -131,7 +131,7 @@ void runCuda(){
 	/*for(int i=0; i<renderScene->meshes.size(); i++){
 		staticMeshes[i] = renderScene->meshes[i];
 	}*/
-    
+
     // execute the kernel
 	cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), lightIds, renderScene->lightIds.size());
     

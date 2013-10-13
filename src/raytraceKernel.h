@@ -22,5 +22,5 @@
 
 void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, int* lightIds, int numberOfLights);
 void clearImageBuffer(camera* renderCam);
-
+void testScan();
 #endif
