@@ -61,3 +61,4 @@ http://www.youtube.com/watch?v=d4a8aPpC-BM&feature=youtu.be
 
 Screenshot is Here
 
+![screenshot](https://github.com/heguanyu/Project2-Pathtracer/blob/master/renders/pathtracer/with%20texturemap.bmp?raw=true)
