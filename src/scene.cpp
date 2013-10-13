@@ -19,7 +19,11 @@ scene::scene(string filename){
             utilityCore::safeGetline(fp_in,line);
 			if(!line.empty()){
 				vector<string> tokens = utilityCore::tokenizeString(line);
-				if(strcmp(tokens[0].c_str(), "MATERIAL")==0){
+				if(strcmp(tokens[0].c_str(), "PARAMETERS")==0){
+				    loadParameter();
+				    cout << " " << endl;
+				}
+				else if(strcmp(tokens[0].c_str(), "MATERIAL")==0){
 				    loadMaterial(tokens[1]);
 				    cout << " " << endl;
 				}else if(strcmp(tokens[0].c_str(), "OBJECT")==0){
@@ -29,11 +33,37 @@ scene::scene(string filename){
 				    loadCamera();
 				    cout << " " << endl;
 				}
+				else if(strcmp(tokens[0].c_str(), "TEXTURE")==0){
+					loadTextures(tokens[1]);
+					cout << " " << endl;
+				}
 			}
 		}
 	}
 }
 
+int scene::loadTextures(string textureid){
+	int id = atoi(textureid.c_str());
+	if(id!=bmps.size()){
+		cout << "ERROR: TEXTURE ID does not match expected number of materials" << endl;
+		return -1;
+	}else{
+		cout << "Loading Texture " << id << "..." << endl;
+		
+
+		//load static properties
+
+		string line;
+		utilityCore::safeGetline(fp_in,line);
+		vector<string> tokens = utilityCore::tokenizeString(line);
+		if(strcmp(tokens[0].c_str(), "FILENAME")==0){
+			
+			bmps.push_back(tokens[1]);
+		}
+		
+		return 1;
+	}
+}
 int scene::loadObject(string objectid){
     int id = atoi(objectid.c_str());
     if(id!=objects.size()){
@@ -85,6 +115,10 @@ int scene::loadObject(string objectid){
 	vector<glm::vec3> translations;
 	vector<glm::vec3> scales;
 	vector<glm::vec3> rotations;
+	vector<glm::vec3> m_blurs;
+
+
+	
     while (!line.empty() && fp_in.good()){
 	    
 	    //check frame number
@@ -95,7 +129,7 @@ int scene::loadObject(string objectid){
         }
 	    
 	    //load tranformations
-	    for(int i=0; i<3; i++){
+	    for(int i=0; i<4; i++){
             glm::vec3 translation; glm::vec3 rotation; glm::vec3 scale;
             utilityCore::safeGetline(fp_in,line);
             tokens = utilityCore::tokenizeString(line);
@@ -105,7 +139,10 @@ int scene::loadObject(string objectid){
                 rotations.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
             }else if(strcmp(tokens[0].c_str(), "SCALE")==0){
                 scales.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
-            }
+			}else if(strcmp(tokens[0].c_str(), "MOBLUR")==0){
+				m_blurs.push_back(glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str())));
+			}
+
 	    }
 	    
 	    frameCount++;
@@ -118,6 +155,7 @@ int scene::loadObject(string objectid){
 	newObject.scales = new glm::vec3[frameCount];
 	newObject.transforms = new cudaMat4[frameCount];
 	newObject.inverseTransforms = new cudaMat4[frameCount];
+	newObject.moblur = new glm::vec3[frameCount];
 	for(int i=0; i<frameCount; i++){
 		newObject.translations[i] = translations[i];
 		newObject.rotations[i] = rotations[i];
@@ -125,6 +163,7 @@ int scene::loadObject(string objectid){
 		glm::mat4 transform = utilityCore::buildTransformationMatrix(translations[i], rotations[i], scales[i]);
 		newObject.transforms[i] = utilityCore::glmMat4ToCudaMat4(transform);
 		newObject.inverseTransforms[i] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
+		newObject.moblur[i]=m_blurs[i];
 	}
 	
         objects.push_back(newObject);
@@ -134,13 +173,40 @@ int scene::loadObject(string objectid){
     }
 }
 
+
+int scene::loadParameter(){
+	cout << "Loading Parameters ..." << endl;
+    ParameterSet newPset;
+	float fovy;
+	
+	//load static properties
+	for(int i=0; i<5; i++){
+		string line;
+        utilityCore::safeGetline(fp_in,line);
+		vector<string> tokens = utilityCore::tokenizeString(line);
+		if(strcmp(tokens[0].c_str(), "KD")==0){
+			newPset.kd = atof(tokens[1].c_str());
+		}else if(strcmp(tokens[0].c_str(), "KS")==0){
+			newPset.ks = atof(tokens[1].c_str());
+		}else if(strcmp(tokens[0].c_str(), "KA")==0){
+			newPset.ka = atof(tokens[1].c_str());
+		}else if(strcmp(tokens[0].c_str(), "TILESIZE")==0){
+			newPset.shadowRays = atoi(tokens[1].c_str());
+		}else if(strcmp(tokens[0].c_str(), "SUBRAY")==0){
+			newPset.hasSubray = atoi(tokens[1].c_str());
+		}
+	}
+	parameterSet=newPset;
+	return 1;
+}
+
 int scene::loadCamera(){
 	cout << "Loading Camera ..." << endl;
         camera newCamera;
 	float fovy;
 	
 	//load static properties
-	for(int i=0; i<4; i++){
+	for(int i=0; i<5; i++){
 		string line;
         utilityCore::safeGetline(fp_in,line);
 		vector<string> tokens = utilityCore::tokenizeString(line);
@@ -152,6 +218,8 @@ int scene::loadCamera(){
 			newCamera.iterations = atoi(tokens[1].c_str());
 		}else if(strcmp(tokens[0].c_str(), "FILE")==0){
 			newCamera.imageName = tokens[1];
+		}else if(strcmp(tokens[0].c_str(), "AMBIENT")==0){
+			newCamera.ambient = atof(tokens[1].c_str());
 		}
 	}
         
@@ -210,14 +278,17 @@ int scene::loadCamera(){
 	
 	//set up render camera stuff
 	renderCam.image = new glm::vec3[(int)renderCam.resolution.x*(int)renderCam.resolution.y];
+	renderCam.shadowVal = new glm::vec3[(int)renderCam.resolution.x*(int)renderCam.resolution.y];
 	renderCam.rayList = new ray[(int)renderCam.resolution.x*(int)renderCam.resolution.y];
 	for(int i=0; i<renderCam.resolution.x*renderCam.resolution.y; i++){
 		renderCam.image[i] = glm::vec3(0,0,0);
+		renderCam.shadowVal[i]=glm::vec3(0,0,0);
 	}
 	
 	cout << "Loaded " << frameCount << " frames for camera!" << endl;
 	return 1;
 }
+
 
 int scene::loadMaterial(string materialid){
 	int id = atoi(materialid.c_str());
@@ -229,7 +300,7 @@ int scene::loadMaterial(string materialid){
 		material newMaterial;
 	
 		//load static properties
-		for(int i=0; i<10; i++){
+		for(int i=0; i<11; i++){
 			string line;
             utilityCore::safeGetline(fp_in,line);
 			vector<string> tokens = utilityCore::tokenizeString(line);
@@ -255,9 +326,11 @@ int scene::loadMaterial(string materialid){
 			}else if(strcmp(tokens[0].c_str(), "RSCTCOEFF")==0){
 				newMaterial.reducedScatterCoefficient = atof(tokens[1].c_str());					  
 			}else if(strcmp(tokens[0].c_str(), "EMITTANCE")==0){
-				newMaterial.emittance = atof(tokens[1].c_str());					  
-			
+				newMaterial.emittance = atof(tokens[1].c_str());					  	
+			}else if(strcmp(tokens[0].c_str(), "TEXTUREIDX")==0){
+				newMaterial.textureidx = atof(tokens[1].c_str());					  	
 			}
+
 		}
 		materials.push_back(newMaterial);
 		return 1;

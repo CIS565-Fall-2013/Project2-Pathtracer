@@ -1,148 +1,92 @@
 -------------------------------------------------------------------------------
 CIS565: Project 2: CUDA Pathtracer
 -------------------------------------------------------------------------------
-Fall 2013
+Fall 2012
 -------------------------------------------------------------------------------
-Due Wednesday, 10/02/13
+Due Friday, 10/12/2012
 -------------------------------------------------------------------------------
 
--------------------------------------------------------------------------------
-NOTE:
--------------------------------------------------------------------------------
-This project requires an NVIDIA graphics card with CUDA capability! Any card after the Geforce 8xxx series will work. If you do not have an NVIDIA graphics card in the machine you are working on, feel free to use any machine in the SIG Lab or in Moore100 labs. All machines in the SIG Lab and Moore100 are equipped with CUDA capable NVIDIA graphics cards. If this too proves to be a problem, please contact Patrick or Liam as soon as possible.
 
 -------------------------------------------------------------------------------
 INTRODUCTION:
 -------------------------------------------------------------------------------
-In this project, you will extend your raytracer from Project 1 into a full CUDA based global illumination pathtracer. 
+This is GPU-Based Path tracer! Based on the code of the last project ray-tracer, the path tracer has some new features that make it looks really cool!
 
-For this project, you may either choose to continue working off of your codebase from Project 1, or you may choose to use the included basecode in this repository. The basecode for Project 2 is the same as the basecode for Project 1, but with some missing components you will need filled in, such as the intersection testing and camera raycasting methods. 
+Beyond the basic specular, refraction, as well as soft-shadow or anti-aliasing, which is the natural properties of the path tracer, it also supports super-sampling anti-aliasing. Instead of these, Motion Blur and Texture Map are also included in this project.
 
-How you choose to extend your raytracer into a pathtracer is a fairly open-ended problem; the supplied basecode is meant to serve as one possible set of guidelines for doing so, but you may choose any approach you want in your actual implementation, including completely scrapping the provided basecode in favor of your own from-scratch solution.
-
--------------------------------------------------------------------------------
-CONTENTS:
--------------------------------------------------------------------------------
-The Project2 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio solution and the OSX makefile reference this folder for all source; the base source code compiles on OSX and Windows without modification.
-* scenes/ contains an example scene description file.
-* renders/ contains two example renders: the raytraced render from Project 1 (GI_no.bmp), and the same scene rendered with global illumination (GI_yes.bmp). 
-* PROJ1_WIN/ contains a Windows Visual Studio 2010 project and all dependencies needed for building and running on Windows 7.
-* PROJ1_OSX/ contains a OSX makefile, run script, and all dependencies needed for building and running on Mac OSX 10.8. 
-* PROJ1_NIX/ contains a Linux makefile for building and running on Ubuntu 
-  12.04 LTS. Note that you will need to set the following environment
-  variables: 
-    
-  - PATH=$PATH:/usr/local/cuda-5.5/bin
-  - LD_LIBRARY_PATH=/usr/local/cuda-5.5/lib64:/lib
-
-The projects build and run exactly the same way as in Project0 and Project1.
 
 -------------------------------------------------------------------------------
-REQUIREMENTS:
+WHAT ACTUALLY MAKE TROUBLE:
 -------------------------------------------------------------------------------
-In this project, you are given code for:
+In this project, the path-tracing part is really simple and straight forward. The only thing that make a lot of trouble is the random-number generator. As the thrust random number generator is so much rely on the seed, so how to calculate seed to make it as stochastic as possible is important.
 
-* All of the basecode from Project 1, plus:
-* Intersection testing code for spheres and cubes
-* Code for raycasting from the camera
-
-You will need to implement the following features. A number of these required features you may have already implemented in Project 1. If you have, you are ahead of the curve and have less work to do! 
-
-* Full global illumination (including soft shadows, color bleeding, etc.) by pathtracing rays through the scene. 
-* Properly accumulating emittance and colors to generate a final image
-* Supersampled antialiasing
-* Parallelization by ray instead of by pixel via stream compaction (you may use Thrust for this).
-* Perfect specular reflection
-
-You are also required to implement at least two of the following features. Some of these features you may have already implemented in Project 1. If you have, you may NOT resubmit those features and instead must pick two new ones to implement.
-
-* From scratch stream compaction (no Thrust).
-* Additional BRDF models, such as Cook-Torrance, Ward, etc. Each BRDF model may count as a separate feature. 
-* Texture mapping 
-* Bump mapping
-* Translational motion blur
-* Fresnel-based Refraction, i.e. glass
-* OBJ Mesh loading and rendering without KD-Tree
-* Interactive camera
-* Integrate an existing stackless KD-Tree library, such as CUKD (https://github.com/unvirtual/cukd)
-* Depth of field
-
-Alternatively, implementing just one of the following features can satisfy the "pick two" feature requirement, since these are correspondingly more difficult problems:
-
-* Physically based subsurface scattering and transmission
-* Implement and integrate your own stackless KD-Tree from scratch. 
-* Displacement mapping
-* Deformational motion blur
-
-As yet another alternative, if you have a feature or features you really want to implement that are not on this list, let us know, and we'll probably say yes!
+The four key values of calculating seed are: iterations, index, raypool index and the amount of bounce. I tried all sorts of combinations of these three elements and + - * / to try to compute the seed. Finally it turns out that time*index+raypoolidx*bounce is best suitable for the computation of seed. 
 
 -------------------------------------------------------------------------------
-NOTES ON GLM:
+STREAM COMPACTION
 -------------------------------------------------------------------------------
-This project uses GLM, the GL Math library, for linear algebra. You need to know two important points on how GLM is used in this project:
-
-* In this project, indices in GLM vectors (such as vec3, vec4), are accessed via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is used, and so on and so forth.
-* GLM Matrix operations work fine on NVIDIA Fermi cards and later, but pre-Fermi cards do not play nice with GLM matrices. As such, in this project, GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is provided as multiplyMV() in intersections.h.
+I'd tried both stream compaction with thrust::exclusive_scan as well as using thrust::remove_if function. As far as I tested, the later one is a little bit faster(not obvious) and easy to implement. The if condition of the remove_if is the ray is terminated. And after the removing process, the pool is thereby shrinked
 
 -------------------------------------------------------------------------------
-README
+Texture Map
 -------------------------------------------------------------------------------
-All students must replace or augment the contents of this Readme.md in a clear 
-manner with the following:
+Because of the time is limited (linkedin phone interview took me so long..) and I under-estimated the complexity of using BMP file for texture, it make me a lot of trouble when wrap the code with EasyBMP, a third party library that we had used in CIS560 Computer Graphics course. Anyway, I'd fixed it after all, but do not have time to make it better support sphere UV map. I'll do this after the deadline. 
 
-* A brief description of the project and the specific features you implemented.
-* At least one screenshot of your project running.
-* A 30 second or longer video of your project running.  To create the video you
-  can use http://www.microsoft.com/expression/products/Encoder4_Overview.aspx 
-* A performance evaluation (described in detail below).
+The cube texture-map is support, where the cube surface should align with the bmp boundary.
+
+-------------------------------------------------------------------------------
+Motion Blur
+-------------------------------------------------------------------------------
+The motion blur is even interesting then I thought it would be. There are many ways to calculating a motion blur, and I use offset=v*t^2 to simulate an accelerate object. This make a cool trail after the object, if you refer to my rendering result.
+
+-------------------------------------------------------------------------------
+THIRD PARTY CODE
+-------------------------------------------------------------------------------
+I'd introduced the EasyBMP third party code in my project to analyze BMP file.
 
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
-The performance evaluation is where you will investigate how to make your CUDA
-programs more efficient using the skills you've learned in class. You must have
-performed at least one experiment on your code to investigate the positive or
-negative effects on performance. 
+I'd tested several factors that may have some affect on the final FPS or rendering speed. Therefore I tested them independently,
+and collected the result in a excel file and draw graph that show how the FPS change according to these factors.
 
-One such experiment would be to investigate the performance increase involved 
-with adding a spatial data-structure to your scene data.
+Firstly, I must announce that all thte tests below are within 200*200 base. I use 200*200 to save up more time on running, instead of 800*800.
 
-Another idea could be looking at the change in timing between various block
-sizes.
+By using raypool, one of the most important thing is how many threads per block, and how many blocks(absolutely is the ray pool size divided by the threads per block,
+because there is only one primary hit light for each thread. 
 
-A good metric to track would be number of rays per second, or frames per 
-second, or number of objects displayable at 60fps.
+![screenshot](https://github.com/heguanyu/Project2-Pathtracer/blob/master/performance%20analyze/rayperblockgraph.bmp?raw=true)
 
-We encourage you to get creative with your tweaks. Consider places in your code
-that could be considered bottlenecks and try to improve them. 
+According to this graph, the FPS reach a peak point when the threads per block is 64. And this result matches my GPU model(GT750m). The program is apparently slow when the threads 
+number per block is not enough than the Maximum available threads per block of the GPU.
 
-Each student should provide no more than a one page summary of their
-optimizations along with tables and or graphs to visually explain any
-performance differences.
+Another one is the tile size, when I'm dealing with the initialization part(which is, add the intial rays, from camera to the pixel, to the ray pool)
+![screenshot](https://github.com/heguanyu/Project2-Pathtracer/blob/master/performance%20analyze/tilesize.bmp?raw=true)
+
+It occurs to me that tilesize of 16 is the best choice. However, as far as this parameter only affect the initialization part, it do not have a heavy weight on the final result. The FPS 
+just maintain around 55fps
+
+Anti-Aliasing is another factor that have a great influence on the rendering speed. With 4x super-sampling anti-aliasing on, it can only reach 23fps, 
+comparing to the 55 fps of no-super-sampling. It is interesting that it only halved the speed even though 4x of initial rays are being traced.
+
+Coming to the next important factor, max-depth. It turns out that max-depth is very important that affect the speed, but do not necessarily affect the final rendering result, 
+undering my current way of rendering.
+![screenshot](https://github.com/heguanyu/Project2-Pathtracer/blob/master/performance%20analyze/maxdepth.bmp?raw=true)
+
+It is almost a linear relationship where the FPS decline with the ascendance of the max-depth. However, when using the 2, there are some glitches with the refraction and reflection. Therefore, a minimum max-depth of 5 is suggested
+ to avoid unnecessary sin.
+ 
+The last tests surrounds the object amount.
+![screenshot](https://github.com/heguanyu/Project2-Pathtracer/blob/master/performance%20analyze/object%20amount.bmp?raw=true)
+
+It is obvious that removing the objects from the scene can enhance the speed of the rendering.
 
 -------------------------------------------------------------------------------
-THIRD PARTY CODE POLICY
+RESULT
 -------------------------------------------------------------------------------
-* Use of any third-party code must be approved by asking on the Google group.  If it is approved, all students are welcome to use it.  Generally, we approve use of third-party code that is not a core part of the project.  For example, for the ray tracer, we would approve using a third-party library for loading models, but would not approve copying and pasting a CUDA function for doing refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another student's code, is an academic integrity violation, and will result in you receiving an F for the semester.
+Youtube link is here
+http://www.youtube.com/watch?v=d4a8aPpC-BM&feature=youtu.be
 
--------------------------------------------------------------------------------
-SELF-GRADING
--------------------------------------------------------------------------------
-* On the submission date, email your grade, on a scale of 0 to 100, to Liam, liamboone+cis565@gmail.com, with a one paragraph explanation.  Be concise and realistic.  Recall that we reserve 30 points as a sanity check to adjust your grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We hope to only use this in extreme cases when your grade does not realistically reflect your work - it is either too high or too low.  In most cases, we plan to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as the path tracer.  We will determine the weighting at the end of the semester based on the size of each project.
+Screenshot is Here
 
--------------------------------------------------------------------------------
-SUBMISSION
--------------------------------------------------------------------------------
-As with the previous project, you should fork this project and work inside of your fork. Upon completion, commit your finished project back to your fork, and make a pull request to the master repository.
-You should include a README.md file in the root directory detailing the following
-
-* A brief description of the project and specific features you implemented
-* At least one screenshot of your project running, and at least one screenshot of the final rendered output of your pathtracer
-* Instructions for building and running your project if they differ from the base code
-* A link to your blog post detailing the project
-* A list of all third-party code used
+![screenshot](https://github.com/heguanyu/Project2-Pathtracer/blob/master/renders/pathtracer/with%20texturemap.bmp?raw=true)

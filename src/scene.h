@@ -22,13 +22,17 @@ private:
     int loadMaterial(string materialid);
     int loadObject(string objectid);
     int loadCamera();
+	int loadParameter();
+	int loadTextures(string textureid);
 public:
     scene(string filename);
     ~scene();
 
     vector<geom> objects;
     vector<material> materials;
+	vector<string> bmps;
     camera renderCam;
+	ParameterSet parameterSet;
 };
 
 #endif
