@@ -154,7 +154,7 @@ __host__ __device__ glm::vec3 calculateTransmissionDirection(const glm::vec3 &in
 		refraDirection = tangentVec - glm::length(tangentVec) / tan(transmitAngle) * surfaceNormal;
 		nextIndexOfRefraction = refractionIndex2;
 	}
-	return refraDirection;
+	return glm::normalize(refraDirection);
 }
 
 #endif

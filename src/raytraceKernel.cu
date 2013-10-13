@@ -62,6 +62,7 @@ __host__ __device__ glm::vec2 generateRandomNumberFromThreadForSSAA(glm::vec2 re
   thrust::uniform_real_distribution<float> u01(0,1);
 
   return glm::vec2(x - distanceToBoundary + (float)u01(rng) * 2 * distanceToBoundary, y - distanceToBoundary + (float)u01(rng) * 2 * distanceToBoundary);
+//  return glm::vec2(x, y);   // debugging: turn off anti-aliasing
 }
 
 
@@ -146,6 +147,13 @@ __host__ __device__ int rayIntersect(const ray& r, staticGeom* geoms, int number
 		else if(geoms[i].type == GEOMTYPE::MESH){
 			tempDistance = meshIntersectionTest(geoms[i], r, tempIntersctionPoint, tempIntersectionNormal);
 		}
+/*
+		if(r.index == 294752){
+			printf("Geom Index: %d----------------------------------\n", i);
+			printf("tempDistance: %f----------------------------------\n", tempDistance);
+			printf("tempIntersctionPoint.x = %f, tempIntersctionPoint.y = %f, tempIntersctionPoint.z = %f\n", tempIntersctionPoint.x, tempIntersctionPoint.y, tempIntersctionPoint.z);
+			printf("real distance: %f\n", glm::length(tempIntersctionPoint - r.origin));
+		}*/
 		if(abs(tempDistance + 1.0f) > EPSILON && tempDistance < distance)
 		{
 			intersIndex = i;
@@ -292,14 +300,34 @@ __global__ void rayTracerIterative(int iteration, int depth, ray *rayPool, int r
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;  // blockIdx.y is always zero
 
 	int index = blockDim.y * x + y;
-
+    
 	if(index < rayCount)
 	{
 		// intersection test	
 		glm::vec3 intersectionPoint, intersectionNormal;
 		ray r = rayPool[index];
+/*
+		if(r.index == 294752 && depth == 0){
+			printf("\n**********************Start of iterative********************\n");
+		}
+		if(r.index == 294752)
+		{
+			printf("\n---------------depth = %d--------------\n", depth);
+			if(depth == 1)
+				printf("break\n");
+		}*/
 		int intersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials);
-
+/*
+		if(r.index == 294752)
+		{
+			printf("geoms[intersIndex].type = %d\n", geoms[intersIndex].type);
+			printf("r.origin.x = %f, r.origin.y = %f, r.origin.z = %f\n", r.origin.x, r.origin.y, r.origin.z);
+			printf("r.direction.x = %f, r.direction.y = %f, r.direction.z = %f\n", r.direction.x, r.direction.y, r.direction.z);
+			printf("r.mediaIOR = %f\n", r.mediaIOR);
+			printf("r.tempColor.x = %f, r.tempColor.y = %f, r.tempColor.z = %f\n", r.tempColor.x, r.tempColor.y, r.tempColor.z);
+			printf("colors[r.index].x = %f, colors[r.index].y = %f, colors[r.index].z = %f\n", colors[r.index].x, colors[r.index].y, colors[r.index].z);
+			printf("intersectionPoint.x = %f, intersectionPoint.y = %f, intersectionPoint.z = %f\n", intersectionPoint.x, intersectionPoint.y, intersectionPoint.z);
+		}*/
 		if(intersIndex == -1) 
 		{
 			r.index = -1;		
@@ -338,6 +366,7 @@ __global__ void rayTracerIterative(int iteration, int depth, ray *rayPool, int r
 				}				
 				else
 				{
+					
 					r.origin = intersectionPoint + 0.01f * refraDir;
 					r.direction = refraDir;
 					r.mediaIOR = nextIndexOfRefraction;
@@ -356,7 +385,7 @@ __global__ void rayTracerIterative(int iteration, int depth, ray *rayPool, int r
 			else
 			{   // exlude direct illumination here
 //				if(index == 35771) printf("intersIndex: %d\n",intersIndex);
-//				colors[r.index] += r.tempColor * (depth == 1? 0 : materials[geoms[intersIndex].materialid].emittance) * materials[geoms[intersIndex].materialid].color;
+				colors[r.index] += r.tempColor * (depth == 1? 0 : materials[geoms[intersIndex].materialid].emittance) * materials[geoms[intersIndex].materialid].color;
 				thrust::default_random_engine rng(hash(iteration *(depth + 1)* index));
 				thrust::uniform_real_distribution<float> u01(0,1);
 				if((float)u01(rng) < 0.2 /*&& depth > 3|| glm::length(r.tempColor) < 0.01f*/) // russian roulette rule: ray is absorbed
@@ -385,27 +414,38 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
     
     if((x<=resolution.x && y<=resolution.y))
     {
+		
 	    glm::vec2 jitteredScreenCoords = generateRandomNumberFromThreadForSSAA(resolution, time, x, y, 0.5f);
 	    ray r = raycastFromCameraKernel(resolution, time, jitteredScreenCoords.x, jitteredScreenCoords.y, cam.position, cam.view, cam.up, cam.fov);
         r.index = index;
 		r.tempColor = glm::vec3(1.0f);
 	    r.mediaIOR = 1.0f;	    
-
+/*
+		if(r.index == 294752){
+			printf("****************Primary intersection********************\n");
+		}*/
 //----------------shadow ray for direct illumination part-------------------------------------
 		glm::vec3 intersectionPoint, intersectionNormal;
 		int intersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials); 
 
 		// choose which light to sample
 		thrust::default_random_engine rng(hash(index*time));
-		thrust::uniform_real_distribution<float> u01(0,1);
+		thrust::uniform_real_distribution<float> u01(0,0.9999999); // in fact, the random number generator for [0, 1) sometimes generate 1 so we want to avoid that
 		float russianRoulette = (float)u01(rng);
-		int sampleLightIndex = lights[int(russianRoulette * numberOfLights)];
+		int sampleLightIndex = lights[(int)(russianRoulette * numberOfLights)];
+
+/*
+		if(sampleLightIndex != 8)
+		printf("sampleLightIndex = %f\n", (russianRoulette * numberOfLights));*/
 
 		// sample selected light
 		glm::vec3 lightNormal;
 		float lightArea;
 		glm::vec3 lightPos = getRandomPointOnCube(geoms[sampleLightIndex], index*time, lightArea, lightNormal);
-		
+/*
+		if(r.index == 294752){
+			printf("****************Shadow test********************\n");
+		}*/
 		if(ShadowRayUnblocked(intersectionPoint, lightPos, geoms, numberOfGeoms, materials/*, lightArea, lightNormal*/))
 		{
 			glm::vec3 distanceVector = lightPos - intersectionPoint;
@@ -443,7 +483,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   // frame: current frame, objects and cam move between frames in multi-frame mode
   // iterations: curent iteration, objects and cam do not move between iterations
     int traceDepth = 10; //determines how many bounces the raytracer traces
-
+//	printf("\n--------------------------------iteration %d-------------------------\n", iterations);
   //send image to GPU
     glm::vec3* cudaimage = NULL;
     cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
@@ -528,7 +568,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	// first kernel launch to populate ray pool
     rayTracerIterativePrimary<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, iterations, cam, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalight, numberOfLights);
-    // multiple kernel launches to evaluate color
+    
+	// multiple kernel launches to evaluate color
     for(int i = 0; i < traceDepth && rayPoolCount != 0; ++i)
     {
 	  // resize block and grid 

@@ -1,4 +1,4 @@
-﻿Build started 10/11/2013 7:15:31 PM.
+﻿Build started 10/13/2013 9:29:15 AM.
      1>Project "G:\GitHub\Project2-Pathtracer\PROJ1_WIN\GPU Path Tracer\565Raytracer.vcxproj" on node 2 (build target(s)).
      1>InitializeBuildStatus:
          Creating "Debug (v5.5)\PathTracer.unsuccessfulbuild" because "AlwaysCreate" was specified.
@@ -8,7 +8,7 @@
        Skipping target "AddCudaCompilePropsDeps" because all output files are up-to-date with respect to the input files.
        CudaBuild:
          Compiling CUDA source file ..\..\src\raytraceKernel.cu...
-         cmd.exe /C "C:\Users\Nemo\AppData\Local\Temp\tmp07811b8632164bd3927383da62bbd04c.cmd"
+         cmd.exe /C "C:\Users\Nemo\AppData\Local\Temp\tmp3098497ccea140e1926d352ae98e1dad.cmd"
          "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin\nvcc.exe" -gencode=arch=compute_20,code=\"sm_20,compute_20\" --use-local-env --cl-version 2010 -ccbin "D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin"  -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc" -I../shared/glew/includes -I../shared/freeglut/includes -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I../shared/glew/include -I../shared/freeglut/include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include"  -G   --keep-dir "Debug (v5.5)" -maxrregcount=0  --machine 32 --compile -cudart static  -g   -DWIN32 -D_DEBUG -D_CONSOLE -D_UNICODE -DUNICODE -Xcompiler "/EHsc /W3 /nologo /Od /Zi /RTC1 /MDd  " -o "G:\GitHub\Project2-Pathtracer\PROJ1_WIN\GPU Path Tracer\Win32/Debug (v5.5)/raytraceKernel.cu.obj" "G:\GitHub\Project2-Pathtracer\src\raytraceKernel.cu"
          
          G:\GitHub\Project2-Pathtracer\PROJ1_WIN\GPU Path Tracer>"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\bin\nvcc.exe" -gencode=arch=compute_20,code=\"sm_20,compute_20\" --use-local-env --cl-version 2010 -ccbin "D:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin"  -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:/ProgramData/NVIDIA Corporation/CUDA Samples/v5.5/common/inc" -I../shared/glew/includes -I../shared/freeglut/includes -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\ProgramData\NVIDIA Corporation\CUDA Samples\v5.5\common\inc" -I../shared/glew/include -I../shared/freeglut/include -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include" -I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include"  -G   --keep-dir "Debug (v5.5)" -maxrregcount=0  --machine 32 --compile -cudart static  -g   -DWIN32 -D_DEBUG -D_CONSOLE -D_UNICODE -DUNICODE -Xcompiler "/EHsc /W3 /nologo /Od /Zi /RTC1 /MDd  " -o "G:\GitHub\Project2-Pathtracer\PROJ1_WIN\GPU Path Tracer\Win32/Debug (v5.5)/raytraceKernel.cu.obj" "G:\GitHub\Project2-Pathtracer\src\raytraceKernel.cu" 
@@ -512,11 +512,11 @@
          
      1>g:\github\project2-pathtracer\src\glm\core\func_integer.inl(407): warning : a __host__ function("glm::bitfieldReverse") redeclared with __host__ __device__, hence treated as a __host__ __device__ function
          
-     1>g:\github\project2-pathtracer\src\intersections.h(153): warning : address of a host variable "std::cout" cannot be directly taken in a device function
+     1>g:\github\project2-pathtracer\src\intersections.h(152): warning : address of a host variable "std::cout" cannot be directly taken in a device function
          
-     1>g:\github\project2-pathtracer\src\intersections.h(153): warning : calling a __host__ function from a __host__ __device__ function is not allowed
+     1>g:\github\project2-pathtracer\src\intersections.h(152): warning : calling a __host__ function from a __host__ __device__ function is not allowed
          
-     1>g:\github\project2-pathtracer\src\intersections.h(153): warning : calling a __host__ function("std::basic_ostream<char, std::char_traits<char> >::operator <<") from a __host__ __device__ function("boxIntersectionTest") is not allowed
+     1>g:\github\project2-pathtracer\src\intersections.h(152): warning : calling a __host__ function("std::basic_ostream<char, std::char_traits<char> >::operator <<") from a __host__ __device__ function("boxIntersectionTest") is not allowed
          
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(870): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
@@ -590,26 +590,27 @@
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h : warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(870): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(1846): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
+     1>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/random/detail/xor_combine_engine.inl(146): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
+     1>g:\github\project2-pathtracer\src\intersections.h(136): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>g:\github\project2-pathtracer\src\intersections.h(158): warning C4244: 'return' : conversion from 'double' to 'float', possible loss of data
+     1>g:\github\project2-pathtracer\src\intersections.h(308): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>g:\github\project2-pathtracer\src\intersections.h(398): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>g:\github\project2-pathtracer\src\intersections.h(463): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>g:\github\project2-pathtracer\src\intersections.h(469): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>g:\github\project2-pathtracer\src\interactions.h(92): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(50): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(52): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(59): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(61): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(144): warning C4482: nonstandard extension used: enum 'GEOMTYPE' used in qualified name
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(147): warning C4482: nonstandard extension used: enum 'GEOMTYPE' used in qualified name
+     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(150): warning C4482: nonstandard extension used: enum 'GEOMTYPE' used in qualified name
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(2747): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(3698): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(4610): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(5501): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(6407): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
      1>c:\program files\nvidia gpu computing toolkit\cuda\v5.5\include\math_functions.h(7316): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
-     1>C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v5.5\include\thrust/random/detail/xor_combine_engine.inl(146): warning C4819: The file contains a character that cannot be represented in the current code page (936). Save the file in Unicode format to prevent data loss
-     1>g:\github\project2-pathtracer\src\intersections.h(137): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
-     1>g:\github\project2-pathtracer\src\intersections.h(159): warning C4244: 'return' : conversion from 'double' to 'float', possible loss of data
-     1>g:\github\project2-pathtracer\src\intersections.h(308): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>g:\github\project2-pathtracer\src\intersections.h(356): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>g:\github\project2-pathtracer\src\intersections.h(362): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
-     1>g:\github\project2-pathtracer\src\interactions.h(92): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(50): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(52): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(59): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(61): warning C4244: 'argument' : conversion from 'float' to 'unsigned int', possible loss of data
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(141): warning C4482: nonstandard extension used: enum 'GEOMTYPE' used in qualified name
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(144): warning C4482: nonstandard extension used: enum 'GEOMTYPE' used in qualified name
-     1>G:/GitHub/Project2-Pathtracer/src/raytraceKernel.cu(147): warning C4482: nonstandard extension used: enum 'GEOMTYPE' used in qualified name
        ClCompile:
          All outputs are up-to-date.
          All outputs are up-to-date.
@@ -638,4 +639,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:13.26
+Time Elapsed 00:00:10.88

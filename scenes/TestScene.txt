@@ -208,6 +208,6 @@ OBJECT 8
 cube
 material 8 
 frame 0
-TRANS       0 9 0
+TRANS       0 10 0
 ROTAT       0 0 0
 SCALE       3 .3 3

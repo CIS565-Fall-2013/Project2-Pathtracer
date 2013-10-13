@@ -253,7 +253,7 @@ OBJECT 10  // light source
 cube
 material 8 
 frame 0
-TRANS       -6 10.3 7
+TRANS       -6 10.1 7
 ROTAT       0 0 0
 SCALE       3 .3 3
 

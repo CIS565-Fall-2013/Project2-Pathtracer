@@ -84,7 +84,7 @@ __host__ __device__ float boxIntersectionTest(const staticGeom& box, ray r, glm:
 
 	ray rOS;
 	glm::vec3 bounds[2];
-
+	float rOSDirLength = glm::length(multiplyMV(box.inverseTransform, glm::vec4(r.direction, 0.0f)));
 	if(box.type == MESH)// bounding box test
 	{
 		bounds[0] = box.boundingBoxMin;
@@ -155,7 +155,7 @@ __host__ __device__ float boxIntersectionTest(const staticGeom& box, ray r, glm:
 
 	normal = glm::normalize(normalTipWS - intersectionPoint);
 
-    return t;
+    return t/rOSDirLength;
 }
 
 
