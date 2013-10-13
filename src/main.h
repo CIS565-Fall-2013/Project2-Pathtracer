@@ -29,6 +29,7 @@
 #include "raytraceKernel.h"
 #include "utilities.h"
 #include "scene.h"
+#include "EasyBMP.h"
 
 #include<cstdlib>
 #include<ctime>
@@ -91,6 +92,7 @@ void runCuda();
 #else
 	void display();
 	void keyboard(unsigned char key, int x, int y);
+	void mouse(int button, int state, int x, int y);
 #endif
 
 //-------------------------------
@@ -117,5 +119,16 @@ void cleanupCuda();
 void deletePBO(GLuint* pbo);
 void deleteTexture(GLuint* tex);
 void shut_down(int return_code);
+
+//FOR READING IMAGE DATA
+BMP BMPInput;
+int BMPSize[2];
+void readBMP(char* filename);
+
+//For mouse position in object space
+int ix, iy;
+glm::vec3 GetOGLPos(int x, int y);
+
+void cameraReset();
 
 #endif

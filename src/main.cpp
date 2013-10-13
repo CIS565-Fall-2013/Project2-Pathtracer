@@ -30,6 +30,11 @@ int main(int argc, char** argv){
   targetFrame = 0;
   singleFrameMode = false;
 
+  //Load Texture
+#ifdef TEXTUREMAP
+  readBMP("../../test.bmp");
+#endif
+
   // Load scene file
   for(int i=1; i<argc; i++){
     string header; string data;
@@ -94,6 +99,7 @@ int main(int argc, char** argv){
   #else
 	  glutDisplayFunc(display);
 	  glutKeyboardFunc(keyboard);
+	  glutMouseFunc(mouse);
 
 	  glutMainLoop();
   #endif
@@ -124,11 +130,29 @@ void runCuda(){
       materials[i] = renderScene->materials[i];
     }
 
-	// execute the kernel
-	cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), preColors);
+	int *BMPRed = new int [BMPSize[0] * BMPSize[1]];
+	int *BMPGreen = new int [BMPSize[0] * BMPSize[1]];
+	int *BMPBlue = new int [BMPSize[0] * BMPSize[1]];
+
+	for(int i = 0; i < BMPSize[0]; i++)
+	{
+		for(int j = 0; j < BMPSize[1]; j++)
+		{
+			int index = i * BMPSize[1] + j;
+			BMPRed[index] = BMPInput(i,j)->Red;
+			BMPGreen[index] = BMPInput(i,j)->Green;
+			BMPBlue[index] = BMPInput(i,j)->Blue;
+		}
+	}
+// execute the kernel
+	cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), preColors, BMPRed, BMPGreen, BMPBlue, BMPSize);
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
+
+	delete BMPRed;
+	delete BMPGreen;
+	delete BMPBlue;
   }else{
 
     if(!finishedRender){
@@ -176,6 +200,15 @@ void runCuda(){
   }
   
 }
+
+void cameraReset()
+{
+	iterations = 0;
+	preColors = new glm::vec3[width * height];		
+	for(int i = 0; i < width * height; i++)
+		renderCam->image[i] = glm::vec3(0,0,0);		
+}
+
 
 #ifdef __APPLE__
 
@@ -225,13 +258,51 @@ void runCuda(){
 		std::cout << key << std::endl;
 		switch (key) 
 		{
+		   case(97):			   
+				renderCam->positions[0].x++;			
+			  	cameraReset();
+				break;
+		   case(100):
+				renderCam->positions[0].x--;
+				cameraReset();
+				break;
+		   case(119):
+			  renderCam->positions[0].z--;
+			  cameraReset();
+			  break;
+		   case(115):
+			  renderCam->positions[0].z++;
+			  cameraReset();
+			  break;
 		   case(27):
 			   exit(1);
 			   break;
+			  
+		}
+	}
+
+	void mouse(int button, int state, int x, int y)
+	{
+		if(button ==  GLUT_LEFT_BUTTON && state == GLUT_DOWN)
+		{
+			ix = x;
+			iy = y;			
+		}
+		else if(button == GLUT_LEFT_BUTTON && state == GLUT_UP)
+		{
+			float deltaX = x - ix;
+			float deltaY = y - iy;		
+
+			deltaX /= renderCam->resolution[0];
+			deltaY /= renderCam->resolution[1];
+
+			cameraReset();
+			renderCam->views[0] = glm::normalize(glm::vec3(deltaX, deltaY, -1));
 		}
 	}
 
 #endif
+
 
 
 
@@ -397,4 +468,43 @@ void shut_down(int return_code){
 	glfwTerminate();
   #endif
   exit(return_code);
+}
+
+
+void readBMP(char* filename)
+{	
+	if(BMPInput.ReadFromFile("../../test.bmp"))
+	{
+		BMIH bmih = GetBMIH("../../test.bmp");
+		printf("Get Image Succeessful");
+		//printf("r%d g%d b%d ", BMPInput(3,3)->Red, BMPInput(3,3)->Green, BMPInput(3,3)->Blue);
+		//printf("%d, %d ", bmih.biWidth, bmih.biHeight);
+		BMPSize[0] = bmih.biWidth;
+		BMPSize[1] = bmih.biHeight;		
+	}
+	else
+	{
+		BMPSize[0] = BMPSize[1] = 0;
+	}
+}
+
+glm::vec3 GetOGLPos(int x, int y)
+{
+    GLint viewport[4];
+    GLdouble modelview[16];
+    GLdouble projection[16];
+    GLfloat winX, winY, winZ;
+    GLdouble posX, posY, posZ;
+ 
+    glGetDoublev( GL_MODELVIEW_MATRIX, modelview );
+    glGetDoublev( GL_PROJECTION_MATRIX, projection );
+    glGetIntegerv( GL_VIEWPORT, viewport );
+ 
+    winX = (float)x;
+    winY = (float)viewport[3] - (float)y;
+    glReadPixels( x, int(winY), 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ );
+ 
+    gluUnProject( winX, winY, winZ, modelview, projection, viewport, &posX, &posY, &posZ);
+ 
+    return glm::vec3(posX, posY, posZ);
 }

@@ -164,7 +164,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 
 	float ti;
 	if(isIntersect)
-	{
+	{			
 		if(t[0]<=0){
 			ti = t[1];			
 		}

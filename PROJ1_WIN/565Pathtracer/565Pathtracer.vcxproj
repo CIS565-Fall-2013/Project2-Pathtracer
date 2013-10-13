@@ -20,6 +20,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\cudaMat4.h" />
+    <ClInclude Include="..\..\src\EasyBMP.h" />
+    <ClInclude Include="..\..\src\EasyBMP_BMP.h" />
+    <ClInclude Include="..\..\src\EasyBMP_DataStructures.h" />
+    <ClInclude Include="..\..\src\EasyBMP_VariousBMPutilities.h" />
     <ClInclude Include="..\..\src\glslUtility.h" />
     <ClInclude Include="..\..\src\image.h" />
     <ClInclude Include="..\..\src\interactions.h" />
@@ -34,6 +38,7 @@
     <ClInclude Include="..\..\src\utilities.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\EasyBMP.cpp" />
     <ClCompile Include="..\..\src\glslUtility.cpp" />
     <ClCompile Include="..\..\src\image.cpp" />
     <ClCompile Include="..\..\src\main.cpp" />
@@ -45,6 +50,9 @@
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\..\src\raytraceKernel.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\src\EasyBMP_ChangeLog.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{FF21CA49-522E-4E86-B508-EE515B248FC4}</ProjectGuid>
@@ -150,6 +158,8 @@
       <CompileOut>$(ProjectDir)$(Platform)/$(Configuration)/%(Filename)%(Extension).obj</CompileOut>
       <Include>$(CudaToolkitIncludeDir);$(NVCUDASAMPLES_ROOT)\common\inc;../shared/glew/includes;../shared/freeglut/includes</Include>
       <CodeGeneration>compute_20,sm_20</CodeGeneration>
+      <GPUDebugInfo>true</GPUDebugInfo>
+      <HostDebugInfo>true</HostDebugInfo>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -201,6 +211,8 @@
       <CompileOut>$(ProjectDir)$(Platform)/$(Configuration)/%(Filename)%(Extension).obj</CompileOut>
       <Include>$(CudaToolkitIncludeDir);$(NVCUDASAMPLES_ROOT)\common\inc;../shared/glew/includes;../shared/freeglut/includes</Include>
       <CodeGeneration>compute_20,sm_20</CodeGeneration>
+      <GPUDebugInfo>false</GPUDebugInfo>
+      <HostDebugInfo>false</HostDebugInfo>
     </CudaCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

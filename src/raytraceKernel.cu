@@ -22,17 +22,8 @@
 #include <vector>
 #include <time.h>  
 #include <windows.h>
+#include "EasyBMP.h"
 
-
-
-#define LIGHT_NUM 1
-#define ANTI_NUM 1
-#define STREAMCOMPACTION 1
-#define TITLESIZESC 64//this title size is for stream compaction
-#define TITLESIZE 8
-#define MOTIONBLUR 1
-#define DOF 16
-#define MAXDEPTH 12
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
@@ -162,9 +153,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
       if(color.z>255){
         color.z = 255;
-      }
-      
-	  //printf(" rgb %f %f %f ", color.x, color.y, color.z);
+      }  
 
       // Each thread writes one pixel location in the texture (textel)
       PBOpos[index].w = 0;
@@ -261,6 +250,7 @@ __host__ __device__  bool ShadowRayUnblock(staticGeom* geoms, int numberofGeoms,
 		return false;
 }
 
+
 __host__ __device__ bool checkIntersect(staticGeom* geoms, int numberOfGeoms, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, int& geomIndex)
 {
 	float t = FLT_MAX;
@@ -301,6 +291,136 @@ __host__ __device__ bool checkIntersect(staticGeom* geoms, int numberOfGeoms, ra
 	{
 		return false;
 	}
+}
+
+
+__host__ __device__ glm::vec3 indirectLight(staticGeom* geoms, int numberOfGeoms, int* lightIndex, glm::vec3 intersectionPoint, glm::vec3 normal, int geomIndex, float time, glm::vec3 materialColor)
+{
+	glm::vec3 color;
+	int sampleNum = 3;
+	for(int i = 0; i < sampleNum; i++)
+	{
+		//for now is just one light
+		glm::vec3 pointOnCube = getRandomPointOnCube(geoms[lightIndex[0]], time * (i+1));
+		ray r;
+		r.direction = glm::normalize(intersectionPoint - pointOnCube);
+		r.origin = pointOnCube;
+		int newgeomIndex;
+		glm::vec3 newIntersection, newNormal;
+		checkIntersect(geoms, numberOfGeoms, r, newIntersection, newNormal, newgeomIndex);
+		if(newgeomIndex == geomIndex)
+		{
+			color += materialColor;
+		}		
+	}
+	color /= sampleNum;
+	return color;
+}
+
+
+__host__ __device__ bool singleScatter(staticGeom* geoms, int numberOfGeoms, glm::vec3& intersectionPoint, glm::vec3 inNormal, glm::vec3 diffuseDir,
+									glm::vec3 refractedDir, material material, float ran, int geomIndex, Fresnel fresnel, float& singleScatterCoeff)
+{
+	float so = -log(ran) / material.reducedScatterCoefficient;
+
+	//printf(" what is so %f ", so);
+
+	glm::vec3 pSamp =  intersectionPoint + so * refractedDir;
+
+	ray r;
+	r.origin = pSamp;
+	r.direction = diffuseDir;
+
+	glm::vec3 newIntersectionPoint;
+	glm::vec3 newNormal;
+	int newGeomIndex;
+
+	if(checkIntersect(geoms, numberOfGeoms, r, newIntersectionPoint, newNormal, newGeomIndex))
+	{
+		if(newGeomIndex == geomIndex)
+		{
+			intersectionPoint = newIntersectionPoint;
+			float si = glm::length(intersectionPoint - pSamp);
+			float dotN = glm::dot(diffuseDir, inNormal);
+			float sp_i = abs(si * dotN)/ glm::sqrt(1 - pow((1.f/1.f/material.indexOfRefraction),2) * (1 - dotN * dotN));
+			singleScatterCoeff = exp(-sp_i * 0.7f) * exp(-so * material.reducedScatterCoefficient) * fresnel.transmissionCoefficient * material.hasScatter / 1.0f;
+			return true;
+		}
+	}
+	return false;
+}
+
+
+__host__ __device__ bool diffuseScatter(staticGeom* geoms, int numberOfGeoms, glm::vec3& intersectionPoint, glm::vec3 inNormal, material material,
+										glm::vec3 ran, int geomIndex, Fresnel fresnel, float &diffuseScatterCoeff)
+{
+	glm::vec3 dir = glm::normalize(calculateRandomDirectionInHemisphere(inNormal, ran.x, ran.y));
+	glm::vec3 pSample = intersectionPoint + 1/material.reducedScatterCoefficient * dir;
+	ray r;
+	r.origin = pSample;
+	r.direction = -inNormal;
+	glm::vec3 newIntersectionPoint;
+	glm::vec3 newNormal;
+	int newGeomIndex;
+	if(checkIntersect(geoms, numberOfGeoms, r, newIntersectionPoint, newNormal, newGeomIndex))
+	{
+		if(newGeomIndex == geomIndex)
+		{
+			float r = glm::distance(intersectionPoint, newIntersectionPoint);
+			float zr = 1.0f/material.reducedScatterCoefficient;
+			float zv = zr + 4 * (1.0f/(3.f * material.reducedScatterCoefficient) * (1.f + fresnel.reflectionCoefficient / 1.f - fresnel.reflectionCoefficient));
+			float dr = glm::sqrt(r*r + zr*zr);
+			float dv = glm::sqrt(r*r + zv*zv);
+			float tr = glm::sqrt(3 * material.absorptionCoefficient.x * material.reducedScatterCoefficient);
+			float tr_dr = tr * dr;
+			float tr_dv = tr * dv;
+
+			float rd = (tr_dr + 1.0) * glm::exp(-tr_dr)/* * zr *// (glm::pow(dr, 3.f))
+				+ (tr_dv + 1.0) * glm::exp(-tr_dv) * zv / (glm::pow(dv,3.0f));
+
+			diffuseScatterCoeff = ((glm::dot(dir ,inNormal) * rd) / (material.reducedScatterCoefficient * material.reducedScatterCoefficient * glm::exp(-material.reducedScatterCoefficient * r))) / 3 * PI;
+			intersectionPoint = newIntersectionPoint;
+			return true;
+		}
+	}
+	return false;
+}
+
+
+__host__ __device__ glm::vec3 textureMap(int geomIndex, staticGeom* geoms, glm::vec3 normal, int* BMPRed, int* BMPGreen, int* BMPBlue, int BMPWidth, int BMPHeight)
+{
+#ifdef TEXTUREMAP
+	if(geomIndex == TEXTUREMAP)
+		{
+			glm::vec3 realNorthPole = multiplyMV(geoms[geomIndex].transform, glm::vec4(0, 0.5, 0, 1.0));
+			glm::vec3 realEquator = multiplyMV(geoms[geomIndex].transform, glm::vec4(0.5, 0, 0, 1.0));
+			glm::vec3 realOrigin = multiplyMV(geoms[geomIndex].transform, glm::vec4(0,0,0,1));
+
+			glm::vec3 vn = glm::normalize(realNorthPole - realOrigin);
+			glm::vec3 ve = glm::normalize(realEquator - realOrigin);
+
+			float phi = std::acos(-glm::dot(vn, normal));
+			float v = phi / PI;
+
+			float theta = (std::acos(glm::dot(ve, normal) / sin(phi))) / (2 * PI);
+			float u;
+			if(glm::dot(glm::cross(vn, ve), normal) > 0)
+				u = theta;
+			else
+				u = 1 - theta;
+
+			int bi = v * BMPWidth;
+			int bj = u * BMPHeight;
+			int bIndex = bi * BMPHeight + bj;
+			
+			float red = BMPRed[bIndex] / 255.0f;
+			float green = BMPGreen[bIndex] / 255.0f;
+			float blue = BMPBlue[bIndex] / 255.0f;
+			return glm::vec3(red, green, blue);	
+		}
+#else
+	return glm::vec3(0,0,0);
+#endif
 }
 
 __host__ __device__ void pathTraceRecursive(ray r, int rayDepth, staticGeom* geoms, int numberOfGeoms, material* materials, glm::vec3& color, 
@@ -346,7 +466,7 @@ __host__ __device__ void pathTraceRecursive(ray r, int rayDepth, staticGeom* geo
 }
 
 __host__ __device__ void pathTraceIterative(ray r, int rayDepth, staticGeom* geoms, int numberOfGeoms, material* materials, glm::vec3& color, 
-											cameraData cam, float time, int x, int y, glm::vec3* lightPos, int lightIndex)
+											cameraData cam, float time, int x, int y, int* lightIndex, int lightNum, int* BMPRed, int* BMPGreen, int* BMPBlue, int BMPWidth, int BMPHeight)
 {
 	glm::vec3 acol = glm::vec3(1,1,1);
 	color = glm::vec3(1,1,1);
@@ -364,12 +484,22 @@ __host__ __device__ void pathTraceIterative(ray r, int rayDepth, staticGeom* geo
 		material currMaterial = materials[geoms[geomIndex].materialid];		
 		glm::vec3 ran = generateRandomNumberFromThread(cam.resolution, time + (i+1), x, y);
 
-		if(geomIndex == lightIndex){
-			color *= currMaterial.emittance * currMaterial.color;
-			return;
+		for(int i = 0; i < lightNum; i++)
+		{
+			if(geomIndex == lightIndex[i])
+			{
+				color *= currMaterial.emittance * currMaterial.color;
+				return;
+			}
 		}
 
 		float cosTheta = glm::dot(r.direction, normal);
+
+		//For texture map
+#ifdef TEXTUREMAP
+		if(geomIndex == TEXTUREMAP)
+			currMaterial.color  = textureMap(geomIndex, geoms, normal, BMPRed, BMPGreen, BMPBlue, BMPWidth, BMPHeight);
+#endif
 
 		if(currMaterial.hasReflective > 0.0f && ran.z < currMaterial.hasReflective)//Reflective
 		{
@@ -422,17 +552,41 @@ __host__ __device__ void pathTraceIterative(ray r, int rayDepth, staticGeom* geo
 				continue;
 			}
 		}
+		else if(currMaterial.hasScatter > 0.f && ran.z < currMaterial.hasScatter)//Subsurface Scattering
+		{
+			Fresnel fresnel;
+			float inOrOut = glm::dot(r.direction, normal);
+			glm::vec3 reflectedColor, refractedColor;
+			if(inOrOut < 0)
+				fresnel = calculateFresnel(normal, r.direction, 1.0f, currMaterial.indexOfRefraction, reflectedColor, refractedColor);
+			else
+				fresnel = calculateFresnel(-normal, r.direction, currMaterial.indexOfRefraction, 1.0f, reflectedColor, refractedColor);			
+			
+			glm::vec3 diffuseDirection;
+			float singleScatterCoeff;
+			float diffuseScatterCoeff;
+			if(/*singleScatter(geoms, numberOfGeoms, intersectionPoint, normal, diffuseDirection, refractedDirection, currMaterial, ran.x, geomIndex, fresnel, singleScatterCoeff)
+				&& */diffuseScatter(geoms, numberOfGeoms, intersectionPoint, normal, currMaterial, ran, geomIndex, fresnel, diffuseScatterCoeff))
+			{				
+				glm::vec3 lPos = getRandomPointOnCube(geoms[lightIndex[0]], ran.x);
+				diffuseDirection  = glm::normalize(lPos - intersectionPoint);
+				r.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, ran.x, ran.y));//diffuseDirection;
+				r.origin = intersectionPoint + 0.001f * r.direction;
+				color *= (/*singleScatterCoeff +*/ diffuseScatterCoeff);
+			}			
+		}
 		else//Diffuse
 		{
 			r.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, ran.x, ran.y));
 			r.origin = intersectionPoint + 0.001f * r.direction;
 		}
 		
-		float diffuseTerm;
+		/*float diffuseTerm;
 		diffuseTerm = glm::dot(glm::normalize(lightPos[0] - intersectionPoint), normal);
-		diffuseTerm = max(diffuseTerm, 0.0f);
+		diffuseTerm = max(diffuseTerm, 0.0f);*/
+		//glm::vec3 icolor = indirectLight(geoms, numberOfGeoms, lightIndex, intersectionPoint, normal, geomIndex, time, currMaterial.color);
 
-		color *= currMaterial.color;
+		color *= currMaterial.color;// +  .5f * icolor;
 	}
 	color = glm::vec3(0,0,0);
 	return;
@@ -440,7 +594,7 @@ __host__ __device__ void pathTraceIterative(ray r, int rayDepth, staticGeom* geo
 
 
 __global__ void pathtraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors, staticGeom* geoms,
-							int numberOfGeoms, material* materials, int numberOfMaterials, glm::vec3* lightPos, int lightIndex, int iteration)
+							int numberOfGeoms, material* materials, int numberOfMaterials, int* lightIndex, int lightNum, int iteration, int* BMPRed, int* BMPGreen, int* BMPBlue, int BMPWidth, int BMPHeight)
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -463,7 +617,7 @@ __global__ void pathtraceRay(glm::vec2 resolution, float time, cameraData cam, i
 		r.origin = camPosition;
 		r.direction = glm::normalize(aimedPosition - camPosition);
 #endif
-		pathTraceIterative(r, 0, geoms, numberOfGeoms, materials, color, cam, time, x, y, lightPos, lightIndex);
+		pathTraceIterative(r, 0, geoms, numberOfGeoms, materials, color, cam, time, x, y, lightIndex, lightNum, BMPRed, BMPGreen, BMPBlue, BMPWidth, BMPHeight);
 		colors[index] += color;
 		
 	}
@@ -479,7 +633,7 @@ __host__ __device__ int colorCheck(glm::vec3 color)
 }
 
 __host__ __device__ int pathTraceIterativeSC(ray& r, staticGeom* geoms, int numberOfGeoms, material* materials, glm::vec3& color, 
-											cameraData cam, float time, int x, int y, glm::vec3* lightPos, int lightIndex)
+											cameraData cam, float time, int x, int y, int* lightIndex, int lightNum, int* BMPRed, int* BMPGreen, int* BMPBlue, int BMPWidth, int BMPHeight)
 {
 	color = glm::vec3(1,1,1);
 	
@@ -493,13 +647,22 @@ __host__ __device__ int pathTraceIterativeSC(ray& r, staticGeom* geoms, int numb
 	material currMaterial = materials[geoms[geomIndex].materialid];		
 	glm::vec3 ran = generateRandomNumberFromThread(cam.resolution, time, x, y);
 
-	if(geomIndex == lightIndex)
+	for(int i = 0; i < lightNum; i++)
 	{
-		color *= currMaterial.emittance * currMaterial.color;
-		return 2;
+		if(geomIndex == lightIndex[i])
+		{
+			color *= currMaterial.emittance * currMaterial.color;
+			return 2;
+		}
 	}
 
 	float cosTheta = glm::dot(r.direction, normal);
+
+	//For texture map
+#ifdef TEXTUREMAP
+		if(geomIndex == TEXTUREMAP)
+			currMaterial.color  = textureMap(geomIndex, geoms, normal, BMPRed, BMPGreen, BMPBlue, BMPWidth, BMPHeight);
+#endif
 
 	if(currMaterial.hasReflective > 0.0f && ran.z < currMaterial.hasReflective)//Reflective
 	{
@@ -517,7 +680,7 @@ __host__ __device__ int pathTraceIterativeSC(ray& r, staticGeom* geoms, int numb
 
 		color *= (currMaterial.color);
 		color *= fresnel.reflectionCoefficient;
-		return colorCheck(color);
+		return 1;
 	}
 	else if(currMaterial.hasRefractive> 0.0f)//Refractive
 	{
@@ -542,7 +705,7 @@ __host__ __device__ int pathTraceIterativeSC(ray& r, staticGeom* geoms, int numb
 			r.origin = intersectionPoint + 0.01f * refractedDirection;
 			r.direction = refractedDirection;
 			color *= fresnel.transmissionCoefficient;
-			return colorCheck(color);
+			return 1;
 		}
 		else
 		{
@@ -550,22 +713,46 @@ __host__ __device__ int pathTraceIterativeSC(ray& r, staticGeom* geoms, int numb
 			r.origin = intersectionPoint + 0.01f * reflectionDirection;
 			r.direction = reflectionDirection;	
 			color *= fresnel.reflectionCoefficient;
-			return colorCheck(color);
+			return 1;
 		}
 	}
+	else if(currMaterial.hasScatter > 0.f && ran.z < currMaterial.hasScatter)//Subsurface Scattering
+		{
+			Fresnel fresnel;
+			float inOrOut = glm::dot(r.direction, normal);
+			glm::vec3 reflectedColor, refractedColor;
+			if(inOrOut < 0)
+				fresnel = calculateFresnel(normal, r.direction, 1.0f, currMaterial.indexOfRefraction, reflectedColor, refractedColor);
+			else
+				fresnel = calculateFresnel(-normal, r.direction, currMaterial.indexOfRefraction, 1.0f, reflectedColor, refractedColor);			
+			
+			glm::vec3 diffuseDirection;
+			float singleScatterCoeff;
+			float diffuseScatterCoeff;
+			if(/*singleScatter(geoms, numberOfGeoms, intersectionPoint, normal, diffuseDirection, refractedDirection, currMaterial, ran.x, geomIndex, fresnel, singleScatterCoeff)
+				&& */diffuseScatter(geoms, numberOfGeoms, intersectionPoint, normal, currMaterial, ran, geomIndex, fresnel, diffuseScatterCoeff))
+			{				
+				glm::vec3 lPos = getRandomPointOnCube(geoms[lightIndex[0]], ran.x);
+				diffuseDirection  = glm::normalize(lPos - intersectionPoint);
+				r.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, ran.x, ran.y));//diffuseDirection;
+				r.origin = intersectionPoint + 0.001f * r.direction;
+				color *= (/*singleScatterCoeff +*/ diffuseScatterCoeff);
+				return 1;
+			}	
+		}
 	else//Diffuse
 	{
 		r.direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, ran.x, ran.y));
 		r.origin = intersectionPoint + 0.001f * r.direction;
 	}	
-	
+	//glm::vec3 icolor = indirectLight(geoms, numberOfGeoms, lightIndex, intersectionPoint, normal, geomIndex, time, currMaterial.color);
 	color *= (currMaterial.color);
-	return colorCheck(color);
+	return 1;
 }
 
 
 __global__ void pathTraceSC(rayPixel* rayPool, int poolSize, cameraData cam,  float time, int rayDepth, glm::vec3* colors, staticGeom* geoms,
-							int numberOfGeoms, material* materials, int numberOfMaterials, glm::vec3* lightPos, int lightIndex, int iteration)
+							int numberOfGeoms, material* materials, int numberOfMaterials, int* lightIndex, int lightNum, int iteration, int* BMPRed, int* BMPGreen, int* BMPBlue, int BMPWidth, int BMPHeight)
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -573,8 +760,8 @@ __global__ void pathTraceSC(rayPixel* rayPool, int poolSize, cameraData cam,  fl
 	int t = threadIdx.x;
 	if(index < poolSize){
 		glm::vec3 color;		
-		int isContinue = pathTraceIterativeSC(rayPool[index].r, geoms, numberOfGeoms, materials, color, cam, time, x, y, lightPos, lightIndex);
-	
+		int isContinue = pathTraceIterativeSC(rayPool[index].r, geoms, numberOfGeoms, materials, color, cam, time, x, y, lightIndex, lightNum, BMPRed, BMPGreen, BMPBlue, BMPWidth, BMPHeight);
+
 		if(isContinue != 0)
 			colors[rayPool[index].index] *= color;
 		else
@@ -629,7 +816,8 @@ __global__ void addPreColors(glm::vec3* precolors, glm::vec3* colors, glm::vec2 
 
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, glm::vec3* preColors){
+void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, glm::vec3* preColors,
+					  int *BMPRed, int *BMPGreen, int *BMPBlue, int BMPSize[2]){
   
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
@@ -694,28 +882,44 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.up = renderCam->ups[frame];
   cam.fov = renderCam->fov;
 
-  int lightIndex;
+  std::vector<int> vectorLightIndex;
   for(int i = 0; i < numberOfGeoms; i++)
   {
 	  if(geomList[i].materialid == 7 || geoms[i].materialid == 8)
 	  {
-		  lightIndex = i;
-		  break;
+		  vectorLightIndex.push_back(i);
 	  }
   }
 
-  int lightNum = LIGHT_NUM;
-  glm::vec3 *lightPos = new glm::vec3[lightNum]; 
-  lightPos[0] = getRandomPointOnCube(geomList[lightIndex], (float)iterations);  
+  int lightNum = vectorLightIndex.size();
+  int *lightIndex = new int [vectorLightIndex.size()];
+  for(int i = 0; i < vectorLightIndex.size(); i++)
+  {
+	  lightIndex[i] = vectorLightIndex[i];
+  }
 
-  glm::vec3* cudaLightPos = NULL;
-  cudaMalloc((void**)&cudaLightPos, lightNum*sizeof(glm::vec3));
-  cudaMemcpy(cudaLightPos, lightPos, lightNum*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+  int* cudaLightIndex = NULL;
+  cudaMalloc((void**)&cudaLightIndex, lightNum*sizeof(int));
+  cudaMemcpy(cudaLightIndex, lightIndex, lightNum*sizeof(int), cudaMemcpyHostToDevice);
 
   //size_t size;
-  //cudaDeviceSetLimit(cudaLimitStackSize, 10000*sizeof(rayPixel));
+  //cudaDeviceSetLimit(cudaLimitStackSize, 90000*sizeof(float));
   //cudaDeviceSetLimit(cudaLimitMallocHeapSize, 10000*sizeof(rayPixel));
   //cudaDeviceGetLimit(&size, cudaLimitStackSize);
+
+
+  //Copy the texture color
+  int* cudaBMPRed = NULL;
+  cudaMalloc((void**)&cudaBMPRed, BMPSize[0]*BMPSize[1]*sizeof(int));
+  cudaMemcpy(cudaBMPRed, BMPRed, BMPSize[0]*BMPSize[1]*sizeof(int), cudaMemcpyHostToDevice);
+
+  int* cudaBMPGreen = NULL;
+  cudaMalloc((void**)&cudaBMPGreen, BMPSize[0]*BMPSize[1]*sizeof(int));
+  cudaMemcpy(cudaBMPGreen, BMPGreen, BMPSize[0]*BMPSize[1]*sizeof(int), cudaMemcpyHostToDevice);
+
+  int* cudaBMPBlue = NULL;
+  cudaMalloc((void**)&cudaBMPBlue, BMPSize[0]*BMPSize[1]*sizeof(int));
+  cudaMemcpy(cudaBMPBlue, BMPBlue, BMPSize[0]*BMPSize[1]*sizeof(int), cudaMemcpyHostToDevice);
 
 //kernel launches
 #ifdef STREAMCOMPACTION
@@ -736,8 +940,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	{
 		fullBlocksPerGrid = dim3((int)ceil(float(poolSize)/float(tileSize)), 1);
 
-		pathTraceSC<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaRayPool, poolSize, cam, (float)(iterations+(count +1)), traceDepth, cudaimage, cudageoms,
-			numberOfGeoms, cudamaterial, numberOfMaterials, cudaLightPos, lightIndex, renderCam->iterations);
+		pathTraceSC<<<fullBlocksPerGrid, threadsPerBlock>>>(cudaRayPool, poolSize, cam, (float)(iterations*(count +1)), traceDepth, cudaimage, cudageoms,
+			numberOfGeoms, cudamaterial, numberOfMaterials, cudaLightIndex, lightNum, renderCam->iterations, cudaBMPRed, cudaBMPGreen, cudaBMPBlue, BMPSize[0], BMPSize[1]);
 
 		count++;
 		thrust::device_ptr<rayPixel> iteratorStart(cudaRayPool);
@@ -752,7 +956,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);
 #else
 	pathtraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, 
-	numberOfGeoms, cudamaterial, numberOfMaterials, cudaLightPos, lightIndex, renderCam->iterations);
+		numberOfGeoms, cudamaterial, numberOfMaterials, cudaLightIndex, lightNum, renderCam->iterations, cudaBMPRed, cudaBMPGreen, cudaBMPBlue, BMPSize[0], BMPSize[1]);
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);
 #endif
 	 
@@ -762,7 +966,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cudaimage );
   cudaFree( cudageoms );
   cudaFree( cudamaterial);
-  cudaFree( cudaLightPos );
+  cudaFree( cudaLightIndex );
+  cudaFree( cudaBMPRed );
+  cudaFree( cudaBMPGreen );
+  cudaFree( cudaBMPBlue );
 #ifdef STREAMCOMPACTION 
   cudaFree( cudaRayPool );
 #endif

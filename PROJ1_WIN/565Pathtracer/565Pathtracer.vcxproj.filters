@@ -13,6 +13,7 @@
       <Filter>stb_image</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\tiny_obj_loader.cc" />
+    <ClCompile Include="..\..\src\EasyBMP.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\cudaMat4.h" />
@@ -32,6 +33,10 @@
       <Filter>stb_image</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\tiny_obj_loader.h" />
+    <ClInclude Include="..\..\src\EasyBMP.h" />
+    <ClInclude Include="..\..\src\EasyBMP_BMP.h" />
+    <ClInclude Include="..\..\src\EasyBMP_DataStructures.h" />
+    <ClInclude Include="..\..\src\EasyBMP_VariousBMPutilities.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\..\src\raytraceKernel.cu" />
@@ -40,5 +45,8 @@
     <Filter Include="stb_image">
       <UniqueIdentifier>{011aa553-95e8-4e59-b7ff-1bb89aebe21d}</UniqueIdentifier>
     </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\src\EasyBMP_ChangeLog.txt" />
   </ItemGroup>
 </Project>

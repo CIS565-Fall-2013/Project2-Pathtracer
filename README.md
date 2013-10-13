@@ -1,6 +1,6 @@
-![Alt text](/renders/test4000FUN.0.bmp "With OBJ Loader")
+![Alt text](/renders/Scattering.0.bmp "With Subsurface scattering")
 
-![Alt text](/renders/test4000.0WithOBJ.bmp "FUN")
+![Alt text](/renders/test4000.0WithOBJ.bmp "With OBJ Loader")
 
 
 
@@ -22,7 +22,9 @@ In fresnel refraction, I treated the light as unpolarised and average the result
 
 The OBJ mesh loader I am using TinyObjLoader from [https://github.com/syoyo/tinyobjloader](https://github.com/syoyo/tinyobjloader "TinyOBJLoader"), which is a simple, robust and easy to use library. Then I added the triangle intersection function for testing the ray intersect with triangle in the mesh. Due to the ability of my graphic card, it cannot load a large mesh file.
 
+The subsurface scattering, I am using the dipole light source method to represent multiple scattering. Please refer this paper for more information about subsurface scattering [A Practical Model for Subsurface Light Transport](http://graphics.ucsd.edu/~henrik/papers/bssrdf/) 
 
+Interactive camera, using the w, a, s, d to move the camera forward, left, backward and right. Using the move drag to rotate the camera. 
 
 **Performance Evaluation:**
 
@@ -47,6 +49,12 @@ TinyObjLoader [https://github.com/syoyo/tinyobjloader](https://github.com/syoyo/
 
 The OBJ file I found it here [http://people.sc.fsu.edu/~jburkardt/data/obj/obj.html](http://people.sc.fsu.edu/~jburkardt/data/obj/obj.html "OBJ FILES")
 
+
+
+**Video:**
+
+[Video shows the interactive camera](http://vimeo.com/76803159)
+
 **Screen Shots:**
 
 ![Alt text](/renders/test5000.0MB.bmp "With Motion Blur")
@@ -56,6 +64,10 @@ The OBJ file I found it here [http://people.sc.fsu.edu/~jburkardt/data/obj/obj.h
 ![Alt text](/renders/test5000.0DOP2.bmp "With DOP")
 
 ![Alt text](/renders/test3500.0OBJ.bmp "With OBJ Loader")
+
+![Alt text](/renders/texture.bmp "Texutre Map")
+
+![Alt text](/renders/subscattering.bmp "Subsurface Scattering")
 
 ![Alt text](/renders/test4000.0.bmp "For fun")
 
