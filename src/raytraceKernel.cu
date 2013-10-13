@@ -339,12 +339,9 @@ BMPInfo* textureInfo;
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos,camera* renderCam, ParameterSet* pSet, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, m_BMP* textures, int numberOfTextures){
 //pre-process, including memcpy and initialization
-	int traceMaxDepth = 5; //determines how many bounces the raytracer traces
-
-  
-
+	int traceMaxDepth = (int)pSet->ks; //determines how many bounces the raytracer traces
   // set up crucial magic
-  int tileSize = 32;	//don't care about this var name. it is tilesize from input file
+  int tileSize = (int)pSet->ka;	//don't care about this var name. it is tilesize from input file
   int numberOfLights=0;
 
   dim3 threadsPerBlock(tileSize, tileSize);
@@ -484,7 +481,7 @@ void cudaRaytraceCore(uchar4* PBOpos,camera* renderCam, ParameterSet* pSet, int 
 	for(int nowturn=0;nowturn<traceMaxDepth*2;nowturn++)
 	{
 	  if(raypoolsize<=1) break;
-	  int threadperblock=64;
+	  int threadperblock=(int)pSet->kd;
 	  int blocknum=raypoolsize/threadperblock;
 	  blocknum=max(blocknum,1);
 

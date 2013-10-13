@@ -6,11 +6,13 @@
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
 #include "main.h"
+#include <ctime>
 
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
 int totalRayNum=0;
+long starttime;
 
 int main(int argc, char** argv){
 
@@ -96,7 +98,7 @@ int main(int argc, char** argv){
 
   glUseProgram(passthroughProgram);
   glActiveTexture(GL_TEXTURE0);
-
+  starttime=clock();
   #ifdef __APPLE__
 	  // send into GLFW main loop
 	  while(1){
@@ -125,6 +127,8 @@ void runCuda(){
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
   
+
+
   if(iterations<renderCam->iterations){
     uchar4 *dptr=NULL;
     iterations++;
@@ -147,6 +151,13 @@ void runCuda(){
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
+
+	if(iterations%1000==0)
+	{
+		long end=clock();
+		printf("time usage for %d iterations: %d milliseconds.\n",iterations,(end-starttime));
+	}
+
   }else{
 
     if(!finishedRender){
@@ -192,6 +203,8 @@ void runCuda(){
       cudaDeviceReset(); 
       finishedRender = false;
     }
+
+
   }
   
 }

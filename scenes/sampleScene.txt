@@ -1,9 +1,9 @@
 PARAMETERS
-KD 0.5
-KA 0.1
-KS 50
-TILESIZE  20 //1 for hard shadow,
-SUBRAY    4
+KD 64	   //now it is the rays per block
+KA 20       // now it is the tilesize
+KS 2	      //now it means max-trace step
+TILESIZE  25 //now it is the MOBlur Looping Scale
+SUBRAY    1  
 
 TEXTURE 0
 FILENAME .\\gridtexture.bmp
@@ -198,7 +198,7 @@ EMITTANCE   0
 TEXTUREIDX  2
 
 CAMERA
-RES         800 800
+RES         400 400
 FOVY        50
 ITERATIONS  5000
 FILE        test.bmp
@@ -253,13 +253,13 @@ ROTAT       0 0 0
 SCALE       .01 10 10
 MOBLUR      0 0 0
 
-OBJECT 5				//left-foundation
-cube
-material 9
+OBJECT 5				//light
+sphere
+material 8
 frame 0
-TRANS       3.5 0.5 0
+TRANS       0 9.5 1
 ROTAT       0 0 90
-SCALE       1 2 2 
+SCALE       1 3 3
 MOBLUR      0 0 0
 
 OBJECT 6				//red reflective ball
@@ -289,7 +289,17 @@ ROTAT       45 180 40
 SCALE       2.0 2.0 2.0
 MOBLUR      0 0 0
 
-OBJECT 9				//a plate board
+
+OBJECT 9				//left-foundation
+cube
+material 9
+frame 0
+TRANS       3.5 0.5 0
+ROTAT       0 0 90
+SCALE       1 2 2 
+MOBLUR      0 0 0
+
+OBJECT 10				//a plate board
 cube
 material 12
 frame 0
@@ -298,7 +308,7 @@ ROTAT       0 -60 10
 SCALE       .3 8 3
 MOBLUR      0 0 0
 
-OBJECT 10	//none-color glass ball
+OBJECT 11				//none-color glass ball
 sphere
 material 0
 frame 0
@@ -306,12 +316,3 @@ TRANS       0 5 -2
 ROTAT       0 180 0
 SCALE       2 2 2
 MOBLUR      10.0 5.0 0.0
-
-OBJECT 11				//light
-cube
-material 8
-frame 0
-TRANS       0 9.85 1
-ROTAT       0 0 90
-SCALE       1 3 3
-MOBLUR      0 0 0
