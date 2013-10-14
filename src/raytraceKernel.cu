@@ -492,9 +492,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* cam, int frame, int iterations, ma
 	dim3 fullBlocksPerGrid(ceil((float)width/tile_size), ceil((float)height/tile_size));
 
 	// Copy image to GPU.
-	glm::vec3* cudaimage = NULL;
-	cudaMalloc((void**)&cudaimage, num_pixels*sizeof(glm::vec3));
-	cudaMemcpy(cudaimage, cam->image, num_pixels*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+	glm::vec3* d_image = NULL;
+	cudaMalloc((void**)&d_image, num_pixels*sizeof(glm::vec3));
+	cudaMemcpy(d_image, cam->image, num_pixels*sizeof(glm::vec3), cudaMemcpyHostToDevice);
 	
 	// Package geometry.
 	staticGeom* geomList = new staticGeom[num_geoms];
@@ -512,9 +512,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* cam, int frame, int iterations, ma
 	}
 	
 	// Copy geometry to GPU.
-	staticGeom* cudageoms = NULL;
-	cudaMalloc((void**)&cudageoms, num_geoms*sizeof(staticGeom));
-	cudaMemcpy( cudageoms, geomList, num_geoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+	staticGeom* d_geoms = NULL;
+	cudaMalloc((void**)&d_geoms, num_geoms*sizeof(staticGeom));
+	cudaMemcpy( d_geoms, geomList, num_geoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
 	
 	// Copy materials to GPU.
 	material* cudamaterials = NULL;
@@ -550,7 +550,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* cam, int frame, int iterations, ma
 		int num_blocks_per_grid = ceil((float)num_rays / num_threads_per_block);
 
 		// Update d_rays & d_lights based on intersected object.
-		TraceRay<<<num_blocks_per_grid, num_threads_per_block>>>(iterations, depth, max_depth, num_pixels, d_rays, num_rays, d_lights, d_is_ray_alive, d_ray_idx, cudaimage, cudageoms, num_geoms, cudamaterials, num_materials);
+		TraceRay<<<num_blocks_per_grid, num_threads_per_block>>>(iterations, depth, max_depth, num_pixels, d_rays, num_rays, d_lights, d_is_ray_alive, d_ray_idx, d_image, d_geoms, num_geoms, cudamaterials, num_materials);
 		
 		// Update d_rays by removing dead rays (stream compaction).
 		thrust::device_ptr<bool> td_is_ray_alive = thrust::device_pointer_cast(d_is_ray_alive);
@@ -579,14 +579,14 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* cam, int frame, int iterations, ma
 		d_ray_idx = d_ray_idx_copy;
 	}
 
-	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, cam->resolution, cudaimage);
+	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, cam->resolution, d_image);
 
 	// Retrieve image from GPU.
-	cudaMemcpy( cam->image, cudaimage, num_pixels*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+	cudaMemcpy( cam->image, d_image, num_pixels*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
 	// Free memory.
-	cudaFree( cudaimage );
-	cudaFree( cudageoms );
+	cudaFree( d_image );
+	cudaFree( d_geoms );
 	cudaFree( cudamaterials );
 	cudaFree( d_rays );
 	cudaFree( d_lights );

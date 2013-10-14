@@ -12,7 +12,7 @@ Perfect specular reflection
 ![Reflective](https://raw.github.com/takfuruya/Project2-Pathtracer/master/renders/color_bleeding.0.10.bmp)
 
 Supersampled antialiasing
-
+![Anti-aliasing](https://raw.github.com/takfuruya/Project2-Pathtracer/master/anti-aliasing.png)
 
 -------------------------------------------------------------------------------
 Performance Analysis
