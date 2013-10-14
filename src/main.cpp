@@ -275,6 +275,22 @@ void runCuda(){
 				resetCameraImage(renderCam);
 				iterations = 1;
 				break;
+			case 'z':
+			case 'Z':
+				renderCam->dofDist += 1.0f;
+				resetCameraImage(renderCam);
+				iterations = 1;
+				break;
+			case 'c':
+			case 'C':
+				if (renderCam->dofDist >= 1)
+				{
+					renderCam->dofDist -= 1.0f;
+					resetCameraImage(renderCam);
+					iterations = 1;
+					break;
+				}
+				
 		}
 	}
 

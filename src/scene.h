@@ -26,6 +26,8 @@ private:
     int loadCamera();
 	void loadObjFile(geom &newObject, const char* filePath);
 
+	static const float initDOFDist;
+
 public:
     scene(string filename);
     ~scene();

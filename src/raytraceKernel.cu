@@ -18,6 +18,7 @@
 #include "intersections.h"
 #include "interactions.h"
 
+using glm::vec2;
 using glm::vec3;
 using glm::cross;
 using glm::length;
@@ -61,9 +62,8 @@ __host__ __device__ glm::vec3 generateRandomOffsetFromThread(glm::vec2 resolutio
 }
 
 
-__host__ __device__ void applyDepthOfField(ray &r, glm::vec2 resolution, float time, int x, int y)
+__host__ __device__ void applyDepthOfField(ray &r, glm::vec2 resolution, float time, int x, int y, float dofDist)
 {
-	float dofDist = 12.0f; // adjust this to change the focal length
 	vec3 offset = generateRandomOffsetFromThread(resolution, time, x, y);
 	vec3 focusPoint = r.origin + dofDist * r.direction;
 	vec3 jitteredOrigin = r.origin + offset;
@@ -73,8 +73,14 @@ __host__ __device__ void applyDepthOfField(ray &r, glm::vec2 resolution, float t
 
 //TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
-__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
+__host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, cameraData cam)
 {
+	vec3 eye = cam.position;
+	vec3 view = cam.view;
+	vec3 up = cam.up;
+	vec2 fov= cam.fov;
+
+
 	ray r;
 	float width = resolution.x;
 	float height = resolution.y;
@@ -91,14 +97,20 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	r.direction = DN;
 
 	if (DEPTH_OF_FIELD_SWITCH)
-		applyDepthOfField(r, resolution, time, x, y);
+		applyDepthOfField(r, resolution, time, x, y, cam.dofDist);
 
 	return r;
 }
 
 //Function that does the initial raycast from the camera with small jittered offset
-__host__ __device__ ray jitteredRaycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
+__host__ __device__ ray jitteredRaycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, cameraData cam)
 {
+
+	vec3 eye = cam.position;
+	vec3 view = cam.view;
+	vec3 up = cam.up;
+	vec2 fov= cam.fov;
+
 	ray r;
 	float width = resolution.x;
 	float height = resolution.y;
@@ -119,7 +131,7 @@ __host__ __device__ ray jitteredRaycastFromCameraKernel(glm::vec2 resolution, fl
 	r.direction = DN;
 
 	if (DEPTH_OF_FIELD_SWITCH)
-		applyDepthOfField(r, resolution, time, x, y);
+		applyDepthOfField(r, resolution, time, x, y, cam.dofDist);
 
 	return r;
 }
@@ -192,7 +204,7 @@ __global__ void constructRayPool(ray* rayPool, cameraData cam, float time)
     int index = x + (y * cam.resolution.x);
 
 	// for anti-aliasing: use jittered ray cast instead.
-	ray r = jitteredRaycastFromCameraKernel(cam.resolution, time, (float)x, (float)y, cam.position, cam.view, cam.up, cam.fov);
+	ray r = jitteredRaycastFromCameraKernel(cam.resolution, time, (float)x, (float)y, cam);
 	r.isTerminated = false;
 	r.pixelID = index;
 	r.attenuation = vec3(1,1,1);
@@ -594,7 +606,7 @@ __global__ void launchRaytraceRay(glm::vec2 resolution, float time, cameraData c
 			float ssx = i / ss - 1 / (ss*2.0f);
 			float ssy = j / ss - 1 / (ss*2.0f);
 
-			ray r = raycastFromCameraKernel(resolution, 0, ssx + x, ssy + y, cam.position, cam.view, cam.up, cam.fov);
+			ray r = raycastFromCameraKernel(resolution, 0, ssx + x, ssy + y, cam);
 			raytraceRay(r, ssratio, index, rayDepth, colors, cam, geoms, numberOfGeoms, cudamat, numberOfMat, cudalightIndex, numberOfLights, time);
 
 			color = color + colors[index];
@@ -654,7 +666,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	// set up geometry for motion blur
 	if (MOTION_BLUR_SWITCH)
 	{
-		translateObject(geoms, 6, frame, iterations, 20, 2000, vec3(0, -0.01, 0));
+		translateObject(geoms, 5, frame, iterations, 20, 2000, vec3(-0.005, 0, 0));
 	}
 
 	// set up crucial magic
@@ -742,6 +754,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cam.view = renderCam->views[frame];
 	cam.up = renderCam->ups[frame];
 	cam.fov = renderCam->fov;
+	cam.dofDist = renderCam->dofDist;
 	
 	// LOOK: Currently assuming number of rays is the number of pixels on screen.
 	int numRays = cam.resolution.x * cam.resolution.y;

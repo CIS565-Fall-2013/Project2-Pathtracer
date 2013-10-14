@@ -8,6 +8,8 @@
 #include "scene.h"
 #include <cstring>
 
+const float scene::initDOFDist = 9.0f;
+
 scene::scene(string filename){
 	cout << "Reading scene from " << filename << " ..." << endl;
 	cout << " " << endl;
@@ -226,6 +228,7 @@ int scene::loadCamera(){
 	float xscaled = (yscaled * newCamera.resolution.x)/newCamera.resolution.y;
 	float fovx = (atan(xscaled)*180)/PI;
 	newCamera.fov = glm::vec2(fovx, fovy);
+	newCamera.dofDist = initDOFDist;
 
 	renderCam = newCamera;
 	
