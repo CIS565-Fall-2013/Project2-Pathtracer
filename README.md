@@ -19,23 +19,34 @@ IMAGES:
 -------------------------------------------------------------------------------
 Lets jump right into the meat here!
 
-* Here's the two best images
-    * Glowing spheres: The entire scene is lit wit 6 spheres of low emmission and thus near each sphere there is an area of illumination where it's contribution is maximum. This leads to cool effects while the over all colors are still farily representative of the material colors as the light's have been chosen to add up in a complementary manner to white. Notice the cool fresnel reflections and the caustsics of the lights from the sphere on the top right.
-    * Many Spheres: This image showcases all the features of the path tracer using a number of spheres. There is a shallow depth of field to focus on the spheres at mid-depth. The multiple caustics arising from not just the light source but the reflections of it as well are a really interesting feature.
+* Here's some complete images
+    * Glowing spheres: 
+      ![ScreenShot](renders/glowingSpheres2500_lessMem.png)
+      * The entire scene is lit wit 6 spheres of low emmission and thus near each sphere there is an area of illumination where it's contribution is maximum. This leads to cool effects while the over all colors are still farily representative of the material colors as the light's have been chosen to add up in a complementary manner to white. Notice the cool fresnel reflections and the caustsics of the lights from the sphere on the top right.
+   * A variant with the emmisive spheres also being refractive:
+      ![ScreenShot](renders/refrGlowingSpheres.png)
+    * Many Spheres: 
+      ![ScreenShot](renders/all2.png)
+      * This image showcases all the features of the path tracer using a number of spheres. There is a shallow depth of field to focus on the spheres at mid-depth. The multiple caustics arising from not just the light source but the reflections of it as well are a really interesting feature.
     
 
 * Diffuse Shading
+   ![ScreenShot](renders/diffuse.png)
 
 * Specular Shading
+   ![ScreenShot](renders/specular.0.png)
 
 * Refractive Shading
+   ![ScreenShot](renders/refr.0.png)
 
 * Fresnel Refraction
+   ![ScreenShot](renders/fres.0315.png)
 
 * Fresnel Refraction with Schlick's approximation (Note: There's a small error with the Total internal reflection part of this one which shows up as a black outline on the sphere)
+   ![ScreenShot](renders/fres_schlick.0350.png)
 
 * Painterly Mode
-
+   ![ScreenShot](renders/Painted glowing Spheres5000.png)
 
 -------------------------------------------------------------------------------
 PRE-EXISTING FEATURES:
@@ -58,28 +69,43 @@ MORE FEATURES:
 The extra features added for this assigment are
 * Stream Compaction (My own implementation)
 * Fresnel Reflection with Schlick's approximation
-* Painterly Mode!
+* Painterly Mode
 
 -------------------------------------------------------------------------------
 OBSERVATIONS:
 -------------------------------------------------------------------------------
 Lets take a look at the effects of stream compcation on the visuals:
+No Compaction
+![ScreenShot](renders/glowingSpheres2500.png)
+   
+With Compaction
+![ScreenShot](renders/glowingSpheres2500_lessMem.png)
 
 The stream compaction strengthens the fresnel reflection visible in the top right sphere. I think this happens because of the "dead" rays not being added at all whatsoever where as in without stream compaction, they would still have had a minute contribution. I'm not sure that's entirely correct though.
 
 Also, here, I noticed that if I let the code run for 5000 iterations, I started accumulating artifacts. I suspect this is because during the multiplication for the seed of the random number generator, I must have stepped on an upper limit and the bounces for a large iteration all those beyond it would give the same (diffuse) reflected direction. Thus, the artifacts would "add up" into discernable shapes.
 
+![ScreenShot](renders/glowingSpheres5000.png)
+
 An error I encountered early on was for the same seed, I had not been multiplying the same seed with the bounce depth. Thus effectively, all my bounces were in the same direction relative to the local space of the point of intersection. This was leading to light leaks and bright streaks.
+![ScreenShot](renders/bloopers/wrongDiffuse.png)
+![ScreenShot](renders/bloopers/wrongDiffuse2.png)
+![ScreenShot](renders/bloopers/wrongDiffuse3.png)
 
 Thus, I tried playing around with the seed and realized that upon giving it a constant value, it appeared that the light and all reflections of it seemed to be projected on to all the surfaces.
+![ScreenShot](renders/bloopers/non-randomness.png)
 
 This when let run for a large number of iterations adds up to a very interesting effect where it looks like the scene has been painted with brush strokes yet has correct global illumination properties (soft shadows, color bleeds and caustics). This looked really cool to me so I decided to support it as a "feature" in the code and can be switched on and off!
+![ScreenShot](renders/bloopers/paint.png)
+![ScreenShot](renders/bloopers/Paint2.png)
 
 -------------------------------------------------------------------------------
 PERFORMANCE ANALYSIS:
 -------------------------------------------------------------------------------
 For performance, I tried two things:
 * Stream Compaction: I wanted to see the effects of stream compaction and so the scene has one of the 6 faces of the room empty (behind the camera). I tested stream compaction on two scenes: The glowing spheres scene and the scene with all my features working on multiple spheres. The graphs below plot the average render time per frame vs the number of bounces. It is easy to see that for a small bounce depth the over head of stream compaction is not worth it. Nonetheless, that overhead becomes extremely small compared to the wasted rays being bounced around for a relatively small bounce depth itself! And on the higher side of things, you can see an almost 20x speed up for 10,000 bounce depths.
+   * ![ScreenShot](renders/glowingSpheresTime.PNG)
+   * ![ScreenShot](renders/manySpheresTime.PNG)
 * Global Memory usage: I had written a lot of my code without storing data from global into local registers and so each time this data was read, it would invoke a global memory call. I removed as many of these as I could and I expected to see a dramatic drop in the run time but there wasn't any noticeable difference. I speculate the NVidia CUDA compiler is smart enough to do these replacements at compilation time itself thus making this exercise futile for the speed up I was hoping to gain but helps decrypt the CUDA compiler a little bit.
 
 -------------------------------------------------------------------------------
