@@ -1,18 +1,24 @@
--------------------------------------------------------------------------------
-CIS565: Project 2: CUDA Pathtracer (Due Wednesday, 10/02/13)
--------------------------------------------------------------------------------
-Fall 2013 (Note: code and rendering in progress)
--------------------------------------------------------------------------------
 
-I was able to implement:
-* Full global illumination (including soft shadows, color bleeding, etc.) by pathtracing rays through the scene. 
-* Properly accumulating emittance and colors to generate a final image
-* Supersampled antialiasing
-* Parallelization by ray instead of by pixel via stream compaction (you may use Thrust for this).
-* Perfect specular reflection
+CUDA Pathtracer (Fall 2013 CIS565 Project 2)
+============================================
 
+(Due Wednesday, 10/02/13)  
+(Note: code and rendering in progress)
+
+Full global illumination (note soft shadows and color bleeding)
 ![Diffuse](https://raw.github.com/takfuruya/Project2-Pathtracer/master/renders/color_bleeding.0.8.bmp)
+
+Perfect specular reflection
 ![Reflective](https://raw.github.com/takfuruya/Project2-Pathtracer/master/renders/color_bleeding.0.10.bmp)
+
+Supersampled antialiasing
+
+
+-------------------------------------------------------------------------------
+Performance Analysis
+-------------------------------------------------------------------------------
+Program was parallelized by ray (instead of by pixel) via stream compaction.  
+
 
 
 -------------------------------------------------------------------------------
@@ -20,7 +26,7 @@ Nsight Insights
 -------------------------------------------------------------------------------
 
 My program was running fine when "Generate GPU Debug Information" was set to "Yes" but immediately
-stopped execution when it was set to "No". No changes in code.
+stopped execution when it was set to "No". No changes in code. What is happening?
 
 ![Generate GPU Debug Information](https://raw.github.com/takfuruya/Project2-Pathtracer/master/1.png)
 
