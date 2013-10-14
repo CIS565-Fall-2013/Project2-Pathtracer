@@ -666,7 +666,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	// set up geometry for motion blur
 	if (MOTION_BLUR_SWITCH)
 	{
-		translateObject(geoms, 5, frame, iterations, 20, 2000, vec3(-0.005, 0, 0));
+		translateObject(geoms, 5, frame, iterations, 20, 2000, vec3(-0.01, 0, 0));
 	}
 
 	// set up crucial magic

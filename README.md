@@ -2,8 +2,9 @@
 CIS565: Project 2: CUDA Pathtracer
 -------------------------------------------------------------------------------
 Fall 2013
-![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot1.png)
-![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot2.png)
+	![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot1.png)
+	![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot2.png)
+	![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot3.png)
 -------------------------------------------------------------------------------
 PROJECT OVERVIEW
 -------------------------------------------------------------------------------
@@ -22,6 +23,16 @@ computing the diffuse scattering direction. Choosing a good seed has a drastic e
 more features including motion blur (which is done via translating the geometry across certain number of frames at a certain interval), OBJ mesh loading (using
 the third party software linked below), and camera controls via keyboard.
 
+Overall, here are a list of features I have implemented so far:
+* Full global illumination
+* Emittance and color accumulation
+* Jittered supersampled antialiasing
+* Parallelization by ray with stream compaction
+* Perfect specular reflection
+* Interactive camera
+* Translational motion blur
+* OBJ Mesh loading and rendering
+* Interactive depth of field
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------

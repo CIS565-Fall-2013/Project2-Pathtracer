@@ -31,8 +31,8 @@
 #define MOTION_BLUR_SWITCH			1												// 0 for no motion blur.
 #define DEPTH_OF_FIELD_SWITCH		1												// 0 for no depth of field
 #define SAMPLES_PER_PIXEL			1												// Number of samples to use per pixel. Min 1.
-#define USE_STREAM_COMPACTION		1												// Use thrust::remove_if to manage ray pool
-#define MAX_BOUNCE					10												// maximum number of times a path tracing ray can bounce
+#define USE_STREAM_COMPACTION		0												// Use thrust::remove_if to manage ray pool
+#define MAX_BOUNCE					5												// maximum number of times a path tracing ray can bounce
 
 namespace utilityCore {
     extern float clamp(float f, float min, float max);
