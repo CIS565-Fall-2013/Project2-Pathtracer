@@ -133,7 +133,7 @@ EMITTANCE   0
 CAMERA
 RES         800 800
 FOVY        25
-ITERATIONS  500000
+ITERATIONS  3000
 FILE        test.bmp
 frame 0
 EYE         0 4.5 12

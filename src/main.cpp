@@ -36,6 +36,7 @@ int main(int argc, char** argv){
     if(strcmp(header.c_str(), "scene")==0){
       renderScene = new scene(data);
       loadedScene = true;
+	  singleFrameMode = true; // LOOK: Temporarily changed to single frame only. Bug where the cuda crashes when saving image for next frame...
     }else if(strcmp(header.c_str(), "frame")==0){
       targetFrame = atoi(data.c_str());
       singleFrameMode = true;
@@ -252,13 +253,13 @@ void runCuda(){
 				break;
 			case 'w':
 			case 'W':
-				renderCam->positions[targetFrame] += vec3(0, -camSpeed, 0);
+				renderCam->positions[targetFrame] += vec3(0, camSpeed, 0);
 				resetCameraImage(renderCam);
 				iterations = 1;
 				break;
 			case 's':
 			case 'S':
-				renderCam->positions[targetFrame] += vec3(0, camSpeed,0);
+				renderCam->positions[targetFrame] += vec3(0, -camSpeed,0);
 				resetCameraImage(renderCam);
 				iterations = 1;
 				break;

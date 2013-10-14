@@ -94,7 +94,7 @@ __host__ __device__ ray jitteredRaycastFromCameraKernel(glm::vec2 resolution, fl
 	vec3 H = (A * length(view) * tanf(fov.x * ((float)PI/180.0f))) / length(A);
 	vec3 V = -(B * length(view) * tanf(fov.y * ((float)PI/180.0f))) / length(B); // LOOK: Multiplied by negative to flip the image
 
-	vec3 offset = generateRandomNumberFromThread(resolution, time, x, y);
+	vec3 offset = generateRandomOffsetFromThread(resolution, time, x, y);
 
 	// offset the point by a small random number ranging from [-0.5,0.5] for anti-aliasing
 	vec3 P = M + ((2.0f*(offset.x+x))/(width-1)-1)*H + ((2.0f*(offset.y+y))/(height-1)-1)*V;
@@ -105,7 +105,6 @@ __host__ __device__ ray jitteredRaycastFromCameraKernel(glm::vec2 resolution, fl
 	r.direction = DN;
 	return r;
 }
-
 
 //Kernel that blacks out a given image buffer
 __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
@@ -128,7 +127,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, float iteration, glm::vec2 resolu
   {
       glm::vec3 color;
 	  
-	  //image[index] = glm::clamp(image[index], vec3(0,0,0), vec3(1,1,1));
+	  //image[index] = glm::clamp(image[index], vec3(0,0,0), vec3(1,1,1)); // Note: Commenting this out makes the image a lot brighter.
 
 	  imageAccumd[index] = (imageAccumd[index] * (iteration - 1) + image[index]) / iteration;
 
@@ -791,8 +790,8 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	cudaMemcpy( renderCam->image, imageAccum, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
 	//free up stuff, or else we'll leak memory like a madman
-	thrust::device_ptr<staticGeom> cudageomsPtr(cudageoms);
-	cleanupTriMesh(cudageomsPtr, numberOfGeoms);
+	//thrust::device_ptr<staticGeom> cudageomsPtr(cudageoms); // TODO: Figure out a better way to free cudageoms->triMesh
+	//cleanupTriMesh(cudageomsPtr, numberOfGeoms);
 	cudaFree( cudaimage );
 	cudaFree( cudageoms );
 	cudaFree( imageAccum );
