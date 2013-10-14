@@ -1,0 +1,41 @@
+﻿Build started 10/14/2013 3:47:59 AM.
+     1>Project "C:\Users\ishaan\Documents\penn\565 GPU Progamming\Project2-Pathtracer\PROJ1_WIN\565Pathtracer\565Pathtracer.vcxproj" on node 2 (build target(s)).
+     1>PrepareForBuild:
+         Creating directory "C:\Users\ishaan\Documents\penn\565 GPU Progamming\Project2-Pathtracer\PROJ1_WIN\Debug\".
+       InitializeBuildStatus:
+         Creating "Debug\565Pathtracer.unsuccessfulbuild" because "AlwaysCreate" was specified.
+       AddCudaCompileDeps:
+         c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\cl.exe /E /nologo /showIncludes /TP /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include" /I"C:/ProgramData/NVIDIA Corporation/NVIDIA GPU Computing SDK 4.0/C/common/inc" /I../shared/glew/includes /I../shared/freeglut/includes /Ibin /Iinclude /I. /FIcuda_runtime.h /c "C:\Users\ishaan\Documents\penn\565 GPU Progamming\Project2-Pathtracer\src\raytraceKernel.cu" 
+       AddCudaCompilePropsDeps:
+         Found "CudaToolkitCustomDir".
+         Found "AdditionalDeps".
+         Found "CompileOut".
+         Found "Include".
+         Found "Keep".
+         Found "KeepDir".
+         Found "NvccCompilation".
+         Found "NvccPath".
+         Found "RequiredIncludes".
+         Found "TargetMachinePlatform".
+         Found "CInterleavedPTX".
+         Found "CodeGeneration".
+         Found "GPUDebugInfo".
+         Found "MaxRegCount".
+         Found "PtxAsOptionV".
+         Found "Defines".
+         Found "Emulation".
+         Found "HostDebugInfo".
+         Found "FastMath".
+         Found "Optimization".
+         Found "Runtime".
+         Found "RuntimeChecks".
+         Found "TypeInfo".
+         Found "Warning".
+         Found "AdditionalOptions".
+         Found "CommandLineTemplate".
+     1>C:\Users\ishaan\Documents\penn\565 GPU Progamming\Project2-Pathtracer\PROJ1_WIN\Build\CUDA 4.0.targets(245,9): error : The CUDA Toolkit v4.0 directory '' does not exist.  Please verify the CUDA Toolkit is installed properly or define the CudaToolkitDir property to resolve this error.
+     1>Done Building Project "C:\Users\ishaan\Documents\penn\565 GPU Progamming\Project2-Pathtracer\PROJ1_WIN\565Pathtracer\565Pathtracer.vcxproj" (build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:00.60
