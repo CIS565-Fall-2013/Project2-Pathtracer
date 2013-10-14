@@ -34,6 +34,7 @@ Overall, here are the features I have implemented so far:
 * Translational motion blur
 * OBJ Mesh loading and rendering
 * Interactive depth of field
+
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
