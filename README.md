@@ -23,7 +23,7 @@ computing the diffuse scattering direction. Choosing a good seed has a drastic e
 more features including motion blur (which is done via translating the geometry across certain number of frames at a certain interval), OBJ mesh loading (using
 the third party software linked below), and camera controls via keyboard.
 
-Overall, here are a list of features I have implemented so far:
+Overall, here is a list of features I have implemented so far:
 * Full global illumination
 * Emittance and color accumulation
 * Jittered supersampled antialiasing
