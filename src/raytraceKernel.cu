@@ -61,6 +61,16 @@ __host__ __device__ glm::vec3 generateRandomOffsetFromThread(glm::vec2 resolutio
 }
 
 
+__host__ __device__ void applyDepthOfField(ray &r, glm::vec2 resolution, float time, int x, int y)
+{
+	float dofDist = 12.0f; // adjust this to change the focal length
+	vec3 offset = generateRandomOffsetFromThread(resolution, time, x, y);
+	vec3 focusPoint = r.origin + dofDist * r.direction;
+	vec3 jitteredOrigin = r.origin + offset;
+	r.direction = glm::normalize(focusPoint - jitteredOrigin);
+	r.origin = jitteredOrigin;
+}
+
 //TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov)
@@ -79,6 +89,10 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 
 	r.origin = P;
 	r.direction = DN;
+
+	if (DEPTH_OF_FIELD_SWITCH)
+		applyDepthOfField(r, resolution, time, x, y);
+
 	return r;
 }
 
@@ -103,8 +117,13 @@ __host__ __device__ ray jitteredRaycastFromCameraKernel(glm::vec2 resolution, fl
 
 	r.origin = P;
 	r.direction = DN;
+
+	if (DEPTH_OF_FIELD_SWITCH)
+		applyDepthOfField(r, resolution, time, x, y);
+
 	return r;
 }
+
 
 //Kernel that blacks out a given image buffer
 __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
