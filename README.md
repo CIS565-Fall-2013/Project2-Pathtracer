@@ -19,7 +19,7 @@ Performance Analysis
 -------------------------------------------------------------------------------
 Program was parallelized by ray (instead of by pixel) via stream compaction.  
 
-
+***In progress.***
 
 -------------------------------------------------------------------------------
 Nsight Insights
@@ -61,11 +61,12 @@ Building it, I was able to confirm that ```TraceRay``` kernel was using 63 regis
 
 ![63 Registers](https://raw.github.com/takfuruya/Project2-Pathtracer/master/3.png)
 
-My device has limitation of 16384 registers per block so I guessed this was the issue:
+	(63 registers/thread) * (512 threads/block) = 32256 registers/block
+
+My device has limitation of 16384 registers per block so I guessed this was the issue:  
+(Nsight > Windows > System Info)
 
 ![Max Registers Per Block](https://raw.github.com/takfuruya/Project2-Pathtracer/master/4.png)
-
-	(63 registers/thread) * (512 threads/block) = 32256 registers/block
 
 I changed ```num_threads_per_block``` to 128 such that,
 

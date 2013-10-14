@@ -557,6 +557,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* cam, int frame, int iterations, ma
 		thrust::device_vector<int> td_v(num_rays);
 		thrust::exclusive_scan(td_is_ray_alive, td_is_ray_alive + num_rays, td_v.begin());
 		
+		// Allocate device memory for storing copy.
 		int num_copy_rays = td_v[num_rays-1] + (int) td_is_ray_alive[num_rays-1];
 		ray* d_rays_copy		  = NULL;
 		glm::vec3* d_lights_copy  = NULL;
@@ -566,17 +567,21 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* cam, int frame, int iterations, ma
 		cudaMalloc((void**)&d_lights_copy,		 num_copy_rays*sizeof(glm::vec3));
 		cudaMalloc((void**)&d_is_ray_alive_copy, num_copy_rays*sizeof(bool));
 		cudaMalloc((void**)&d_ray_idx_copy,		 num_copy_rays*sizeof(int));
+		
+		// Only copy living rays.
 		CompactRays<<<num_blocks_per_grid, num_threads_per_block>>>(thrust::raw_pointer_cast(td_v.data()), d_rays, d_lights, d_is_ray_alive, d_ray_idx, num_rays, d_rays_copy, d_lights_copy, d_is_ray_alive_copy, d_ray_idx_copy);
 		cudaDeviceSynchronize();
+		
+		// Free old memory & update pointers to the copies.
 		cudaFree(d_rays);
 		cudaFree(d_lights);
 		cudaFree(d_is_ray_alive);
 		cudaFree(d_ray_idx);
-		num_rays = num_copy_rays;
-		d_rays = d_rays_copy;
-		d_lights = d_lights_copy;
-		d_is_ray_alive = d_is_ray_alive_copy;
-		d_ray_idx = d_ray_idx_copy;
+		num_rays		= num_copy_rays;
+		d_rays			= d_rays_copy;
+		d_lights		= d_lights_copy;
+		d_is_ray_alive	= d_is_ray_alive_copy;
+		d_ray_idx		= d_ray_idx_copy;
 	}
 
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, cam->resolution, d_image);
