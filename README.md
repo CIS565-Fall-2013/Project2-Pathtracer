@@ -9,6 +9,8 @@ NOTE:
 -------------------------------------------------------------------------------
 I'm assuming a Kepler+ generation card with compute capibility 3 upwards. This is for the maximum threads in a block being changed from 512 to 1024 then onwards. This affects my stream compaction.
 
+Also, all test files must be modified to take-in camera aperture and focal distance as parameters. The tags are APERTURE and FOCUSPLANE. Example scenes are there in the scenes folder.
+
 -------------------------------------------------------------------------------
 INTRODUCTION:
 -------------------------------------------------------------------------------
