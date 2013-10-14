@@ -1,9 +1,11 @@
 -------------------------------------------------------------------------------
 CIS565: Project 2: CUDA Pathtracer Fall 2013
 -------------------------------------------------------------------------------
-	![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot1.png)
-	![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot2.png)
-	![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot3.png)
+Results
+-------------------------------------------------------------------------------
+![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot1.png)
+![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot2.png)
+![alt tag](https://raw.github.com/mchen15/Project2-Pathtracer/master/renders/screenshot3.png)
 -------------------------------------------------------------------------------
 PROJECT OVERVIEW
 -------------------------------------------------------------------------------
