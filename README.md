@@ -71,7 +71,14 @@ I changed ```num_threads_per_block``` to 128 such that,
 
 	(63 registers/thread) * (128 threads/block) = 8064 registers/block
 
-...and it worked.
+...and it worked.  
 It seems like setting "Generate GPU Debug Information" to "Yes" affects the amount of registers
 that can be used per block.
 
+
+-------------------------------------------------------------------------------
+Extra
+-------------------------------------------------------------------------------
+
+A trippy image was produced when random number generator was not seeded properly.
+![Max Registers Per Block](https://raw.github.com/takfuruya/Project2-Pathtracer/master/trippy.png)
