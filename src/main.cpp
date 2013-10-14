@@ -117,7 +117,8 @@ void runCuda(){
     geom* geoms = new geom[renderScene->objects.size()];
     material* materials = new material[renderScene->materials.size()];
 	int* lightIds = new int[renderScene->lightIds.size()];
-	//mesh* staticMeshes = new mesh[renderScene->meshes.size()];
+	mesh* staticMeshes = new mesh[renderScene->meshes.size()];
+	face* staticFaces = new face[renderScene->faces.size()];
     
     for(int i=0; i<renderScene->objects.size(); i++){
 		geoms[i] = renderScene->objects[i];
@@ -128,12 +129,15 @@ void runCuda(){
 	for(int i=0; i<renderScene->lightIds.size(); i++){
 		lightIds[i]= renderScene->lightIds[i];
 	}
-	/*for(int i=0; i<renderScene->meshes.size(); i++){
+	for(int i=0; i<renderScene->meshes.size(); i++){
 		staticMeshes[i] = renderScene->meshes[i];
-	}*/
+	}
+	for(int i=0; i<renderScene->faces.size(); i++){
+		staticFaces[i] = renderScene->faces[i];
+	}
 
     // execute the kernel
-	cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), lightIds, renderScene->lightIds.size());
+	cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), lightIds, renderScene->lightIds.size(), staticMeshes, renderScene->meshes.size(), staticFaces, renderScene->faces.size());
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);

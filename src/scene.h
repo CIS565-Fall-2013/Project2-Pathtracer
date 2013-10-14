@@ -22,7 +22,7 @@ private:
     int loadMaterial(string materialid);
     int loadObject(string objectid);
     int loadCamera();
-	int loadMesh(string line);
+	int loadMesh(string line, int& numTotalFaces);
 	int* tokenizeFaceVerts(vector<string> token_vec);
 public:
     scene(string filename);
@@ -31,6 +31,7 @@ public:
 	vector<mesh> meshes;
     vector<geom> objects;
     vector<material> materials;
+	vector<face> faces;
 	vector<int> lightIds;
     camera renderCam;
 };

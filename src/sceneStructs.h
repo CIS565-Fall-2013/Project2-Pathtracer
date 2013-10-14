@@ -80,9 +80,9 @@ struct material{
 
 struct face{
 	// Vertex indices
-	int p1;
-	int p2;
-	int p3;
+	glm::vec3 p1;
+	glm::vec3 p2;
+	glm::vec3 p3;
 };
 
 struct mesh{
@@ -92,10 +92,6 @@ struct mesh{
 
 	// Static Information
 	int numberOfFaces;
-	int numberOfVerts;
-
-	// Vertex and Face
-	glm::vec3* vertices;
-	face* faces;
+	int startFaceIdx;
 };
 #endif //CUDASTRUCTS_H

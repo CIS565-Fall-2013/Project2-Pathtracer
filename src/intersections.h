@@ -19,12 +19,11 @@ __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ float determinant(cudaMat3 m);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
-__host__ __device__ bool rayBlocked(glm::vec3 const& p1, glm::vec3 const& p2, int idx, staticGeom* geoms, int numberOfGeoms, material* mats);
-__host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms, int& geomId);
+__host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms, mesh* meshes, face* faces, int& geomId);
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
-__host__ __device__ float meshIntersectionTest(staticGeom meshGeom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, mesh* meshes);
-__host__ __device__ float triangleIntersectionTest(staticGeom meshGeom, face f, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, glm::vec3* vertices);
+__host__ __device__ float meshIntersectionTest(staticGeom meshGeom, ray r, mesh* meshes, face* faces, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float triangleIntersectionTest(staticGeom meshGeom, face f, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float getArea(glm::vec3 p1, glm::vec3 p2, glm::vec3 p3);
 __host__ __device__ glm::vec3 getRandomPoint(staticGeom geom, float randomSeed);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
@@ -85,20 +84,8 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-__host__ __device__ bool rayBlocked(glm::vec3 const& p1, glm::vec3 const& p2, int idx, staticGeom* geoms, int numberOfGeoms, material* mats){
-	ray r;
-	glm::vec3 v0 = p2 - p1;
-	r.direction = glm::normalize(v0);
-	r.origin = .001f * r.direction + p1;
-	int gId;
-	glm::vec3 ip, n;
-	float intersection = isIntersect(r, ip, n, geoms, numberOfGeoms, gId);
-	if(mats[geoms[gId].materialid].emittance > .001) return false;
-	else return gId != idx;
-}
-
 //Geometry agnostic wrapper around the intersection tests
-__host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms, int& geomId){
+__host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms, mesh* meshes, face* faces, int& geomId){
 	float temp = -1.0f, intersect = 1000000;
 	bool changed = false;
 	glm::vec3 temp_IP, temp_N;
@@ -111,7 +98,7 @@ __host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::
 			temp = boxIntersectionTest(geoms[i], r, temp_IP, temp_N);
 			break;
 		default:
-			//temp = meshIntersectionTest(geoms[i], r, temp_IP, temp_N, meshes);
+			temp = meshIntersectionTest(geoms[i], r, meshes, faces, temp_IP, temp_N);
 			break;
 		}
 
@@ -229,7 +216,7 @@ __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::
   return glm::length(r.origin - realIntersectionPoint);
 }
 
-__host__ __device__ float meshIntersectionTest(staticGeom meshGeom, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, mesh* meshes){
+__host__ __device__ float meshIntersectionTest(staticGeom meshGeom, ray r, mesh* meshes, face* faces, glm::vec3& intersectionPoint, glm::vec3& normal){
 	mesh m = meshes[meshGeom.meshId];
 
 	glm::vec3 temp_IP, temp_N;
@@ -237,7 +224,9 @@ __host__ __device__ float meshIntersectionTest(staticGeom meshGeom, ray r, glm::
 	bool changed = false;
 
 	for(int i = 0; i < m.numberOfFaces; i++){
-		temp = triangleIntersectionTest(meshGeom, m.faces[i], r, temp_IP, temp_N, m.vertices);
+		face f = faces[m.startFaceIdx + i];
+
+		temp = triangleIntersectionTest(meshGeom, f, r, temp_IP, temp_N);
 		if(!epsilonCheck(temp, -1.0f) && temp < t_min){
 			t_min = temp;
 			intersectionPoint = temp_IP;
@@ -245,17 +234,16 @@ __host__ __device__ float meshIntersectionTest(staticGeom meshGeom, ray r, glm::
 			changed = true;
 		}
 	}
-
 	if(changed) return t_min;
 	else return -1.0f;
 }
 
-__host__ __device__ float triangleIntersectionTest(staticGeom meshGeom, face f, ray r, glm::vec3& intersectionPoint, glm::vec3& normal, glm::vec3* vertices){
+__host__ __device__ float triangleIntersectionTest(staticGeom meshGeom, face f, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
 	glm::vec3 ro = multiplyMV(meshGeom.inverseTransform, glm::vec4(r.origin, 1.0f));
 	glm::vec3 rd = glm::normalize(multiplyMV(meshGeom.inverseTransform, glm::vec4(r.direction, 0.0f)));
 
 	glm::vec3 p1, p2, p3;
-	p1 = vertices[f.p1], p2 = vertices[f.p2], p3 = vertices[f.p3];
+	p1 = f.p1, p2 = f.p2, p3 = f.p3;
 	
 	glm::vec3 N = glm::normalize(glm::cross(p3 - p1, p2 - p1));
 	float t = glm::dot(N, p1 - ro) / glm::dot(N, rd);

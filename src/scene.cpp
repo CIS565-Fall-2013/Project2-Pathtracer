@@ -35,6 +35,7 @@ scene::scene(string filename){
 }
 
 int scene::loadObject(string objectid){
+	int numTotalFaces = 0;
     int id = atoi(objectid.c_str());
     if(id!=objects.size()){
         cout << "ERROR: OBJECT ID does not match expected number of objects" << endl;
@@ -64,7 +65,7 @@ int scene::loadObject(string objectid){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
 		    		newObject.type = MESH;
-					newObject.meshId = loadMesh(line);
+					newObject.meshId = loadMesh(line, numTotalFaces);
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;
@@ -266,16 +267,13 @@ int scene::loadMaterial(string materialid){
 	}
 }
 
-int scene::loadMesh(string filename){
+int scene::loadMesh(string filename, int& numTotalFaces){
 	char* fname = (char*)filename.c_str();
 	ifstream file;
 	file.open(fname);
 
 	vector<glm::vec3> vert_pos;
-	vector<glm::vec3> vert_tex;
-	vector<glm::vec3> vert_norm;
-	vector<face> faces;
-	
+
 	glm::vec3 min_v = glm::vec3(1000000, 1000000, 1000000);
 	glm::vec3 max_v = glm::vec3(-1000000, -1000000, -1000000);
 	
@@ -300,9 +298,9 @@ int scene::loadMesh(string filename){
 							face f;
 							// Read vertex index
 							// TODO: Add texture and normal support
-							f.p1 = indices[0];
-							f.p2 = indices[i+1];
-							f.p3 = indices[i+2];
+							f.p1 = vert_pos[indices[0]];
+							f.p2 = vert_pos[indices[i+1]];
+							f.p3 = vert_pos[indices[i+2]];
 
 							faces.push_back(f);
 						}
@@ -313,27 +311,16 @@ int scene::loadMesh(string filename){
 			}
 		}
 	}
-	
-	// Copy information into static objects
-	glm::vec3* vertices = new glm::vec3[vert_pos.size()];
-	for(int i = 0; i < vert_pos.size(); i++){
-		vertices[i] = vert_pos[i];
-	}
-
-	face* staticFaces = new face[faces.size()];
-	for(int i = 0; i < faces.size(); i++){
-		staticFaces[i] = faces[i];
-	}
 
 	mesh m;
-	m.vertices = vertices;
-	m.faces = staticFaces;
 	m.numberOfFaces = faces.size();
-	m.numberOfVerts = vert_pos.size();
 	m.min = min_v;
 	m.max = max_v;
+	m.startFaceIdx = numTotalFaces;
 
 	meshes.push_back(m);
+
+	numTotalFaces += m.numberOfFaces;
 
 	return meshes.size() - 1;
 }
