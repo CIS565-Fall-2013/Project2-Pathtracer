@@ -25,6 +25,8 @@
     <ClInclude Include="..\..\src\interactions.h" />
     <ClInclude Include="..\..\src\intersections.h" />
     <ClInclude Include="..\..\src\main.h" />
+    <ClInclude Include="..\..\src\main_initializer.h" />
+    <ClInclude Include="..\..\src\main_runtime.h" />
     <ClInclude Include="..\..\src\raytraceKernel.h" />
     <ClInclude Include="..\..\src\scene.h" />
     <ClInclude Include="..\..\src\sceneStructs.h" />
@@ -36,6 +38,8 @@
     <ClCompile Include="..\..\src\glslUtility.cpp" />
     <ClCompile Include="..\..\src\image.cpp" />
     <ClCompile Include="..\..\src\main.cpp" />
+    <ClCompile Include="..\..\src\main_initializer.cpp" />
+    <ClCompile Include="..\..\src\main_runtime.cpp" />
     <ClCompile Include="..\..\src\scene.cpp" />
     <ClCompile Include="..\..\src\stb_image\stb_image.c" />
     <ClCompile Include="..\..\src\stb_image\stb_image_write.c" />
