@@ -22,7 +22,7 @@
 
 //#define DEPTH_OF_FIELD
 //#define MOTION_BLUR
-//#define STREAM_COMPACTION
+#define STREAM_COMPACTION
 
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
@@ -427,17 +427,11 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 //----------------shadow ray for direct illumination part-------------------------------------
 		glm::vec3 intersectionPoint, intersectionNormal;
 		int intersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials); 
-
 		// choose which light to sample
 		thrust::default_random_engine rng(hash(index*time));
 		thrust::uniform_real_distribution<float> u01(0,0.9999999); // in fact, the random number generator for [0, 1) sometimes generate 1 so we want to avoid that
 		float russianRoulette = (float)u01(rng);
 		int sampleLightIndex = lights[(int)(russianRoulette * numberOfLights)];
-
-/*
-		if(sampleLightIndex != 8)
-		printf("sampleLightIndex = %f\n", (russianRoulette * numberOfLights));*/
-
 		// sample selected light
 		glm::vec3 lightNormal;
 		float lightArea;
@@ -457,7 +451,6 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 		}
 //----------------------------------------------------------------------------------------------
 #if defined(DEPTH_OF_FIELD)
-		thrust::default_random_engine rng(hash(index*time));
 		thrust::uniform_real_distribution<float> u(0,1);
 
 		float u1 = u(rng);
@@ -470,6 +463,7 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 		r.origin += offset;
 		r.direction = glm::normalize(focalPlaneIntersection - r.origin);
 #endif
+
 
 		rayPool[index] = r;
     }

@@ -404,7 +404,9 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
     float side1 = radii.x * radii.y * 4.0f; //x-y face
     float side2 = radii.z * radii.y * 4.0f; //y-z face
     float side3 = radii.x * radii.z* 4.0f; //x-z face
-    float totalarea = 2.0f * (side1+side2+side3);
+
+	glm::vec3 point = glm::vec3(.5,.5,.5);
+    /*float totalarea = 2.0f * (side1+side2+side3);
     
     //pick random face, weighted by surface area
     float russianRoulette = (float)u01(rng);
@@ -441,8 +443,9 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
         point = glm::vec3((float)u02(rng), -.499, (float)u02(rng));
 		area = side3;
 		normal = glm::vec3(0.0f, -1.0f, 0.0f);
-    }
+    }*/
 	
+	// only samples 1 face of a cube
 	point = glm::vec3((float)u02(rng), -.499, (float)u02(rng));
 	area = side3;
 	normal = glm::vec3(0.0f, -1.0f, 0.0f);

@@ -25,7 +25,7 @@ This is a GPU path tracing program. Features implemented including
 
 Project Video:
 
-https://raw.github.com/wuhao1117/Project2-Pathtracer/master/renders/GPU_pathtracer.mp4
+http://www.youtube.com/watch?v=s7Piz74_2zc
 
 To activate motion blur effects, define MOTION_BLUR in raytraceKernel.cu file.
 To activate depth of field effects, define DEPTH_OF_FIELD in raytraceKernel.cu file.

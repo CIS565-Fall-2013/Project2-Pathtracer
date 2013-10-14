@@ -1,4 +1,4 @@
-﻿Build started 10/13/2013 10:19:13 AM.
+﻿Build started 10/14/2013 9:34:45 AM.
      1>Project "G:\GitHub\Project2-Pathtracer\PROJ1_WIN\GPU Path Tracer\565Raytracer.vcxproj" on node 2 (build target(s)).
      1>InitializeBuildStatus:
          Creating "Release (v5.5)\PathTracer.unsuccessfulbuild" because "AlwaysCreate" was specified.
@@ -21,4 +21,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:00.06
+Time Elapsed 00:00:00.05
