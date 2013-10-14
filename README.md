@@ -9,8 +9,6 @@ NOTE:
 -------------------------------------------------------------------------------
 I'm assuming a Kepler+ generation card with compute capibility 3 upwards. This is for the maximum threads in a block being changed from 512 to 1024 then onwards. This affects my stream compaction.
 
-Also, please note that you must use the 565Raytracer.sln to check the code. (My merging of the two repostitories may have screwed things up for the other solution/makefile; I apologize for the same)
-
 -------------------------------------------------------------------------------
 INTRODUCTION:
 -------------------------------------------------------------------------------
@@ -60,6 +58,7 @@ MORE FEATURES:
 The extra features added for this assigment are
 * Stream Compaction (My own implementation)
 * Fresnel Reflection with Schlick's approximation
+* Painterly Mode!
 
 -------------------------------------------------------------------------------
 OBSERVATIONS:
