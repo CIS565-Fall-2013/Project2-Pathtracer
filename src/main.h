@@ -62,6 +62,7 @@ GLuint texcoordsLocation = 1;
 const char *attributeLocations[] = { "Position", "Tex" };
 GLuint pbo = (GLuint)NULL;
 GLuint displayImage;
+cameraData liveCamera;
 
 //-------------------------------
 //----------CUDA STUFF-----------
@@ -86,6 +87,7 @@ void runCuda();
 #else
 	void display();
 	void keyboard(unsigned char key, int x, int y);
+	void specialKeyboard(int key, int x, int y);
 #endif
 
 //-------------------------------

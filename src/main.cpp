@@ -13,6 +13,9 @@
 
 int main(int argc, char** argv){
 
+  liveCamera.aperture = 0;//1.75;
+  liveCamera.focusPlane = 0;//12.5;
+
   #ifdef __APPLE__
 	  // Needed in OSX to force use of OpenGL3.2 
 	  glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, 3);
@@ -26,7 +29,7 @@ int main(int argc, char** argv){
   finishedRender = false;
 
   targetFrame = 0;
-  singleFrameMode = false;
+  singleFrameMode = true;
 
   // Load scene file
   for(int i=1; i<argc; i++){
@@ -90,9 +93,14 @@ int main(int argc, char** argv){
   #else
 	  glutDisplayFunc(display);
 	  glutKeyboardFunc(keyboard);
+	  glutSpecialFunc(specialKeyboard);
 
 	  glutMainLoop();
   #endif
+
+  // Free AccumulatorImage
+  cudaFreeAccumulatorImage();
+
   return 0;
 }
 
@@ -102,9 +110,20 @@ int main(int argc, char** argv){
 
 void runCuda(){
 
+	
+	// Performance Analysis End
+	cudaEvent_t start,stop;
+	// Generate events
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+
+	
+	// Trigger event 'start'
+	cudaEventRecord(start, 0);
+
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  
+
   if(iterations<renderCam->iterations){
     uchar4 *dptr=NULL;
     iterations++;
@@ -123,7 +142,7 @@ void runCuda(){
     
   
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), liveCamera );
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -142,8 +161,8 @@ void runCuda(){
       
       gammaSettings gamma;
       gamma.applyGamma = true;
-      gamma.gamma = 1.0;
-      gamma.divisor = 1.0; //renderCam->iterations;
+      gamma.gamma = 1.0;//2.2;
+      gamma.divisor = renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
       string s;
@@ -172,7 +191,13 @@ void runCuda(){
       finishedRender = false;
     }
   }
-  
+	// Performance Analysis End
+	cudaEventRecord(stop, 0); // Trigger Stop event
+	cudaEventSynchronize(stop); // Sync events (BLOCKS till last (stop in this case) has been recorded!)
+	float elapsedTime; // Initialize elapsedTime;
+	cudaEventElapsedTime(&elapsedTime, start, stop); // Calculate runtime, write to elapsedTime -- cudaEventElapsedTime returns value in milliseconds. Resolution ~0.5ms
+ 
+	printf("Execution Time: %fms for iteration: %d\n", elapsedTime, iterations); // Print Elapsed time
 }
 
 #ifdef __APPLE__
@@ -199,9 +224,10 @@ void runCuda(){
 #else
 
 	void display(){
+
 		runCuda();
 
-		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
+		string title = "565PathTracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
 		glutSetWindowTitle(title.c_str());
 
 		glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);
@@ -218,15 +244,99 @@ void runCuda(){
 		glutSwapBuffers();
 	}
 
+	void resetAccumulator()
+	{
+		iterations = 1;
+	}
+
 	void keyboard(unsigned char key, int x, int y)
 	{
-		std::cout << key << std::endl;
+//		std::cout << key << std::endl;
 		switch (key) 
 		{
 		   case(27):
 			   exit(1);
 			   break;
+		   case('w'):
+			   iterations = 1;
+			   cudaClearAccumulatorImage(renderCam);
+			   liveCamera.position.y += STRAFE_AMOUNT;
+			   break;
+		   case('s'):
+			   iterations = 1;
+			   cudaClearAccumulatorImage(renderCam);
+			   liveCamera.position.y -= STRAFE_AMOUNT;
+			   break;
+		   case('a'):
+			   iterations = 1;
+			   cudaClearAccumulatorImage(renderCam);
+			   liveCamera.position.x += STRAFE_AMOUNT;
+			   break;
+		   case('d'):
+			   iterations = 1;
+			   cudaClearAccumulatorImage(renderCam);
+			   liveCamera.position.x -= STRAFE_AMOUNT;
+			   break;
+		   case('q'):
+			   iterations = 1;
+			   cudaClearAccumulatorImage(renderCam);
+			   liveCamera.position.z += STRAFE_AMOUNT;
+			   break;
+		   case('z'):
+			   iterations = 1;
+			   cudaClearAccumulatorImage(renderCam);
+			   liveCamera.position.z -= STRAFE_AMOUNT;
+			   break;
+		   case('['):
+			   iterations = 1;
+			   cudaClearAccumulatorImage(renderCam);
+			   liveCamera.view.x += STRAFE_AMOUNT;
+			   break;
+		   case(']'):
+			   iterations = 1;
+			   cudaClearAccumulatorImage(renderCam);
+			   liveCamera.view.x -= STRAFE_AMOUNT;
+			   break;
+		   case('o'):
+			   iterations = 1;
+			   cudaClearAccumulatorImage(renderCam);
+			   liveCamera.view.y += STRAFE_AMOUNT;
+			   break;
+		   case('p'):
+			   iterations = 1;
+			   cudaClearAccumulatorImage(renderCam);
+			   liveCamera.view.y -= STRAFE_AMOUNT;
+			   break;
 		}
+	}
+
+	void specialKeyboard(int key, int x, int y)
+	{
+			switch (key) 
+			{
+				case GLUT_KEY_UP:
+					iterations = 1;
+					cudaClearAccumulatorImage(renderCam);
+					liveCamera.focusPlane += STRAFE_AMOUNT;
+					break;
+				case GLUT_KEY_DOWN:
+					iterations = 1;
+					cudaClearAccumulatorImage(renderCam);
+					liveCamera.focusPlane -= STRAFE_AMOUNT;
+					break;
+				case GLUT_KEY_LEFT:
+					iterations = 1;
+					cudaClearAccumulatorImage(renderCam);
+					liveCamera.aperture += 0.5*STRAFE_AMOUNT;
+					break;
+				case GLUT_KEY_RIGHT:
+					iterations = 1;
+					cudaClearAccumulatorImage(renderCam);
+					liveCamera.aperture -= 0.5*STRAFE_AMOUNT;
+					if(liveCamera.aperture < NUDGE)
+						liveCamera.aperture = NUDGE;
+					break;
+			}
 	}
 
 #endif
