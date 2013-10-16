@@ -194,7 +194,18 @@ __host__ __device__ float testGeomIntersection(staticGeom* geoms, int numberOfGe
 		}
 			
 		else if(geoms[geomInd].type == MESH){
-				
+			//loop through all faces and test for intersection
+			//for(int i = 0; i < geoms[geomInd].objMesh.numFaces; ++i){
+			//	geom mesh = geoms[geomInd];
+			//	glm::vec3 p1 = mesh.objMesh.verts[mesh.objMesh.faces[i].x];
+			//	glm::vec3 p2 = mesh.objMesh.verts[mesh.objMesh.faces[i].y];
+			//	glm::vec3 p3 = mesh.objMesh.verts[mesh.objMesh.faces[i].z];
+			//	
+			//	//tempLen = triangleIntersectionTest(p1, p2, p3, r, tempIntersection, tempNormal);
+
+
+			//}
+
 		}
 							
 		//if intersection occurs and object is in front of previously intersected object
@@ -396,10 +407,6 @@ __global__ void createRay(glm::vec2 resolution, cameraData cam, int maxDepth, in
 		jitterVal -= glm::vec3(0.5f, 0.5f, 0.5f);
 		firstRay.direction += 0.0015f* jitterVal; 
 
-		//do intersection test
-		int objID = -1;
-		float len = testGeomIntersection(geoms, numberOfGeoms, firstRay, intersection, normal, objID);
-
 		//start building the first pool of rays 
 		rayBounce firstBounce = rayBounce();
 		firstBounce.pixID = index;
@@ -590,7 +597,7 @@ void cudaFreeMemory(){
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, bool& clear){
   
-	int traceDepth = 10; //determines how many bounces the raytracer traces
+	int traceDepth = 20; //determines how many bounces the raytracer traces
 
 	// set up crucial magic
 	int tileSize = 8;

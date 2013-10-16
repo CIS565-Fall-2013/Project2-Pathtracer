@@ -7,6 +7,7 @@
 #include <iostream>
 #include "scene.h"
 #include <cstring>
+#include "meshLoader.h"
 
 scene::scene(string filename){
 	cout << "Reading scene from " << filename << " ..." << endl;
@@ -36,6 +37,10 @@ scene::scene(string filename){
 
 int scene::loadObject(string objectid){
     int id = atoi(objectid.c_str());
+
+	//for obj loading
+	meshLoader loader;
+
     if(id!=objects.size()){
         cout << "ERROR: OBJECT ID does not match expected number of objects" << endl;
         return -1;
@@ -55,6 +60,7 @@ int scene::loadObject(string objectid){
 				newObject.type = CUBE;
             }else{
 				string objline = line;
+				std::cout<<line<<std::endl;
                 string name;
                 string extension;
                 istringstream liness(objline);
@@ -64,6 +70,23 @@ int scene::loadObject(string objectid){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
 		    		newObject.type = MESH;
+					
+					//run meshloader to read in mesh			
+					//convert to char*
+					string path = "../../scenes/";
+					path.append(line);
+					
+					int strSize = path.length() +1;
+					char* objName = new char[strSize];
+					std::copy(path.begin(), path.end(), objName);
+					objName[path.size()] = '\0';
+
+					loader.loadObj(objName);
+					delete[] objName;
+
+					newObject.objMesh.numFaces = loader.faces.size();
+					newObject.objMesh.numVerts = loader.verts.size();
+
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;
@@ -118,6 +141,21 @@ int scene::loadObject(string objectid){
 	newObject.scales = new glm::vec3[frameCount];
 	newObject.transforms = new cudaMat4[frameCount];
 	newObject.inverseTransforms = new cudaMat4[frameCount];
+
+	if(newObject.type == MESH){
+		newObject.objMesh.faces = new glm::vec3[newObject.objMesh.numFaces];
+		newObject.objMesh.normals = new glm::vec3[newObject.objMesh.numFaces];
+		newObject.objMesh.verts = new glm::vec3[newObject.objMesh.numVerts];
+
+		//copy to arrays
+		for(int i = 0; i<newObject.objMesh.numFaces; ++i){
+			newObject.objMesh.faces[i] = loader.faces[i];
+			newObject.objMesh.normals[i] = loader.normals[i];
+		}
+		for(int i = 0; i < newObject.objMesh.numVerts; ++i)
+			newObject.objMesh.verts[i] = loader.verts[i];
+	}
+
 	for(int i=0; i<frameCount; i++){
 		newObject.translations[i] = translations[i];
 		newObject.rotations[i] = rotations[i];

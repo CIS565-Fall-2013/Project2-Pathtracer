@@ -18,10 +18,20 @@ struct ray {
 	glm::vec3 direction;
 };
 
+struct mesh{
+	glm::vec3* faces;
+	glm::vec3* verts;
+	glm::vec3* normals;
+
+	int numVerts;
+	int numFaces;
+};
+
 struct geom {
 	enum GEOMTYPE type;
 	int materialid;
 	int frames;
+	mesh objMesh;
 	glm::vec3* translations;
 	glm::vec3* rotations;
 	glm::vec3* scales;
@@ -32,6 +42,7 @@ struct geom {
 struct staticGeom {
 	enum GEOMTYPE type;
 	int materialid;
+	mesh objMesh;
 	glm::vec3 translation;
 	glm::vec3 rotation;
 	glm::vec3 scale;

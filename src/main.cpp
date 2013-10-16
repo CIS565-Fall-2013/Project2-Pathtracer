@@ -57,6 +57,11 @@ int main(int argc, char** argv){
   width = renderCam->resolution[0];
   height = renderCam->resolution[1];
 
+  oldMousePos = glm::vec2(0,0);
+  
+  startZoom = false;
+  startRotate = false;
+
   if(targetFrame>=renderCam->frames){
     cout << "Warning: Specified target frame is out of range, defaulting to frame 0." << endl;
     targetFrame = 0;
@@ -94,6 +99,8 @@ int main(int argc, char** argv){
   #else
 	  glutDisplayFunc(display);
 	  glutKeyboardFunc(keyboard);
+	  glutMouseFunc(mouseClick);
+	  glutMotionFunc(mouseMove);
 
 	  glutMainLoop();
   #endif
@@ -132,9 +139,9 @@ void runCuda(){
       for(int x=0; x<renderCam->resolution.x; x++){
         for(int y=0; y<renderCam->resolution.y; y++){
           int index = x + (y * renderCam->resolution.x);
-          outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
-        }
-      }
+		  outputImage.writePixelRGB(renderCam->resolution.x-1-x,y,renderCam->image[index]);
+		}
+	}
       
       gammaSettings gamma;
       gamma.applyGamma = true;
@@ -171,7 +178,51 @@ void runCuda(){
   
 }
 
+glm::vec3 toSphereCoord(int sX, int sY){
+	
+	float radius = min(width/2.0f, height/2.0f);	//sphere that can fit into the window
+	float ptX = (sX - width/2.0f);
+	float ptY = (sY - height/2.0f);
+	float ptZ;
 
+	float r = ptX*ptX + ptY*ptY;
+
+	if(r > 1.0f){
+		float s = 1.0f/sqrt(r);
+		ptX *= s;
+		ptY *= s;
+		ptZ = 0.0f;
+	}
+	else
+		ptZ = sqrt(1.0f - r);
+
+	return glm::vec3(ptZ, ptY, ptZ);
+}
+
+void rotateX(float x){
+	//compute rotation matrix
+	glm::vec3 pos = renderCam->positions[targetFrame];
+	glm::vec3 up = renderCam->ups[targetFrame];
+	glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), x, up);
+
+	//find new camera position
+	glm::vec4 tempPos (pos.x, pos.y, pos.z, 0.0f);
+	tempPos= rotation*tempPos;
+	renderCam->positions[targetFrame] = glm::vec3(tempPos.x, tempPos.y, tempPos.z);
+}
+
+void rotateY(float y){
+	//compute rotation matrix
+	glm::vec3 pos = renderCam->positions[targetFrame];
+	glm::vec3 up = renderCam->ups[targetFrame];
+	glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), y, glm::cross(up, pos));
+
+	//find new camera position
+	glm::vec4 tempPos (pos.x, pos.y, pos.z, 0.0f);
+	tempPos= rotation*tempPos;
+	renderCam->positions[targetFrame] = glm::vec3(tempPos.x, tempPos.y, tempPos.z);
+	
+}
 
 #ifdef __APPLE__
 
@@ -195,7 +246,7 @@ void runCuda(){
 	}
 
 #else
-
+	
 	void display(){
 
 		runCuda();
@@ -229,43 +280,93 @@ void runCuda(){
 			break;
 
 		case('a'):
-			renderCam->positions[targetFrame].x += 1.0f;
+			rotateX(1.0f);
+			//renderCam->positions[targetFrame].x += 1.0f;
 			iterations = 0;
 			clearImage = true;
 			break;
 
 		case('d'):
-			renderCam->positions[targetFrame].x -= 1.0f;
+			rotateX(-1.0f);
+			//renderCam->positions[targetFrame].x -= 1.0f;
 			iterations = 0;
 			clearImage = true;
 			break;
 
 		case('w'):
-			renderCam->positions[targetFrame].y += 1.0f;
+			rotateY(1.0f);
+			//renderCam->positions[targetFrame].y += 1.0f;
 			iterations = 0;
 			clearImage = true;
 			break;
 
 		case('s'):
-			renderCam->positions[targetFrame].y -= 1.0f;
-			iterations = 0;
-			clearImage = true;
-			break;
-
-		case('j'):
-			renderCam->positions[targetFrame].z += 1.0f;
-			iterations = 0;
-			clearImage = true;
-			break;
-
-		case('k'):
-			renderCam->positions[targetFrame].z -= 1.0f;
+			rotateY(-1.0f);
+			//renderCam->positions[targetFrame].y -= 1.0f;
 			iterations = 0;
 			clearImage = true;
 			break;
 
 		}
+
 	}
+
+	void mouseClick(int button, int state, int x, int y){
+
+		switch (state){
+			case(GLUT_UP):
+				startZoom = false;
+				startRotate=false;
+				clearImage = false;
+				break;
+
+			case(GLUT_DOWN):
+				clearImage = true;
+				iterations = 0;
+				oldMousePos.x = x;
+				oldMousePos.y = y;
+				break;
+		}
+
+		switch (button){
+			case(GLUT_LEFT_BUTTON):
+				startRotate = true;
+				break;
+
+			case(GLUT_RIGHT_BUTTON):
+				startZoom = true;
+				break;
+		}
+
+	}
+
+	void mouseMove(int x, int y){
+		if(startZoom){
+			if(oldMousePos.x > x || oldMousePos.y > y)
+				renderCam->positions[targetFrame].z += 0.2f;
+			else if(oldMousePos.x < x || oldMousePos.y < y)
+				renderCam->positions[targetFrame].z -= 0.2f;
+
+		}
+		else if(startRotate){
+			if(oldMousePos.x > x)
+				rotateX(1.0f);
+			else if(oldMousePos.x < x)
+				rotateX(-1.0f);
+			
+			if(oldMousePos.y > y)
+				rotateY(1.0f);
+			else if(oldMousePos.y < y)
+				rotateY(-1.0f);
+		}
+
+		oldMousePos.x = x;
+		oldMousePos.y = y;
+		clearImage = true;
+		iterations = 0;
+
+	}
+
 
 #endif
 

@@ -30,6 +30,9 @@
 #include "utilities.h"
 #include "scene.h"
 
+#include "glm/glm.hpp"
+#include "glm/gtc/quaternion.hpp"
+#include "glm/gtc/matrix_transform.hpp"
 #include <ctime>
 
 #if CUDA_VERSION >= 5000
@@ -85,11 +88,25 @@ int main(int argc, char** argv);
 
 void runCuda();
 
+
+//-------------------------------
+//---------CAMERA STUFF----------
+//-------------------------------
+glm::vec2 oldMousePos;
+bool startZoom;
+bool startRotate;
+
+void rotateX(float x);
+void rotateY(float y);
+glm::vec3 toSphereCoord(int x, int y);
+
 #ifdef __APPLE__
 	void display();
 #else
 	void display();
 	void keyboard(unsigned char key, int x, int y);
+	void mouseMove(int x, int y);
+	void mouseClick(int button, int state, int x, int y);
 #endif
 
 //-------------------------------
