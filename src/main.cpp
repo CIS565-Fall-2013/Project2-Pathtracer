@@ -240,11 +240,12 @@ void runCuda(){
 	//		frames = 0;
 	//	}
 	//	++frames;
-		string title = "GPU Path Tracer | " + utilityCore::convertIntToString(iterations) + " Iterations | Execution Time: " + utilityCore::convertFloatToString(executionTime) + "ms";
+	    char title[100];
+		sprintf(title, "GPU Path Tracer | iterations: %d | Execution Time: %0.2fms", iterations, executionTime);
 
 		runCuda();
 
-		glutSetWindowTitle(title.c_str());
+		glutSetWindowTitle(title);
 
 		glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);
 		glBindTexture(GL_TEXTURE_2D, displayImage);
