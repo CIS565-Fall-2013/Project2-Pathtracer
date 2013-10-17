@@ -159,30 +159,14 @@ ROTAT       0 0 0
 SCALE       .01 10 10
 
 OBJECT 5
-sphere
-material 4
-frame 0
-TRANS       0 2 0
-ROTAT       0 180 0
-SCALE       3 3 3
-
-OBJECT 6
-sphere
-material 3
-frame 0
-TRANS       2 5 2
-ROTAT       0 180 0
-SCALE       2.5 2.5 2.5
-
-OBJECT 7
-sphere
+cube.obj
 material 6
 frame 0
-TRANS       -2 5 -2
-ROTAT       0 180 0
-SCALE       3 3 3
+TRANS       0 0 0
+ROTAT       0 0 0
+SCALE       1 1 1
 
-OBJECT 8
+OBJECT 6
 cube
 material 8 
 frame 0
