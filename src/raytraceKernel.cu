@@ -240,10 +240,28 @@ __global__ void raytraceRay(ray* cudarays, glm::vec2 resolution, float time, cam
 				cudarays[index].origin = intersectionPoint+0.01f*reflectedDir;
 				cudarays[index].direction = reflectedDir;
 			}else{ //just diffuse
-				vec3 rand = generateRandomNumberFromThread(resolution, time*(numBounce+1), x, y);
-				vec3 outgoingDir = calculateRandomDirectionInHemisphere(normal,rand.x, rand.y);
+				//vec3 rand = generateRandomNumberFromThread(resolution, time*(numBounce+1), x, y);
+				thrust::default_random_engine rng(hash(time*(numBounce + 1)* index));
+                thrust::uniform_real_distribution<float> u01(0,1);
+				
+				if((float)u01(rng) < 0.1) // russian roulette rule: ray is absorbed
+                {
+					cudarays[index].color *= cudamaterials[geoms[closestObjectid].materialid].color*cudamaterials[geoms[closestObjectid].materialid].emittance;
+					cudarays[index].alive = false;
+					colors[cudarays[index].pixelID] += cudarays[index].color;
+					cudaalive[index] = 0; //dead
+					return;
+                }
+                else
+                {
+					vec3 outgoingDir = calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng));
+                    cudarays[index].origin = intersectionPoint+0.01f*outgoingDir;
+                    cudarays[index].direction = outgoingDir;
+				}
+
+				/*vec3 outgoingDir = calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng));
 				cudarays[index].origin = intersectionPoint+0.001f*outgoingDir;
-				cudarays[index].direction = outgoingDir;
+				cudarays[index].direction = outgoingDir;*/
 			}
 
 			cudarays[index].color *= objectColor;
