@@ -74,7 +74,7 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image){
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * resolution.x);
     if(x<=resolution.x && y<=resolution.y){
-      image[index] = glm::vec3(0,0,1);
+      image[index] = glm::vec3(0,0,0);
     }
 }
 
