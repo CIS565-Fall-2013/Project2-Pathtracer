@@ -5,7 +5,7 @@
 
 ##Overview
 
-Taking our raytracing code from before, we hae modified the GPU raytracer into a GPU pathtracing supporting depth of field, obj loading, and Fresnel.  For optimization, we have implemented stream compaction.
+Taking our raytracing code from before, we hae modified the GPU raytracer into a GPU pathtracing supporting super-sampling anti-aliasing, depth of field, obj loading, and Fresnel.  For optimization, we have implemented stream compaction.
 
 <div align = "center">
 
