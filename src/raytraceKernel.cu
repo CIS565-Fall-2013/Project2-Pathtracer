@@ -19,6 +19,8 @@
 #define POSITION(g) multiplyMV(g.transform, glm::vec4(0,0,0,1))
 #define SPECULAR(materials, g) materials[g.materialid].specularExponent
 #define REFLECTIVE(materials, g) materials[g.materialid].hasReflective
+#define REFRACTIVE(materials, g) materials[g.materialid].hasRefractive
+#define REFRACTANCE(materials, g) materials[g.materialid].indexOfRefraction
 #define IS_LIGHT(materials, geoms, idx) !epsilonCheck(materials[geoms[idx].materialid].emittance, 0.0f)
 #define COLOR(materials, g) materials[g.materialid].color
 #define SPEC_COLOR(materials, g) materials[g.materialid].specularColor
@@ -117,16 +119,35 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   }
 }
 
-//TODO: IMPLEMENT THIS FUNCTION
-//Core raytracer kernel
+glm::vec3 __host__ __device__ reflect(ray r, glm::vec3 normal){
+	if(epsilonCheck(glm::length(glm::cross(r.direction, normal)), 0.0f)) return -1.0f * normal;
+	else if(epsilonCheck(glm::dot(-1.0f * r.direction, normal), 0.0f)) return r.direction;
+	else return glm::normalize(r.direction - 2.0f * glm::dot(r.direction, normal) * normal);
+}
+
+glm::vec3 __host__ __device__ refract(ray r, glm::vec3 normal, float indexOfRefraction){
+	bool isInside = glm::dot(r.direction, normal) > .001;
+	float n1 = isInside ? indexOfRefraction : 1.0f;
+	float n2 = isInside ? 1.0f : indexOfRefraction;
+	normal = isInside ? -1.0f * normal : normal;
+
+	float n = n1 / n2;
+	float c1 = glm::dot(-1.0f * r.direction, normal);
+	float c2 = 1.0f - pow(n,2) * (1.0f - pow(c1, 2));
+	if(c2 < .001) return glm::normalize(r.direction - 2.0f * c1 * normal);
+	else return glm::normalize((n * r.direction) + (n * c1 - sqrt(c2)) * normal);
+}
+
+
 __global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, int traceDepth, int maxDepth, cameraData cam, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material* mats, int* lightIds, int numberOfLights, mesh* meshes, int numberOfMeshes, face* faces, int numberOfFaces){
+                            staticGeom* geoms, int numberOfGeoms, material* mats, int* lightIds, int numberOfLights, mesh* meshes, face* faces){
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
-	return;
-	
 	if(index <= resolution.x * resolution.y){
 		ray r = rays[index];
+
+		glm::vec3 temp_IP, temp_N;
+		float temp;
 
 		if(!r.isContinue) return;
 	
@@ -154,25 +175,55 @@ __global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, int tr
 			r.isContinue = false;
 		}else{
 			if(IS_LIGHT(mats, geoms, geomId)){
-				r.color = r.color * COLOR(mats, geoms[geomId]) * EMITTANCE(mats, geoms[geomId]);
+				r.color *= EMITTANCE(mats, geoms[geomId]);
 				r.isContinue = false;
-			}else if(REFLECTIVE(mats, geoms[geomId]) > .001f){
-				r.color *= COLOR(mats, geoms[geomId]);
-				if(epsilonCheck(glm::length(glm::cross(r.direction, normal)), 0.0f)) reflectedRay = -1.0f * normal;
-				else if(epsilonCheck(glm::dot(-1.0f * r.direction, normal), 0.0f)) reflectedRay = r.direction;
-				else reflectedRay = r.direction - 2.0f * normal * glm::dot(r.direction, normal);
-				r.direction = reflectedRay;
-				r.origin = intersectionPoint + .001f * r.direction;
+			}else if(REFLECTIVE(mats, geoms[geomId]) > .001f && REFRACTIVE(mats, geoms[geomId]) < .001f){
+				// PERFECT REFLECTION
+				r.direction = reflect(r, normal);
+			}else if(REFRACTIVE(mats, geoms[geomId]) > .001f && REFLECTIVE(mats, geoms[geomId]) < .001f){
+				// PERFECT REFRACTION
+				r.direction = refract(r, normal, REFRACTANCE(mats, geoms[geomId]));
+			}else if(REFRACTIVE(mats, geoms[geomId]) > .001f && REFLECTIVE(mats, geoms[geomId]) > .001f){
+				// FRESNEL USING SCHLICKS
+				bool isInside = glm::dot(r.direction, normal) > .001f;
+				float n1 = isInside ? REFRACTANCE(mats, geoms[geomId]) : 1.0f;
+				float n2 = isInside ? 1.0f : REFRACTANCE(mats, geoms[geomId]);
+				normal = isInside ? -1.0f * normal : normal;
+
+				float c1 = glm::dot(-1.0f * r.direction, normal);
+				float s2 = (n1 * n1) / (n2 * n2) * (1.0f - c1 * c1);
+				
+				float c2 = sqrt(1 - s2);
+				
+				float r0 = (n1 - n2)/(n1 + n2) * (n1 - n2)/(n1 + n2);
+				float rs;
+				if(n1 <= n2){
+					rs = r0 + (1 - r0) * (1 - c1) * (1 - c1) * (1 - c1) * (1 - c1) * (1 - c1);
+				}else if(s2 > 1){
+					rs = 1;
+				}else{
+					rs = r0 + (1 - r0) * (1 - c2) * (1 - c2) * (1 - c2) * (1 - c2) * (1 - c2);
+				}
+
+				thrust::uniform_real_distribution<float> u01(0,1);
+				thrust::default_random_engine rng(hash(time * index * (traceDepth + 1)));
+
+				r.direction = (float)u01(rng) < rs + .001 ? reflect(r, normal) : refract(r, normal, REFRACTANCE(mats, geoms[geomId]));
+
 			}else{
 				// DIFFUSE CASE
-				thrust::default_random_engine rng(hash(time * index * (traceDepth + 1)));
 				thrust::uniform_real_distribution<float> u01(0,1);
-				r.color = r.color * COLOR(mats, geoms[geomId]), 0.0f, 1.0f;
+				thrust::default_random_engine rng(hash(time * index * (traceDepth + 1)));
+				float russianRoulette = (float)u01(rng);
 				
-				r.direction = calculateRandomDirectionInHemisphere(normal,(float)u01(rng),(float)u01(rng));
+				if(russianRoulette < .02){
+					r.isContinue = false;
+				}
 
-				r.origin = intersectionPoint + .001f * r.direction;
+				r.direction = calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng));
 			}
+			r.color *= COLOR(mats, geoms[geomId]);
+			r.origin = intersectionPoint + .001f * r.direction;
 		} 
 		if(traceDepth == maxDepth - 1) r.isContinue = false; // force accumulator to pickup color on 
 		rays[index] = r;
@@ -198,15 +249,11 @@ void __global__ setUpRays(glm::vec2 resolution, float time, cameraData cam, ray*
 }
 
 void __global__ accumulateColor(int numRays, glm::vec3* image, ray* rays){
-	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-	
-	if(index < numRays){
-		ray r = rays[index];
-		if(!r.isContinue){
-			int img_index = r.px;
-			image[img_index] += r.color;
-		}
-	}
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if(index < numRays){
+	ray r = rays[index];
+	if(!r.isContinue) image[r.px] += r.color;	
+  }
 }
 
 void __global__ createPredicate(ray* rays, int* pred, int numLiveRays){
@@ -305,7 +352,7 @@ void streamCompact(ray* src, ray* dest, int& numLiveRays, int& fullBlocksPerGrid
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, 
 	int* lightIds, int numberOfLights, mesh* meshes, int numberOfMeshes, face* faces, int numberOfFaces){
   
-  int maxTraceDepth = 16;
+  int maxTraceDepth = 32;
   int traceDepth = 0; 
 
   // set up crucial magic
@@ -387,7 +434,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   dim3 setupThreads(tileSize, tileSize);
   dim3 setupBlocks((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
 
-  std::cout << "setup" << std::endl;
   // set up rays
   setUpRays<<<setupBlocks, setupThreads>>>(renderCam->resolution, (float)iterations, cam, cudarays_a);
 
@@ -395,8 +441,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  cudarays = traceDepth % 2 == 0 ? cudarays_a : cudarays_b;
 	  buffer = traceDepth % 2 == 0? cudarays_b : cudarays_a;
 	  
-	  pathtraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays, resolution, (float)iterations, traceDepth, maxTraceDepth, cam, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightids, numberOfLights, cudaMeshes, numberOfMeshes, cudaFaces, numberOfFaces);
-	  
+	  pathtraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays, resolution, (float)iterations, traceDepth, maxTraceDepth, cam, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightids, numberOfLights, cudaMeshes, cudaFaces);
 	  accumulateColor<<<fullBlocksPerGrid, threadsPerBlock>>>(numRays, cudaimage, cudarays);
 	  
 	  if(traceDepth < maxTraceDepth - 1) 
@@ -404,8 +449,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 
 	  cudaMemcpy(remainRays, cuda_remainRays, sizeof(int), cudaMemcpyDeviceToHost);
 	  numRays = remainRays[0] + 1;
-
-
+	  
 	  traceDepth++;
   }
   sendImageToPBO<<<setupBlocks, setupThreads>>>(PBOpos, renderCam->resolution, cudaimage, (float)iterations);

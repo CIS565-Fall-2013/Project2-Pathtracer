@@ -141,6 +141,12 @@ void runCuda(){
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
+
+	delete(geoms);
+	delete(materials);
+	delete(lightIds);
+	delete(staticMeshes);
+	delete(staticFaces);
   }else{
 
     if(!finishedRender){

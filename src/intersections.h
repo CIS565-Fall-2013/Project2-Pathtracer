@@ -58,7 +58,7 @@ __host__ __device__ glm::vec3 getPointOnRay(ray r, float t){
 //This is a workaround for GLM matrix multiplication not working properly on pre-Fermi NVIDIA GPUs.
 //Multiplies a cudaMat4 matrix and a vec4 and returns a vec3 clipped from the vec4
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
-  glm::vec3 r(1,1,1);
+  glm::vec3 r;
   r.x = (m.x.x*v.x)+(m.x.y*v.y)+(m.x.z*v.z)+(m.x.w*v.w);
   r.y = (m.y.x*v.x)+(m.y.y*v.y)+(m.y.z*v.z)+(m.y.w*v.w);
   r.z = (m.z.x*v.x)+(m.z.y*v.y)+(m.z.z*v.z)+(m.z.w*v.w);
@@ -227,6 +227,7 @@ __host__ __device__ float meshIntersectionTest(staticGeom meshGeom, ray r, mesh*
 		face f = faces[m.startFaceIdx + i];
 
 		temp = triangleIntersectionTest(meshGeom, f, r, temp_IP, temp_N);
+
 		if(!epsilonCheck(temp, -1.0f) && temp < t_min){
 			t_min = temp;
 			intersectionPoint = temp_IP;
@@ -256,17 +257,17 @@ __host__ __device__ float triangleIntersectionTest(staticGeom meshGeom, face f, 
 	s2 = s_rep * getArea(P, p3, p1);
 	s3 = s_rep * getArea(P, p1, p2);
 
-	if(s1 < 0 || s1 > 1 || s2 < 0 || s2 > 1 || s3 < 0 || s3 > 1 || !epsilonCheck(s1 + s2 + s3 - 1, 0.0f)) return -1.0f;
+	if(s1 < 0.001 || s1 > .999 || s2 < .001 || s2 > .999 || s3 < .001 || s3 > .999 || s1 + s2 + s3 < .999 || s1 + s2 + s3 > 1.001 ) return -1.0f;
 	else{
 		// Calculate Normal
 		normal = glm::normalize(multiplyMV(meshGeom.transform, glm::vec4(N, 0.0f)));
-		float sign = glm::dot(rd, normal);
-		if(sign < 0.0f) normal = -1.0f * normal;
+		float sign = glm::dot(r.direction, normal);
+		if(sign > -0.001f) normal = -1.0f * normal;
 		
 		// Transform intersection point to world coord
 		intersectionPoint = multiplyMV(meshGeom.transform, glm::vec4(P, 1.0f));
 
-		return glm::length(intersectionPoint - r.origin);
+		return glm::length(r.origin - intersectionPoint);
 	}
 }
 

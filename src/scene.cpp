@@ -298,10 +298,9 @@ int scene::loadMesh(string filename, int& numTotalFaces){
 							face f;
 							// Read vertex index
 							// TODO: Add texture and normal support
-							f.p1 = vert_pos[indices[0]];
-							f.p2 = vert_pos[indices[i+1]];
-							f.p3 = vert_pos[indices[i+2]];
-
+							f.p1 = vert_pos[indices[0] - 1];
+							f.p2 = vert_pos[indices[i+1] - 1];
+							f.p3 = vert_pos[indices[i+2] - 1];
 							faces.push_back(f);
 						}
 

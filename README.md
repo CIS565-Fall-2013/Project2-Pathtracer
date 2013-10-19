@@ -1,147 +1,59 @@
--------------------------------------------------------------------------------
-CIS565: Project 2: CUDA Pathtracer
--------------------------------------------------------------------------------
-Fall 2012
--------------------------------------------------------------------------------
-Due Friday, 10/12/2012
--------------------------------------------------------------------------------
+#CIS 565 -- Fall 2013
 
--------------------------------------------------------------------------------
-NOTE:
--------------------------------------------------------------------------------
-This project requires an NVIDIA graphics card with CUDA capability! Any card after the Geforce 8xxx series will work. If you do not have an NVIDIA graphics card in the machine you are working on, feel free to use any machine in the SIG Lab or in Moore100 labs. All machines in the SIG Lab and Moore100 are equipped with CUDA capable NVIDIA graphics cards. If this too proves to be a problem, please contact Patrick or Liam as soon as possible.
+#Project 2 : CUDA Pathtracer
+------
 
--------------------------------------------------------------------------------
-INTRODUCTION:
--------------------------------------------------------------------------------
-In this project, you will extend your raytracer from Project 1 into a full CUDA based global illumination pathtracer. 
+##Overview
 
-For this project, you may either choose to continue working off of your codebase from Project 1, or you may choose to use the included basecode in this repository. The basecode for Project 2 is the same as the basecode for Project 1, but with some missing components you will need filled in, such as the intersection testing and camera raycasting methods. 
+------
+##Features
 
-How you choose to extend your raytracer into a pathtracer is a fairly open-ended problem; the supplied basecode is meant to serve as one possible set of guidelines for doing so, but you may choose any approach you want in your actual implementation, including completely scrapping the provided basecode in favor of your own from-scratch solution.
+The features that will be discussed below are those in addition to the ones implemented in the raytracer.  The discussion section will discuss some of the findings and observations when changing from the raytracer to pathtracer.
 
--------------------------------------------------------------------------------
-CONTENTS:
--------------------------------------------------------------------------------
-The Project2 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio solution and the OSX makefile reference this folder for all source; the base source code compiles on OSX and Windows without modification.
-* scenes/ contains an example scene description file.
-* renders/ contains two example renders: the raytraced render from Project 1 (GI_no.bmp), and the same scene rendered with global illumination (GI_yes.bmp). 
-* PROJ1_WIN/ contains a Windows Visual Studio 2010 project and all dependencies needed for building and running on Windows 7.
-* PROJ1_OSX/ contains a OSX makefile, run script, and all dependencies needed for building and running on Mac OSX 10.8. 
-* PROJ1_NIX/ contains a Linux makefile for building and running on Ubuntu 
-  12.04 LTS. Note that you will need to set the following environment
-  variables: 
-    
-  - PATH=$PATH:/usr/local/cuda-5.5/bin
-  - LD_LIBRARY_PATH=/usr/local/cuda-5.5/lib64:/lib
+###OBJ Mesh Loading
 
-The projects build and run exactly the same way as in Project0 and Project1.
+We have implemented a simple obj mesh loader that ignores vertex and texture normals.  We have designed it such that the mesh data is stored in separate structs that have indices to point to the start and end index of the mesh's faces in the serialized face array.  We did this because the GPU requires serialized memory.  Instead of adding complex structs and serializing them before sending them over to the GPU, we have opted for a simpler structure with more lookups.
 
--------------------------------------------------------------------------------
-REQUIREMENTS:
--------------------------------------------------------------------------------
-In this project, you are given code for:
+As of now, the loader works; however, we have had trouble with color attenuation on the loaded mesh.  As seen below, the normals and intersection passes seem to be fine.  However, when running the renderer, the loaded object does not follow the normal shading rules.  We have already considered the possibility of the ray internally reflecting, but increasing the offset of the newly cast ray does not seem to remedy this problem.
 
-* All of the basecode from Project 1, plus:
-* Intersection testing code for spheres and cubes
-* Code for raycasting from the camera
+###Stream Compaction
 
-You will need to implement the following features. A number of these required features you may have already implemented in Project 1. If you have, you are ahead of the curve and have less work to do! 
+We have implemented stream compaction using a shared memory verion of naive exclusive prefix sum in hopes of gaining performance from utilizing on-chip shared memory. This version requires a tail-recursion like method to reassemble the final output array from the different blocks by adding partial sums on the recall. 
 
-* Full global illumination (including soft shadows, color bleeding, etc.) by pathtracing rays through the scene. 
-* Properly accumulating emittance and colors to generate a final image
-* Supersampled antialiasing
-* Parallelization by ray instead of by pixel via string compaction
-* Perfect specular reflection
+Much of our implementation was aided and informed by Ch. 39 (Parallel Prefix Sum with CUDA) of GPU Gems 3.  The major modification to the code presentation is that we copy over the buffered array in every iteration of the scan step.  We found that following their pseudocode resulted in inaccurate output arrays because the entries would be inconsistent in the buffer on the swap iteration.
 
-You are also required to implement at least two of the following features. Some of these features you may have already implemented in Project 1. If you have, you may NOT resubmit those features and instead must pick two new ones to implement.
 
-* Additional BRDF models, such as Cook-Torrance, Ward, etc. Each BRDF model may count as a separate feature. 
-* Texture mapping 
-* Bump mapping
-* Translational motion blur
-* Fresnel-based Refraction, i.e. glass
-* OBJ Mesh loading and rendering without KD-Tree
-* Interactive camera
-* Integrate an existing stackless KD-Tree library, such as CUKD (https://github.com/unvirtual/cukd)
-* Depth of field
+###Fresnel Reflection and Refraction
 
-Alternatively, implementing just one of the following features can satisfy the "pick two" feature requirement, since these are correspondingly more difficult problems:
+We have implemented perfect relection, perfect refraction (Snell's law) and Fresnel Reflection/Refraction using Schlick's approximation. Due to its tree like approach to calculating reflection and refraction, unpolarized Fresnel has the potential to grow indefinitely. This would not be helpful when trying to use stream compaction.  Thus, we have used Schlick's approximation to approximate the likelihood of refraction and reflection on each iteration and bounce of a ray.  In line with the motivation behind path tracing, it relies on successive iterations to converge to a physically correct solution.
 
-* Physically based subsurface scattering and transmission
-* Implement and integrate your own stackless KD-Tree from scratch. 
-* Displacement mapping
-* Deformational motion blur
+------
+##Discussion
 
-As yet another alternative, if you have a feature or features you really want to implement that are not on this list, let us know, and we'll probably say yes!
+While moving from a raytracer to a pathtracer, there were certain aspects of the code that produced interesting results.  Here, we will present some of these hurdles, the ways in which we belief these things came about, and the subsequent fixes.
 
--------------------------------------------------------------------------------
-NOTES ON GLM:
--------------------------------------------------------------------------------
-This project uses GLM, the GL Math library, for linear algebra. You need to know two important points on how GLM is used in this project:
+###Artifacts in Depth of Field
 
-* In this project, indices in GLM vectors (such as vec3, vec4), are accessed via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is used, and so on and so forth.
-* GLM Matrix operations work fine on NVIDIA Fermi cards and later, but pre-Fermi cards do not play nice with GLM matrices. As such, in this project, GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is provided as multiplyMV() in intersections.h.
+After implementing naive pathtracing, we added depth of field.  When rendering diffuse objects, there were persistent artifacts that showed up on the spheres, as shown below. 
 
--------------------------------------------------------------------------------
-README
--------------------------------------------------------------------------------
-All students must replace or augment the contents of this Readme.md in a clear 
-manner with the following:
+Debugging showed that it resulted from jittering the position of the camera to achieve the effect.  Interestingly, we found that, with the correct math to compute depth of field, we had odd renderings:
 
-* A brief description of the project and the specific features you implemented.
-* At least one screenshot of your project running.
-* A 30 second or longer video of your project running.  To create the video you
-  can use http://www.microsoft.com/expression/products/Encoder4_Overview.aspx 
-* A performance evaluation (described in detail below).
+1.	When changing the depth of field, the image would blur in a biased direction and then "restabilize" and become clear in a shifted direction. We found that this happened regardless of the maximum trace depth.
 
--------------------------------------------------------------------------------
-PERFORMANCE EVALUATION
--------------------------------------------------------------------------------
-The performance evaluation is where you will investigate how to make your CUDA
-programs more efficient using the skills you've learned in class. You must have
-performed at least one experiment on your code to investigate the positive or
-negative effects on performance. 
 
-One such experiment would be to investigate the performance increase involved 
-with adding a spatial data-structure to your scene data.
+2.	When changing the aperture, the spheres and the image would warp in a biased zig-zag pattern that was reproduced every time.
 
-Another idea could be looking at the change in timing between various block
-sizes.
+Because of this, we decided to change the seed input to the hashing function that produced random numbers to jitter our camera position. Originally, the seed was the product of the iteration and the pixel index (iterations * index); however, from the first point, we believe that increasing the seed by a factor of the time may have biased the generation to jitter less in a particular position as large float numbers have less precision from each other as they reach a limit. Thus, we changed the hash to only be seeded by the index, and that, effectively, fixed our problem.
 
-A good metric to track would be number of rays per second, or frames per 
-second, or number of objects displayable at 60fps.
 
-We encourage you to get creative with your tweaks. Consider places in your code
-that could be considered bottlenecks and try to improve them. 
+###Obj Mesh loading
 
-Each student should provide no more than a one page summary of their
-optimizations along with tables and or graphs to visually explain any
-performance differences.
 
--------------------------------------------------------------------------------
-THIRD PARTY CODE POLICY
--------------------------------------------------------------------------------
-* Use of any third-party code must be approved by asking on the Google group.  If it is approved, all students are welcome to use it.  Generally, we approve use of third-party code that is not a core part of the project.  For example, for the ray tracer, we would approve using a third-party library for loading models, but would not approve copying and pasting a CUDA function for doing refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another student's code, is an academic integrity violation, and will result in you receiving an F for the semester.
 
--------------------------------------------------------------------------------
-SELF-GRADING
--------------------------------------------------------------------------------
-* On the submission date, email your grade, on a scale of 0 to 100, to Liam, liamboone+cis565@gmail.com, with a one paragraph explanation.  Be concise and realistic.  Recall that we reserve 30 points as a sanity check to adjust your grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We hope to only use this in extreme cases when your grade does not realistically reflect your work - it is either too high or too low.  In most cases, we plan to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as the path tracer.  We will determine the weighting at the end of the semester based on the size of each project.
+------
+##Performance Analysis
 
--------------------------------------------------------------------------------
-SUBMISSION
--------------------------------------------------------------------------------
-As with the previous project, you should fork this project and work inside of your fork. Upon completion, commit your finished project back to your fork, and make a pull request to the master repository.
-You should include a README.md file in the root directory detailing the following
+###Effects of Stream Compaction
 
-* A brief description of the project and specific features you implemented
-* At least one screenshot of your project running, and at least one screenshot of the final rendered output of your pathtracer
-* Instructions for building and running your project if they differ from the base code
-* A link to your blog post detailing the project
-* A list of all third-party code used
+------
+## Acknowledgements and Citations
