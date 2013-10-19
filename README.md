@@ -123,7 +123,7 @@ Block Size | Sec Per Fram | FPS
 
 ### Video
 
-https://vimeo.com/77302993
+<iframe src="//player.vimeo.com/video/77302993" width="500" height="513" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe> <p><a href="http://vimeo.com/77302993">GPU PathTracer</a> from <a href="http://vimeo.com/harmonyli">Harmony Li</a> on <a href="https://vimeo.com">Vimeo</a>.</p>
 
 ------
 ## Acknowledgements and Citations
