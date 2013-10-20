@@ -20,7 +20,7 @@
 #include "intersections.h"
 #include "interactions.h"
 
-//#define DEPTH_OF_FIELD
+#define DEPTH_OF_FIELD
 //#define MOTION_BLUR
 #define STREAM_COMPACTION
 
@@ -44,15 +44,15 @@ struct ray_is_dead{
 		return r.index == -1;  
 	}
 };
-//LOOK: This function demonstrates how to use thrust for random number generation on the GPU!
-//Function that generates static.
-__host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolution, float time, int x, int y){
+
+//Function that generates random number on GPU with range [0.0, 1.0)
+__host__ __device__ glm::vec2 generateRandomNumberFromThread(glm::vec2 resolution, float time, int x, int y){
   int index = x + (y * resolution.x);
    
   thrust::default_random_engine rng(hash(index*time));
   thrust::uniform_real_distribution<float> u01(0, 1);
 
-  return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
+  return glm::vec2(float(u01(rng)), float(u01(rng)));
 }
 
 __host__ __device__ glm::vec2 generateRandomNumberFromThreadForSSAA(glm::vec2 resolution, float time, float x, float y, float distanceToBoundary){
@@ -66,7 +66,6 @@ __host__ __device__ glm::vec2 generateRandomNumberFromThreadForSSAA(glm::vec2 re
 }
 
 
-//TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, float x, float y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
     glm::vec3 M, H, V, A, B, P;
@@ -306,28 +305,8 @@ __global__ void rayTracerIterative(int iteration, int depth, ray *rayPool, int r
 		// intersection test	
 		glm::vec3 intersectionPoint, intersectionNormal;
 		ray r = rayPool[index];
-/*
-		if(r.index == 294752 && depth == 0){
-			printf("\n**********************Start of iterative********************\n");
-		}
-		if(r.index == 294752)
-		{
-			printf("\n---------------depth = %d--------------\n", depth);
-			if(depth == 1)
-				printf("break\n");
-		}*/
+
 		int intersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials);
-/*
-		if(r.index == 294752)
-		{
-			printf("geoms[intersIndex].type = %d\n", geoms[intersIndex].type);
-			printf("r.origin.x = %f, r.origin.y = %f, r.origin.z = %f\n", r.origin.x, r.origin.y, r.origin.z);
-			printf("r.direction.x = %f, r.direction.y = %f, r.direction.z = %f\n", r.direction.x, r.direction.y, r.direction.z);
-			printf("r.mediaIOR = %f\n", r.mediaIOR);
-			printf("r.tempColor.x = %f, r.tempColor.y = %f, r.tempColor.z = %f\n", r.tempColor.x, r.tempColor.y, r.tempColor.z);
-			printf("colors[r.index].x = %f, colors[r.index].y = %f, colors[r.index].z = %f\n", colors[r.index].x, colors[r.index].y, colors[r.index].z);
-			printf("intersectionPoint.x = %f, intersectionPoint.y = %f, intersectionPoint.z = %f\n", intersectionPoint.x, intersectionPoint.y, intersectionPoint.z);
-		}*/
 		if(intersIndex == -1) 
 		{
 			r.index = -1;		
@@ -384,7 +363,6 @@ __global__ void rayTracerIterative(int iteration, int depth, ray *rayPool, int r
 			}
 			else
 			{   // exlude direct illumination here
-//				if(index == 35771) printf("intersIndex: %d\n",intersIndex);
 				colors[r.index] += r.tempColor * (depth == 1? 0 : materials[geoms[intersIndex].materialid].emittance) * materials[geoms[intersIndex].materialid].color;
 				thrust::default_random_engine rng(hash(iteration *(depth + 1)* index));
 				thrust::uniform_real_distribution<float> u01(0,1);
@@ -420,10 +398,16 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
         r.index = index;
 		r.tempColor = glm::vec3(1.0f);
 	    r.mediaIOR = 1.0f;	    
-/*
-		if(r.index == 294752){
-			printf("****************Primary intersection********************\n");
-		}*/
+
+#if defined(DEPTH_OF_FIELD)
+
+		glm::vec2 randVec2 =  generateRandomNumberFromThread(resolution, time, x, y);
+		glm::vec3 offset = cam.aperture * glm::vec3(randVec2.x * cos((float)TWO_PI*randVec2.y), randVec2.x * sin((float)TWO_PI*randVec2.y), 0.0f);
+		glm::vec3 focalPlaneIntersection = r.origin + r.direction * cam.focalLength / glm::dot(cam.view, r.direction);
+		r.origin += offset;
+		r.direction = glm::normalize(focalPlaneIntersection - r.origin);
+
+#endif
 //----------------shadow ray for direct illumination part-------------------------------------
 		glm::vec3 intersectionPoint, intersectionNormal;
 		int intersIndex = rayIntersect(r, geoms, numberOfGeoms, intersectionPoint, intersectionNormal, materials); 
@@ -436,10 +420,7 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
 		glm::vec3 lightNormal;
 		float lightArea;
 		glm::vec3 lightPos = getRandomPointOnCube(geoms[sampleLightIndex], index*time, lightArea, lightNormal);
-/*
-		if(r.index == 294752){
-			printf("****************Shadow test********************\n");
-		}*/
+		// shadow test
 		if(ShadowRayUnblocked(intersectionPoint, lightPos, geoms, numberOfGeoms, materials/*, lightArea, lightNormal*/))
 		{
 			glm::vec3 distanceVector = lightPos - intersectionPoint;
@@ -450,21 +431,6 @@ __global__ void rayTracerIterativePrimary(glm::vec2 resolution, int time, camera
      		colors[index] += directLighting;
 		}
 //----------------------------------------------------------------------------------------------
-#if defined(DEPTH_OF_FIELD)
-		thrust::uniform_real_distribution<float> u(0,1);
-
-		float u1 = u(rng);
-		float v1 = u(rng);
-
-	//	glm::vec3 offset = aperture * glm::vec3(u1 * cos((float)TWO_PI*v1), u1 * sin((float)TWO_PI*v1), 0.0f);
-		glm::vec3 offset = cam.aperture * glm::normalize(generateRandomNumberFromThread(resolution, time, x, y));
-		offset.z = 0.0f;
-		glm::vec3 focalPlaneIntersection = r.origin + cam.focalLength * r.direction;
-		r.origin += offset;
-		r.direction = glm::normalize(focalPlaneIntersection - r.origin);
-#endif
-
-
 		rayPool[index] = r;
     }
 }
@@ -477,7 +443,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   // frame: current frame, objects and cam move between frames in multi-frame mode
   // iterations: curent iteration, objects and cam do not move between iterations
     int traceDepth = 10; //determines how many bounces the raytracer traces
-//	printf("\n--------------------------------iteration %d-------------------------\n", iterations);
   //send image to GPU
     glm::vec3* cudaimage = NULL;
     cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
