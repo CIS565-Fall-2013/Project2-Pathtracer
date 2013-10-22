@@ -268,6 +268,10 @@ void runCuda(){
 			   cameraMoved = true;
 			   iterations = 1;
 			   break;
+		   case 'C':
+		   case 'c':
+			   cout<<renderCam->positions[targetFrame].x<<" "<<renderCam->positions[targetFrame].y<<" "<<renderCam->positions[targetFrame].z<<endl;
+			   break;
 		}
 	}
 

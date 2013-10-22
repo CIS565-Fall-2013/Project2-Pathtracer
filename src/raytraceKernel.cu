@@ -46,7 +46,9 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 //TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
-	vec3 jitter = 2.0f*generateRandomNumberFromThread(resolution, time, x, y);
+	//vec3 jitter = 2.0f*generateRandomNumberFromThread(resolution, time, x, y);
+	vec3 jitter = vec3(0,0,0);	//no antialiasing
+	
 	float NDCx = ((float)x +jitter.x)/resolution.x;
 	float NDCy = ((float)y +jitter.y )/resolution.y;
 	
