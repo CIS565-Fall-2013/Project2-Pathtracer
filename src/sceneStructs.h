@@ -10,8 +10,33 @@
 #include "cudaMat4.h"
 #include <cuda_runtime.h>
 #include <string>
+#include <vector>
 
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
+
+struct triangle {
+	int geomId;
+	glm::vec3 v1;
+	glm::vec3 v2;
+	glm::vec3 v3;
+	glm::vec3 n1;
+	glm::vec3 n2;
+	glm::vec3 n3;
+	
+	triangle(): geomId(), v1(), v2(), v3(), n1(), n2(), n3() {}
+	triangle(int id, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3 vn1, glm::vec3 vn2, glm::vec3 vn3)
+		: geomId(id), v1(p1), v2(p2), v3(p3), n1(vn1), n2(vn2), n3(vn3) {}
+};
+
+struct transformedTriangle {
+	int materialid;
+	glm::vec3 v1;
+	glm::vec3 v2;
+	glm::vec3 v3;
+	glm::vec3 n1;
+	glm::vec3 n2;
+	glm::vec3 n3;
+};
 
 struct ray {
 	glm::vec3 origin;

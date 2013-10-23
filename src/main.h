@@ -64,8 +64,10 @@ bool singleFrameMode;
 // geometry, materials and camera
 int numberOfGeoms;
 int numberOfMaterials;
+int numberOfFaces;
 staticGeom* cudageoms;
 material* cudamtls;
+transformedTriangle* cudafaces;
 cameraData cam;
 
 // the image buffer to render to
@@ -142,5 +144,9 @@ void cleanupCuda();
 void deletePBO(GLuint* pbo);
 void deleteTexture(GLuint* tex);
 void shut_down(int return_code);
+
+// helper, copied from intersection.h
+// TODO: optimize this
+glm::vec3 multiplyMVdup(cudaMat4 m, glm::vec4 v);
 
 #endif

@@ -108,34 +108,16 @@ void sendDataToGPU() {
 	// pack geom and material arrays
 	numberOfGeoms = renderScene->objects.size();
 	numberOfMaterials = renderScene->materials.size();
+	numberOfFaces = renderScene->faces.size();
 
-	geom* geoms = new geom[numberOfGeoms];
 	material* materials = new material[numberOfMaterials];
-    
-	for(int i=0; i<numberOfGeoms; i++){
-    geoms[i] = renderScene->objects[i];
-  }
 	for(int i=0; i<numberOfMaterials; i++){
     materials[i] = renderScene->materials[i];
   }
-	
-	// package geometry and materials and sent to GPU
-  staticGeom* geomList = new staticGeom[numberOfGeoms];
-  for(int i=0; i<numberOfGeoms; i++){
-    staticGeom newStaticGeom;
-    newStaticGeom.type = geoms[i].type;
-    newStaticGeom.materialid = geoms[i].materialid;
-    newStaticGeom.translation = geoms[i].translations[0];
-    newStaticGeom.rotation = geoms[i].rotations[0];
-    newStaticGeom.scale = geoms[i].scales[0];
-    newStaticGeom.transform = geoms[i].transforms[0];
-    newStaticGeom.inverseTransform = geoms[i].inverseTransforms[0];
-    geomList[i] = newStaticGeom;
-  }
   
-	// copy geometry to CUDA
+	// allocate memory for geometry and faces
   cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
-  cudaMemcpy(cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+	cudaMalloc((void**)&cudafaces, numberOfFaces*sizeof(transformedTriangle));
 
 	// copy materials to CUDA
 	cudaMalloc((void**)&cudamtls, numberOfMaterials*sizeof(material));
@@ -143,12 +125,11 @@ void sendDataToGPU() {
   
   // package camera
   cam.resolution = renderCam->resolution;
-  cam.position = renderCam->positions[0];
-  cam.view = renderCam->views[0];
-  cam.up = renderCam->ups[0];
   cam.fov = renderCam->fov;
 	cam.focal = renderCam->focal;
 	cam.aperture = renderCam->aperture;
+
+	uploadDataOfCurrentFrame();
 
 	// set up ray pools and scan arrays
 	numberOfRays = (int)cam.resolution.x * (int)cam.resolution.y;
@@ -157,17 +138,19 @@ void sendDataToGPU() {
 	cudaMalloc((void**)&scanArray, numberOfRays * sizeof(int));
 	cudaMalloc((void**)&sumArray1, ceil((float)numberOfRays/(float)64) * sizeof(int));
 	cudaMalloc((void**)&sumArray2, ceil((float)numberOfRays/(float)64) * sizeof(int));
-
-	// delete pointers
-	delete [] geomList;
 }
 
 // update geometry and camera with data of current frame
 void uploadDataOfCurrentFrame() {
 	geom* geoms = new geom[numberOfGeoms];
+	triangle* faces = new triangle[numberOfFaces];
+
 	for(int i=0; i<numberOfGeoms; i++){
     geoms[i] = renderScene->objects[i];
   }
+	for (int i=0; i<numberOfFaces; ++i) {
+		faces[i] = *(renderScene->faces[i]);
+	}
 
 	staticGeom* geomList = new staticGeom[numberOfGeoms];
   for(int i=0; i<numberOfGeoms; i++){
@@ -182,13 +165,44 @@ void uploadDataOfCurrentFrame() {
     geomList[i] = newStaticGeom;
   }
 
+	// package transformed faces and send to GPU
+	transformedTriangle* faceList = new transformedTriangle[numberOfFaces];
+	for (int i=0; i<numberOfFaces; ++i) {
+		int geomId = faces[i].geomId;
+		transformedTriangle face;
+		face.materialid = geomList[geomId].materialid;
+		face.v1 = multiplyMVdup(geomList[geomId].transform, glm::vec4(faces[i].v1, 1.0f));
+		face.v2 = multiplyMVdup(geomList[geomId].transform, glm::vec4(faces[i].v2, 1.0f));
+		face.v3 = multiplyMVdup(geomList[geomId].transform, glm::vec4(faces[i].v3, 1.0f));
+		face.n1 = glm::normalize(multiplyMVdup(geomList[geomId].transform, glm::vec4(faces[i].n1, 0.0f)));
+		face.n2 = glm::normalize(multiplyMVdup(geomList[geomId].transform, glm::vec4(faces[i].n2, 0.0f)));
+		face.n3 = glm::normalize(multiplyMVdup(geomList[geomId].transform, glm::vec4(faces[i].n3, 0.0f)));
+		faceList[i] = face;
+	}
+
 	// update geometry data on GPU
 	cudaMemcpy(cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+
+	// copy faces to CUDA
+  cudaMemcpy(cudafaces, faceList, numberOfFaces*sizeof(transformedTriangle), cudaMemcpyHostToDevice);
 
 	// update camera info
 	cam.position = renderCam->positions[targetFrame];
   cam.view = renderCam->views[targetFrame];
   cam.up = renderCam->ups[targetFrame];
+
+	// delete pointers
+	delete [] geomList;
+	delete [] faceList;
+}
+
+// helper
+glm::vec3 multiplyMVdup(cudaMat4 m, glm::vec4 v){
+  glm::vec3 r(1,1,1);
+  r.x = (m.x.x*v.x)+(m.x.y*v.y)+(m.x.z*v.z)+(m.x.w*v.w);
+  r.y = (m.y.x*v.x)+(m.y.y*v.y)+(m.y.z*v.z)+(m.y.w*v.w);
+  r.z = (m.z.x*v.x)+(m.z.y*v.y)+(m.z.z*v.z)+(m.z.w*v.w);
+  return r;
 }
 
 //-------------------------------
@@ -206,8 +220,8 @@ void runCuda(){
     cudaGLMapBufferObject((void**)&dptr, pbo);
   
     // execute the kernel
-		cudaRaytraceCore(dptr, renderCam, cam, iterations, cudageoms, numberOfGeoms, cudamtls, cudaimage,
-			raypool1, raypool2, numberOfRays, scanArray, sumArray1, sumArray2);
+		cudaRaytraceCore(dptr, renderCam, cam, iterations, cudageoms, numberOfGeoms, cudafaces, numberOfFaces,
+			cudamtls, cudaimage, raypool1, raypool2, numberOfRays, scanArray, sumArray1, sumArray2);
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -304,7 +318,7 @@ void clearImage() {
 
 	void display(){
 		// Keep track of time
-    theFpsTracker.timestamp();
+    //theFpsTracker.timestamp();
 
 		runCuda();
 
@@ -324,7 +338,7 @@ void clearImage() {
 		glutPostRedisplay();
 		glutSwapBuffers();
 
-		cout << "Framerate: " << theFpsTracker.fpsAverage() << endl;
+		//cout << "Framerate: " << theFpsTracker.fpsAverage() << endl;
 	}
 
 	void keyboard(unsigned char key, int x, int y)

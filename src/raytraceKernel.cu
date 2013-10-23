@@ -91,7 +91,7 @@ __host__ __device__ bool componentCompare(glm::vec3 a, glm::vec3 b) {
 __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolution, float time, int x, int y){
   int index = x + (y * resolution.x);
    
-  thrust::default_random_engine rng(hash(index*time));
+  thrust::default_random_engine rng(thrusthash(index*time));
   thrust::uniform_real_distribution<float> u01(0,1);
 
   return glm::vec3((float) u01(rng), (float) u01(rng), (float) u01(rng));
@@ -115,7 +115,7 @@ __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time
 	glm::vec3 H = A * glm::length(view) * tan(theta);
 
 	// super sampling for anti-aliasing
-	thrust::default_random_engine rng(hash(time));
+	thrust::default_random_engine rng(thrusthash(time));
 	thrust::uniform_real_distribution<float> u01(0, 1);
 	float fx = x + (float)u01(rng);
 	float fy = y + (float)u01(rng);
@@ -151,7 +151,8 @@ __global__ void generateRay(cameraData cam, float time, ray* raypool) {
 }
 
 __global__ void pathtraceRay(cameraData cam, float time, int rayDepth, ray* rays, int numberOfRays, glm::vec3* colors,
-														 staticGeom* geoms, int numberOfGeoms, material* materials){
+														 staticGeom* geoms, int numberOfGeoms, transformedTriangle* faces, int numberOfFaces,
+														 material* materials){
 	int rayIdx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (rayIdx < numberOfRays) {
 		int pixelIdx = rays[rayIdx].index;
@@ -159,10 +160,12 @@ __global__ void pathtraceRay(cameraData cam, float time, int rayDepth, ray* rays
 
 		if (rays[rayIdx].active) {
 			glm::vec3 minIntersection, minNormal; // closest intersection point and the normal at that point
-			int minIdx = getClosestIntersection(geoms, numberOfGeoms, rays[rayIdx], minIntersection, minNormal);
+			int materialid = -1;
+			getClosestIntersection(geoms, numberOfGeoms, faces, numberOfFaces, rays[rayIdx],
+				minIntersection, minNormal, materialid);
 
-			if (minIdx != -1) {
-				material mtl = materials[geoms[minIdx].materialid]; // does caching make it faster?
+			if (materialid != -1) {
+				material mtl = materials[materialid]; // does caching make it faster?
 				if (mtl.emittance > THRESHOLD) { // light
 					glm::vec3 color = rays[rayIdx].baseColor * mtl.color * mtl.emittance;
 					colors[pixelIdx] += color;
@@ -200,7 +203,7 @@ __global__ void pathtraceRay(cameraData cam, float time, int rayDepth, ray* rays
 					}
 					
 					// shoot diffuse reflected ray
-					thrust::default_random_engine rng(hash(seed)); // include rayDepth in this since we don't want
+					thrust::default_random_engine rng(thrusthash(seed)); // include rayDepth in this since we don't want
 																																									// the direction in every bounce to be the same
 					thrust::uniform_real_distribution<float> u01(0, 1);
 					rays[rayIdx].direction = calculateRandomDirectionInHemisphere(minNormal, (float)u01(rng), (float)u01(rng));
@@ -300,9 +303,10 @@ __global__ void scatter(ray* raypool, int* scanArray, ray* newraypool) {
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int iterations,
-											staticGeom* cudageoms, int numberOfGeoms, material* cudamtls,
-											glm::vec3* cudaimage, ray* raypool1, ray* raypool2, int numberOfRays,
-											int* scanArray, int* sumArray1, int* sumArray2) {
+											staticGeom* cudageoms, int numberOfGeoms, transformedTriangle* cudafaces, 
+											int numberOfFaces, material* cudamtls, glm::vec3* cudaimage, 
+											ray* raypool1, ray* raypool2, int numberOfRays, int* scanArray, 
+											int* sumArray1, int* sumArray2) {
   // set up crucial magic
   int tileSize = 8;
   dim3 threadsPerBlock(tileSize, tileSize);
@@ -318,13 +322,13 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int ite
 
 		if (i % 2 == 0) {
 			pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool1,
-				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudamtls);
+				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudafaces, numberOfFaces, cudamtls);
 
 			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray);
 		}
 		else {
 			pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool2,
-				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudamtls);
+				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudafaces, numberOfFaces, cudamtls);
 
 			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray);
 		}	
@@ -334,7 +338,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int ite
 		int naiveScanBlocksPerGrid = ((int)ceil((float)sumArrayLength/(float)64), 24); // 24 is the number of SMs on my GPU
 		int naiveScanThreadsPerBlock = ceil((float)sumArrayLength/(float)naiveScanBlocksPerGrid);
 		int d = 1;
-		for (; d<=ceil(log(sumArrayLength)/log(2)); ++d) {
+		for (; d<=ceil(log(float(sumArrayLength))/log(2.0f)); ++d) {
 			// use double buffer
 			if (d % 2 == 1) {
 				naiveScan<<<naiveScanBlocksPerGrid, naiveScanThreadsPerBlock>>>(sumArray1, sumArray2, d);

@@ -67,7 +67,7 @@ __host__ __device__ glm::vec3 getRefractedRay(glm::vec3 d, glm::vec3 n, float IO
 // Determine if the reflected ray is a diffuse ray or not
 __host__ __device__ bool isDiffuseRay(float randomSeed, float hasDiffuse) {
 	// determine if ray is reflected according to the proportion
-	thrust::default_random_engine rng(hash(randomSeed));
+	thrust::default_random_engine rng(thrusthash(randomSeed));
 	thrust::uniform_real_distribution<float> u01(0,1);
 	if (u01(rng) <= hasDiffuse) {
 		return true;
@@ -86,7 +86,7 @@ __host__ __device__  bool isRefractedRay(float randomSeed, float IOR, glm::vec3 
 	float fr = 0.5 * (rpar * rpar + rperp * rperp);
 
 	// determine if ray is reflected according to the proportion
-	thrust::default_random_engine rng(hash(randomSeed));
+	thrust::default_random_engine rng(thrusthash(randomSeed));
 	thrust::uniform_real_distribution<float> u01(0,1);
 	if (u01(rng) <= fr) {
 		return false;

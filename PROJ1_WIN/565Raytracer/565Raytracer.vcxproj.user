@@ -5,7 +5,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug (v5.5)|Win32'">
-    <LocalDebuggerCommandArguments>scene=../../scenes/refraction.txt</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>scene=../../scenes/diffuse.txt</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -13,7 +13,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release (v5.5)|Win32'">
-    <LocalDebuggerCommandArguments>scene=../../scenes/reflection_refraction_blend.txt</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>scene=../../scenes/bunny.txt</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

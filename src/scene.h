@@ -13,6 +13,7 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include "objload.h"
 
 using namespace std;
 
@@ -22,12 +23,14 @@ private:
     int loadMaterial(string materialid);
     int loadObject(string objectid);
     int loadCamera();
+	void convertObj(Obj::File* obj, int geomId);
 public:
     scene(string filename);
     ~scene();
 
     vector<geom> objects;
     vector<material> materials;
+		vector<triangle*> faces; // faces of all meshes
     camera renderCam;
 };
 

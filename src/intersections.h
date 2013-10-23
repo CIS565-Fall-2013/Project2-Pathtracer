@@ -13,11 +13,15 @@
 #include <thrust/random.h>
 
 //Some forward declarations
+//Can I remove them?
 __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
+__host__ __device__ void getClosestIntersection(staticGeom* geoms, int numberOfGeoms, transformedTriangle* faces, int numberOfFaces,
+																								ray r, glm::vec3& minIntersection, glm::vec3& minNormal, int& materialid);
 __host__ __device__ float geomIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float triangleIntersectionTest(transformedTriangle face, ray r, glm::vec3& intersection, glm::vec3& normal);
 __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnGeom(staticGeom geom, float randomSeed);
@@ -25,7 +29,7 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed);
 
 //Handy dandy little hashing function that provides seeds for random number generation
-__host__ __device__ unsigned int hash(unsigned int a){
+__host__ __device__ unsigned int thrusthash(unsigned int a){
     a = (a+0x7ed55d16) + (a<<12);
     a = (a^0xc761c23c) ^ (a>>19);
     a = (a+0x165667b1) + (a<<5);
@@ -71,22 +75,35 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-// find the index of the closest intersected geometry
-__host__ __device__ int getClosestIntersection(staticGeom* geoms, int numberOfGeoms, ray r, glm::vec3& minIntersection, glm::vec3& minNormal) {
-	int minIdx = -1;
+// find the position, normal and material id of the closest intersection 
+__host__ __device__ void getClosestIntersection(staticGeom* geoms, int numberOfGeoms, transformedTriangle* faces,
+																							 int numberOfFaces, ray r, glm::vec3& minIntersection,
+																							 glm::vec3& minNormal, int& materialid) {
 	float minDist = FLT_MAX;
+	glm::vec3 intersection, normal;
+	float dist;
+
 #pragma unroll
 	for (int i=0; i<numberOfGeoms; ++i) {
-		glm::vec3 intersection, normal;
-		float dist = geomIntersectionTest(geoms[i], r, intersection, normal);
+		dist = geomIntersectionTest(geoms[i], r, intersection, normal);
 		if (dist > THRESHOLD && dist < minDist) {
-			minIdx = i;
+			materialid = geoms[i].materialid;
 			minDist = dist;
 			minIntersection = intersection;
 			minNormal = normal;
 		}
 	}
-	return minIdx;
+
+#pragma unroll
+	for (int i=0; i<numberOfFaces; ++i) {
+		dist = triangleIntersectionTest(faces[i], r, intersection, normal);
+		if (dist > THRESHOLD && dist < minDist) {
+			materialid = faces[i].materialid;
+			minDist = dist;
+			minIntersection = intersection;
+			minNormal = normal;
+		}
+	}
 }
 
 // Geometry intersection test, call sphere/box/mesh intersection test functions depending the type of the geometry
@@ -97,10 +114,36 @@ __host__ __device__ float geomIntersectionTest(staticGeom geom, ray r, glm::vec3
 		case GEOMTYPE::CUBE:
 			return boxIntersectionTest(geom, r, intersectionPoint, normal);
 		case GEOMTYPE::MESH:
-			// TODO: implement meshIntersectionTest
-			return -1;
+			// TODO: optimize this, maybe remove meshes from the geometry list
+			return -1; // since mesh intersection test is done by triangle intersection tests
 		default:
 			return -1;
+	}
+}
+
+__host__ __device__ float triangleIntersectionTest(transformedTriangle face, ray r, glm::vec3& intersection, glm::vec3& normal) {
+	if (glm::length(face.v1 - face.v2) < EPSILON || glm::length(face.v1 - face.v3) < EPSILON || glm::length(face.v2 - face.v3) < EPSILON)
+		return -1;
+
+	// ray plane intersection
+	glm::vec3 n = glm::cross(face.v2 - face.v1, face.v3 - face.v1);
+	float t = -glm::dot(r.origin - face.v1, n) / glm::dot(r.direction, n);
+	if (t <= 0) {
+		return -1;
+	}
+	glm::vec3 x = r.origin + t * r.direction;
+
+	// point in triangle
+	float s1 = glm::dot(glm::cross(face.v2 - face.v1, x - face.v1), n);
+	float s2 = glm::dot(glm::cross(face.v3 - face.v2, x - face.v2), n);
+	float s3 = glm::dot(glm::cross(face.v1 - face.v3, x - face.v3), n);
+	if (s1 >= 0 && s2 >= 0 && s3 >= 0) {
+		intersection = x;
+		normal = glm::normalize(s1 * face.n1 + s2 * face.n2 + s3 * face.n3);
+		return glm::length(r.origin - x);
+	}
+	else {
+		return -1;
 	}
 }
 
@@ -201,7 +244,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 		intersectionPoint = multiplyMV(box.transform, glm::vec4(p, 1.0f));
 		normal = glm::normalize(multiplyMV(box.transform, glm::vec4(n, 0.0f)));
 
-		return glm::length(ro - intersectionPoint);
+		return glm::length(r.origin - intersectionPoint);
 	}
 }
 
@@ -276,7 +319,7 @@ __host__ __device__ glm::vec3 getRandomPointOnGeom(staticGeom geom, float random
 //Generates a random point on a given cube
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed){
 
-    thrust::default_random_engine rng(hash(randomSeed));
+    thrust::default_random_engine rng(thrusthash(randomSeed));
     thrust::uniform_real_distribution<float> u01(0,1);
     thrust::uniform_real_distribution<float> u02(-0.5,0.5);
 
@@ -321,7 +364,7 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 //TODO: IMPLEMENT THIS FUNCTION
 //Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
-	thrust::default_random_engine rng(hash(randomSeed));
+	thrust::default_random_engine rng(thrusthash(randomSeed));
 	thrust::uniform_real_distribution<float> u01(0, PI*2);
 	thrust::uniform_real_distribution<float> u02(0, PI);
 

@@ -50,12 +50,12 @@ int scene::loadObject(string objectid){
         if (!line.empty() && fp_in.good()){
             if(strcmp(line.c_str(), "sphere")==0){
                 cout << "Creating new sphere..." << endl;
-				newObject.type = SPHERE;
+								newObject.type = SPHERE;
             }else if(strcmp(line.c_str(), "cube")==0){
                 cout << "Creating new cube..." << endl;
-				newObject.type = CUBE;
+								newObject.type = CUBE;
             }else{
-				string objline = line;
+								string objline = line;
                 string name;
                 string extension;
                 istringstream liness(objline);
@@ -64,7 +64,12 @@ int scene::loadObject(string objectid){
                 if(strcmp(extension.c_str(), "obj")==0){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
-		    		newObject.type = MESH;
+					Obj::File* obj = new Obj::File();
+					obj->Load(objline.c_str());
+		    	newObject.type = MESH;
+					convertObj(obj, id);
+					delete obj;
+					obj = 0;
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;
@@ -268,5 +273,29 @@ int scene::loadMaterial(string materialid){
 		}
 		materials.push_back(newMaterial);
 		return 1;
+	}
+}
+
+// Use the loaded obj's information to populate the vector of faces
+void scene::convertObj(Obj::File* obj, int geomId) {
+	for (int i=0; i<obj->m_Triangles.size(); ++i) {
+		Obj::Vertex v1 = obj->m_Vertices[obj->m_Triangles[i].v[0]];
+		Obj::Vertex v2 = obj->m_Vertices[obj->m_Triangles[i].v[1]];
+		Obj::Vertex v3 = obj->m_Vertices[obj->m_Triangles[i].v[2]];
+
+		glm::vec3 p1(v1.x, v1.y, v1.z);
+		glm::vec3 p2(v2.x, v2.y, v2.z);
+		glm::vec3 p3(v3.x, v3.y, v3.z);
+
+		Obj::Normal n1 = obj->m_Normals[obj->m_Triangles[i].n[0]];
+		Obj::Normal n2 = obj->m_Normals[obj->m_Triangles[i].n[1]];
+		Obj::Normal n3 = obj->m_Normals[obj->m_Triangles[i].n[2]];
+
+		glm::vec3 vn1(n1.x, n1.y, n1.z);
+		glm::vec3 vn2(n2.x, n2.y, n2.z);
+		glm::vec3 vn3(n3.x, n3.y, n3.z);
+
+		triangle* face = new triangle(geomId, p1, p2, p3, vn1, vn2, vn3);
+		faces.push_back(face);
 	}
 }
