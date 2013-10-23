@@ -47,7 +47,7 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 //Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
 	//vec3 jitter = 2.0f*generateRandomNumberFromThread(resolution, time, x, y);
-	vec3 jitter = vec3(0,0,0);	//no antialiasing
+	vec3 jitter = vec3(0,0,0);	//no antialiasing 
 	
 	float NDCx = ((float)x +jitter.x)/resolution.x;
 	float NDCy = ((float)y +jitter.y )/resolution.y;
@@ -243,7 +243,9 @@ __global__ void raytraceRay(ray* cudarays, glm::vec2 resolution, float time, cam
 				cudarays[index].direction = reflectedDir;
 			}else{ //just diffuse
 				//vec3 rand = generateRandomNumberFromThread(resolution, time*(numBounce+1), x, y);
-				thrust::default_random_engine rng(hash(time*(numBounce + 1)* index));
+				thrust::default_random_engine rng1(hash(time*(numBounce + 1)* index));
+                thrust::uniform_real_distribution<float> u02(0,time);
+				thrust::default_random_engine rng(hash((float)u02(rng1)*(numBounce + 1)* index));
                 thrust::uniform_real_distribution<float> u01(0,1);
 				
 				if((float)u01(rng) < 0.1) // russian roulette rule: ray is absorbed
