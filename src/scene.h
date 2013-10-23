@@ -29,6 +29,8 @@ public:
     vector<geom> objects;
     vector<material> materials;
     camera renderCam;
+	int numCubes;
+	int numSpheres;
 };
 
 #endif
