@@ -197,6 +197,7 @@ Tile Size | Average time per iteration (ms)
 32|245
 
 For resolution 1280 X 720, (sampleScene.txt)
+
 Tile Size | Average time per iteration (ms)
 --- | --- 
 4|522
