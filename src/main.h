@@ -41,6 +41,10 @@
     #define compat_getMaxGflopsDeviceId() cutGetMaxGflopsDeviceId()
 #endif
 
+#define CLEAR_IMAGE \
+for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){ \
+	renderCam->image[i] = glm::vec3(0,0,0); \
+}
 using namespace std;
 
 //-------------------------------
@@ -85,6 +89,7 @@ int frames;
 int fps;
 double now, lastTime;
 float delta_t = 0.0f;
+bool animFlag = true; // pause the app if false
 
 //-------------------------------
 //----------Mouse Control--------

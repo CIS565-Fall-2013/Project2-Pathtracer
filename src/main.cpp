@@ -257,8 +257,11 @@ void runCuda(){
 		// VAO, shader program, and texture already bound
 		glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
 
-		glutPostRedisplay();
 		glutSwapBuffers();
+		if(animFlag) {
+			glutPostRedisplay(); // mark window to be redisplayed at next frame
+		}
+		
 	}
 
 	void keyboard(unsigned char key, int x, int y)
@@ -269,27 +272,36 @@ void runCuda(){
 			case('w'):
 			case('W'):
 				renderCam->positions[0] += moveSensitivity*renderCam->views[0];
+				iterations = 0;
+				CLEAR_IMAGE
 				break;
 			case('a'):
 			case('A'):
 				renderCam->positions[0] += moveSensitivity*glm::cross(renderCam->views[0], renderCam->ups[0]);
+				iterations = 0;
+				CLEAR_IMAGE
 				break;
 			case('s'):
 			case('S'):
 				renderCam->positions[0] -= moveSensitivity*renderCam->views[0];
+				iterations = 0;
+				CLEAR_IMAGE
 				break;
 			case('d'):
 			case('D'):
 				renderCam->positions[0] -= moveSensitivity*glm::cross(renderCam->views[0], renderCam->ups[0]);
+				iterations = 0;
+				CLEAR_IMAGE
+				break;
+			case(' '):
+				animFlag = !animFlag;
+				if(animFlag) glutPostRedisplay();
 				break;
 			case(27):
 				exit(1);
 				break;
 		}
-		iterations = 0;
-		for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
-			renderCam->image[i] = glm::vec3(0,0,0);
-		}
+		
 	}
 
 	void mouseClick(int button, int state, int x, int y)
@@ -333,9 +345,7 @@ void runCuda(){
 		}
 
 		iterations = 0;
-		for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
-			renderCam->image[i] = glm::vec3(0,0,0);
-		}
+		CLEAR_IMAGE
 
 		mouse_old_x = x;
 		mouse_old_y = y;
@@ -345,9 +355,7 @@ void runCuda(){
 	{
 		renderCam->focalLength += dir>0 ? 1.0f : -1.0f;
 		iterations = 0;
-		for(int i=0; i<renderCam->resolution.x*renderCam->resolution.y; i++){
-			renderCam->image[i] = glm::vec3(0,0,0);
-		}
+		CLEAR_IMAGE
 	}
 
 

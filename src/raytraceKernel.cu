@@ -525,7 +525,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
     cudaMalloc((void**)&cudalight, numberOfLights*sizeof(int));
     cudaMemcpy( cudalight, lights, numberOfLights*sizeof(int), cudaMemcpyHostToDevice);
 
-	// first kernel launch to populate ray pool
+	// first kernel launch to populate ray pool, do depth of field and compute direct illumination
     rayTracerIterativePrimary<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, iterations, cam, cudaray, rayPoolCount, cudaimage, cudageoms, numberOfGeoms, cudamaterials, numberOfMaterials, cudalight, numberOfLights);
     
 	// multiple kernel launches to evaluate color
