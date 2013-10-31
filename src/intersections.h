@@ -156,7 +156,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 
 	// ray box intersection
 	bool intersect = true;
-	float tnear = FLT_MIN;
+	float tnear = -FLT_MAX;
 	float tfar = FLT_MAX;
 	float t1, t2;
 	// left and right faces
