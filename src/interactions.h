@@ -127,14 +127,43 @@ __host__ __device__ int calculateBSDF(ray& r, const glm::vec3& intersect, const 
 		glm::vec3 reflectedRay = calculateReflectionDirection(normal, r.direction);		
 		r.direction = reflectedRay;
 		r.origin = intersect + normal * eps;
-		color = m.specularColor;
+		color = m.color;
 
 		return BSDFRET::REFLECTED;
 
 	}
 	else if (m.hasRefractive > 0)
 	{
+		// check if we are within the object or not
+		bool inObj = false;
+		glm::vec3 isectNormal = normal;
+		if (glm::dot(r.direction, normal) > 0.0f)
+		{
+			isectNormal = -1.0f * normal;
+			inObj = true;
+		}
+		
 
+		float airIOR = 1.0;
+		float materialIOR = m.indexOfRefraction;
+
+		glm::vec3 incidentDirection = r.direction;
+		glm::vec3 refractedDirection = glm::vec3(0,0,0);
+
+		float theta = 0.0f;
+
+		if (inObj)
+			theta = materialIOR / airIOR;
+		else
+			theta = airIOR / materialIOR;
+
+		float cosTheta1 = glm::dot(-1.0f * incidentDirection, isectNormal);
+		float cosTheta2 = 1.0f - theta * theta * (1.0f - cosTheta1 * cosTheta1);
+
+		refractedDirection = glm::refract(incidentDirection, isectNormal, theta);
+		r.direction = glm::normalize(refractedDirection);
+		r.origin = intersect + r.direction * eps;
+		color = m.specularColor;
 		return BSDFRET::TRANSMITTED;
 	}
 	else

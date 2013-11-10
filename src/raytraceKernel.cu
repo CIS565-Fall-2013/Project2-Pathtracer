@@ -414,28 +414,32 @@ __global__ void pathtraceRay(ray* rayPool, int numRays, glm::vec3* colors, camer
 			// compute shading and the next ray r.
 			calculateBSDF(r, isectPoint, isectNormal, shading, isectMat, hash((int)iter) * hash((int)rayIndex) * hash((int)(bounce+1)));
 	
-			colors[rayPixelIndex] *= rayAttenuation * shading;
+			vec3 colorAccum = rayAttenuation * shading;
+			//colors[rayPixelIndex] *= rayAttenuation * shading;
 
 			// attenuate ray
 			if (reflectance == 0 && refractance == 0) // no reflectance nor refractance
 			{
 				rayAttenuation = rayAttenuation * matColor;
 			}
-			else if (reflectance < 1) // partial reflectance
+			else if (reflectance < 1 && reflectance != 0) // partial reflectance
 			{
 				rayAttenuation = rayAttenuation * isectMat.specularColor;
-				colors[rayPixelIndex] *= (1-reflectance) * matColor;
+				//colors[rayPixelIndex] *= (1-reflectance) * matColor;
+				colorAccum += (1-reflectance) * matColor;
 			}
-			else if (refractance < 1) // partial refractance
+			else if (refractance < 1 && refractance != 0) // partial refractance
 			{
 				rayAttenuation = rayAttenuation * isectMat.specularColor;
-				colors[rayPixelIndex] *= (1-refractance) * matColor;
+				//colors[rayPixelIndex] *= (1-refractance) * matColor;
+				colorAccum += (1-refractance) * matColor;
 			}
 			else if (reflectance == 1 || refractance == 1)// perfect reflectance
 			{
 				rayAttenuation = rayAttenuation * isectMat.specularColor;
 			}
 
+			colors[rayPixelIndex] *= colorAccum;
 			r.attenuation = rayAttenuation;
 
 			if ((rayAttenuation.x < 0.001 && rayAttenuation.y < 0.001 && rayAttenuation.z < 0.001) || bounce == MAX_BOUNCE)
