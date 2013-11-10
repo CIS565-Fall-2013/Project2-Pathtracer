@@ -119,7 +119,7 @@ __host__ __device__ int calculateBSDF(ray& r, glm::vec3 intersect, glm::vec3 nor
 __host__ __device__ int calculateBSDF(ray& r, const glm::vec3& intersect, const glm::vec3& normal, 
 									  glm::vec3& color, const material& m, const float seed)
 {
-	float eps = 1e-5;
+	float eps = 0.01;
 
 	if (m.hasReflective != 0)
 	{
@@ -127,18 +127,25 @@ __host__ __device__ int calculateBSDF(ray& r, const glm::vec3& intersect, const 
 		glm::vec3 reflectedRay = calculateReflectionDirection(normal, r.direction);		
 		r.direction = reflectedRay;
 		r.origin = intersect + normal * eps;
-		color = glm::vec3(1,1,1);
+		color = m.specularColor;
 
 		return BSDFRET::REFLECTED;
 
 	}
+	else if (m.hasRefractive > 0)
+	{
+
+		return BSDFRET::TRANSMITTED;
+	}
 	else
 	{
-		// diffuse scatter
-		thrust::default_random_engine rng(hash((int)seed));
+		// diffuse scatter -- assume seed is already hashed
+		//thrust::default_random_engine rng(hash((int)seed));
+		thrust::default_random_engine rng(seed);
 		thrust::uniform_real_distribution<float> u01(0,1);
 
 		glm::vec3 direction = glm::normalize(calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng)));
+
 		r.direction = direction;
 		r.origin = intersect + r.direction * eps;
 
