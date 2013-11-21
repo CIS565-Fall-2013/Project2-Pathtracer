@@ -64,11 +64,19 @@ bool singleFrameMode;
 // geometry, materials and camera
 int numberOfGeoms;
 int numberOfMaterials;
+int numberOfVertices;
+int numberOfNormals;
 int numberOfFaces;
+geom* geoms;
 staticGeom* cudageoms;
 material* cudamtls;
-transformedTriangle* cudafaces;
+glm::vec3* cudavertices;
+glm::vec3* cudanormals;
+triangle* cudafaces;
 cameraData cam;
+cudatexture* cudatextures;
+glm::vec3* colors;
+
 
 // the image buffer to render to
 glm::vec3* cudaimage;

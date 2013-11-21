@@ -20,6 +20,7 @@ using namespace std;
 class scene{
 private:
     ifstream fp_in;
+		int loadTexture(string textureid);
     int loadMaterial(string materialid);
     int loadObject(string objectid);
     int loadCamera();
@@ -30,7 +31,12 @@ public:
 
     vector<geom> objects;
     vector<material> materials;
+		vector<mtltexture> textures;
 		vector<triangle*> faces; // faces of all meshes
+		vector<glm::vec3*> vertices;
+		vector<glm::vec3*> normals;
+		int vertexcount;
+		int normalcount;
     camera renderCam;
 };
 

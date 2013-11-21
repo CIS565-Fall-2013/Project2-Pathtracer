@@ -21,10 +21,11 @@
 #endif
 
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int iterations,
-											staticGeom* cudageoms, int numberOfGeoms, transformedTriangle* cudafaces, 
-											int numberOfFaces, material* cudamtls, glm::vec3* cudaimage, 
-											ray* raypool1, ray* raypool2, int numberOfRays, int* scanArray, 
-											int* sumArray1, int* sumArray2);
+											staticGeom* cudageoms, int numberOfGeoms, glm::vec3* cudavertices,
+											glm::vec3* normals, triangle* cudafaces, int numberOfFaces,
+											material* cudamtls, glm::vec3* cudaimage, ray* raypool1,
+											ray* raypool2, int numberOfRays, int* scanArray, int* sumArray1,
+											int* sumArray2);
 void checkCUDAError(const char *msg);
 
 #endif

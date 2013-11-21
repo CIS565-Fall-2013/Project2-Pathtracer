@@ -151,8 +151,8 @@ __global__ void generateRay(cameraData cam, float time, ray* raypool) {
 }
 
 __global__ void pathtraceRay(cameraData cam, float time, int rayDepth, ray* rays, int numberOfRays, glm::vec3* colors,
-														 staticGeom* geoms, int numberOfGeoms, transformedTriangle* faces, int numberOfFaces,
-														 material* materials){
+														 staticGeom* geoms, int numberOfGeoms, glm::vec3* vertices, glm::vec3* normals,
+														 triangle* faces, int numberOfFaces, material* materials){
 	int rayIdx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (rayIdx < numberOfRays) {
 		int pixelIdx = rays[rayIdx].index;
@@ -161,8 +161,8 @@ __global__ void pathtraceRay(cameraData cam, float time, int rayDepth, ray* rays
 		if (rays[rayIdx].active) {
 			glm::vec3 minIntersection, minNormal; // closest intersection point and the normal at that point
 			int materialid = -1;
-			getClosestIntersection(geoms, numberOfGeoms, faces, numberOfFaces, rays[rayIdx],
-				minIntersection, minNormal, materialid);
+			getClosestIntersection(geoms, numberOfGeoms, vertices, normals, faces, numberOfFaces,	
+				rays[rayIdx], minIntersection, minNormal, materialid);
 
 			if (materialid != -1) {
 				material mtl = materials[materialid]; // does caching make it faster?
@@ -303,10 +303,11 @@ __global__ void scatter(ray* raypool, int* scanArray, ray* newraypool) {
 //TODO: FINISH THIS FUNCTION
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int iterations,
-											staticGeom* cudageoms, int numberOfGeoms, transformedTriangle* cudafaces, 
-											int numberOfFaces, material* cudamtls, glm::vec3* cudaimage, 
-											ray* raypool1, ray* raypool2, int numberOfRays, int* scanArray, 
-											int* sumArray1, int* sumArray2) {
+											staticGeom* cudageoms, int numberOfGeoms, glm::vec3* cudavertices,
+											glm::vec3* cudanormals, triangle* cudafaces, int numberOfFaces,
+											material* cudamtls, glm::vec3* cudaimage, ray* raypool1,
+											ray* raypool2, int numberOfRays, int* scanArray, int* sumArray1,
+											int* sumArray2) {
   // set up crucial magic
   int tileSize = 8;
   dim3 threadsPerBlock(tileSize, tileSize);
@@ -322,18 +323,24 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int ite
 
 		if (i % 2 == 0) {
 			pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool1,
-				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudafaces, numberOfFaces, cudamtls);
+				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudavertices, cudanormals, cudafaces,
+				numberOfFaces, cudamtls);
+			cudaDeviceSynchronize();
 
 			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool1, scanArray);
 		}
 		else {
-			pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool2,
-				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudafaces, numberOfFaces, cudamtls);
+			pathtraceRay<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(cam, (float)iterations, i, raypool1,
+				numberOfRays, cudaimage, cudageoms, numberOfGeoms, cudavertices, cudanormals, cudafaces,
+				numberOfFaces, cudamtls);
+			cudaDeviceSynchronize();
 
 			copy<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray);
-		}	
+		}
+		cudaDeviceSynchronize();
 
 		sharedMemoryScan<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(scanArray, sumArray1);
+		cudaDeviceSynchronize();
 		int sumArrayLength = rayBlocksPerGrid;
 		int naiveScanBlocksPerGrid = ((int)ceil((float)sumArrayLength/(float)64), 24); // 24 is the number of SMs on my GPU
 		int naiveScanThreadsPerBlock = ceil((float)sumArrayLength/(float)naiveScanBlocksPerGrid);
@@ -341,11 +348,12 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int ite
 		for (; d<=ceil(log(float(sumArrayLength))/log(2.0f)); ++d) {
 			// use double buffer
 			if (d % 2 == 1) {
-				naiveScan<<<naiveScanBlocksPerGrid, naiveScanThreadsPerBlock>>>(sumArray1, sumArray2, d);
+				naiveScan<<<naiveScanBlocksPerGrid, naiveScanThreadsPerBlock>>>(sumArray1, sumArray2, d);			
 			}
 			else {
 				naiveScan<<<naiveScanBlocksPerGrid, naiveScanThreadsPerBlock>>>(sumArray2, sumArray1, d);
 			}
+			cudaDeviceSynchronize();
 		}
 		if (d % 2 == 1) {
 			addToScanArray<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(scanArray, sumArray1);
@@ -353,6 +361,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int ite
 		else {
 			addToScanArray<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(scanArray, sumArray2);
 		}
+		cudaDeviceSynchronize();
 
 		// get number of active rays
 		int* numberOfActiveRays = new int[1];
@@ -369,6 +378,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, cameraData cam, int ite
 		else {
 			scatter<<<rayBlocksPerGrid, rayThreadsPerBlock>>>(raypool2, scanArray, raypool1);
 		}
+		cudaDeviceSynchronize();
 
 		numberOfRays = numberOfActiveRays[0];
 		

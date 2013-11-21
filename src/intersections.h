@@ -18,10 +18,14 @@ __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
-__host__ __device__ void getClosestIntersection(staticGeom* geoms, int numberOfGeoms, transformedTriangle* faces, int numberOfFaces,
-																								ray r, glm::vec3& minIntersection, glm::vec3& minNormal, int& materialid);
+__host__ __device__ void getClosestIntersection(staticGeom* geoms, int numberOfGeoms, glm::vec3* vertices,
+																								glm::vec3* normals, triangle* faces, int numberOfFaces,
+																								ray r, glm::vec3& minIntersection, glm::vec3& minNormal,
+																								int& materialid);
 __host__ __device__ float geomIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
-__host__ __device__ float triangleIntersectionTest(transformedTriangle face, ray r, glm::vec3& intersection, glm::vec3& normal);
+__host__ __device__ float triangleIntersectionTest(glm::vec3 v1, glm::vec3 v2, glm::vec3 v3,
+																									 glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,
+																									 ray r, glm::vec3& intersection, glm::vec3& normal);
 __host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnGeom(staticGeom geom, float randomSeed);
@@ -76,9 +80,10 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
 }
 
 // find the position, normal and material id of the closest intersection 
-__host__ __device__ void getClosestIntersection(staticGeom* geoms, int numberOfGeoms, transformedTriangle* faces,
-																							 int numberOfFaces, ray r, glm::vec3& minIntersection,
-																							 glm::vec3& minNormal, int& materialid) {
+__host__ __device__ void getClosestIntersection(staticGeom* geoms, int numberOfGeoms, glm::vec3* vertices,
+																								glm::vec3* normals, triangle* faces, int numberOfFaces,
+																								ray r, glm::vec3& minIntersection, glm::vec3& minNormal,
+																								int& materialid) {
 	float minDist = FLT_MAX;
 	glm::vec3 intersection, normal;
 	float dist;
@@ -96,7 +101,13 @@ __host__ __device__ void getClosestIntersection(staticGeom* geoms, int numberOfG
 
 #pragma unroll
 	for (int i=0; i<numberOfFaces; ++i) {
-		dist = triangleIntersectionTest(faces[i], r, intersection, normal);
+		glm::vec3 v1 = vertices[faces[i].v1];
+		glm::vec3 v2 = vertices[faces[i].v2];
+		glm::vec3 v3 = vertices[faces[i].v3];
+		glm::vec3 n1 = vertices[faces[i].n1];
+		glm::vec3 n2 = vertices[faces[i].n2];
+		glm::vec3 n3 = vertices[faces[i].n3];
+		dist = triangleIntersectionTest(v1, v2, v3, n1, n2, n3, r, intersection, normal);
 		if (dist > THRESHOLD && dist < minDist) {
 			materialid = faces[i].materialid;
 			minDist = dist;
@@ -121,25 +132,27 @@ __host__ __device__ float geomIntersectionTest(staticGeom geom, ray r, glm::vec3
 	}
 }
 
-__host__ __device__ float triangleIntersectionTest(transformedTriangle face, ray r, glm::vec3& intersection, glm::vec3& normal) {
-	if (glm::length(face.v1 - face.v2) < EPSILON || glm::length(face.v1 - face.v3) < EPSILON || glm::length(face.v2 - face.v3) < EPSILON)
+__host__ __device__ float triangleIntersectionTest(glm::vec3 v1, glm::vec3 v2, glm::vec3 v3,
+																									 glm::vec3 n1, glm::vec3 n2, glm::vec3 n3,
+																									 ray r, glm::vec3& intersection, glm::vec3& normal) {
+	if (glm::length(v1 - v2) < EPSILON || glm::length(v1 - v3) < EPSILON || glm::length(v2 - v3) < EPSILON)
 		return -1;
 
 	// ray plane intersection
-	glm::vec3 n = glm::cross(face.v2 - face.v1, face.v3 - face.v1);
-	float t = -glm::dot(r.origin - face.v1, n) / glm::dot(r.direction, n);
+	glm::vec3 n = glm::cross(v2 - v1, v3 - v1);
+	float t = -glm::dot(r.origin - v1, n) / glm::dot(r.direction, n);
 	if (t <= 0) {
 		return -1;
 	}
 	glm::vec3 x = r.origin + t * r.direction;
 
 	// point in triangle
-	float s1 = glm::dot(glm::cross(face.v2 - face.v1, x - face.v1), n);
-	float s2 = glm::dot(glm::cross(face.v3 - face.v2, x - face.v2), n);
-	float s3 = glm::dot(glm::cross(face.v1 - face.v3, x - face.v3), n);
+	float s1 = glm::dot(glm::cross(v2 - v1, x - v1), n);
+	float s2 = glm::dot(glm::cross(v3 - v2, x - v2), n);
+	float s3 = glm::dot(glm::cross(v1 - v3, x - v3), n);
 	if (s1 >= 0 && s2 >= 0 && s3 >= 0) {
 		intersection = x;
-		normal = glm::normalize(s1 * face.n1 + s2 * face.n2 + s3 * face.n3);
+		normal = glm::normalize(s1 * n1 + s2 * n2 + s3 * n3);
 		return glm::length(r.origin - x);
 	}
 	else {

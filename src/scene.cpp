@@ -7,6 +7,7 @@
 #include <iostream>
 #include "scene.h"
 #include <cstring>
+#include "stb_image/stb_image.h"
 
 scene::scene(string filename){
 	cout << "Reading scene from " << filename << " ..." << endl;
@@ -20,7 +21,10 @@ scene::scene(string filename){
 			if(!line.empty()){
 				vector<string> tokens = utilityCore::tokenizeString(line);
 
-				if(strcmp(tokens[0].c_str(), "MATERIAL")==0){
+				if(strcmp(tokens[0].c_str(), "TEXTURE")==0){
+				    loadTexture(tokens[1]);
+				    cout << " " << endl;
+				}else if(strcmp(tokens[0].c_str(), "MATERIAL")==0){
 				    loadMaterial(tokens[1]);
 				    cout << " " << endl;
 				}else if(strcmp(tokens[0].c_str(), "OBJECT")==0){
@@ -64,12 +68,17 @@ int scene::loadObject(string objectid){
                 if(strcmp(extension.c_str(), "obj")==0){
                     cout << "Creating new mesh..." << endl;
                     cout << "Reading mesh from " << line << "... " << endl;
-					Obj::File* obj = new Obj::File();
-					obj->Load(objline.c_str());
-		    	newObject.type = MESH;
-					convertObj(obj, id);
-					delete obj;
-					obj = 0;
+										Obj::File* obj = new Obj::File();
+										obj->Load(objline.c_str());
+		    						newObject.type = MESH;
+										newObject.vertexcount = obj->m_Vertices.size();
+										newObject.normalcount = obj->m_Normals.size();
+										newObject.facecount = obj->m_Triangles.size();
+										convertObj(obj, id);
+										vertexcount += obj->m_Vertices.size();
+										normalcount += obj->m_Normals.size();
+										delete obj;
+										obj = 0;
                 }else{
                     cout << "ERROR: " << line << " is not a valid object type!" << endl;
                     return -1;
@@ -133,7 +142,7 @@ int scene::loadObject(string objectid){
 		newObject.inverseTransforms[i] = utilityCore::glmMat4ToCudaMat4(glm::inverse(transform));
 	}
 	
-        objects.push_back(newObject);
+  objects.push_back(newObject);
 	
 	cout << "Loaded " << frameCount << " frames for Object " << objectid << "!" << endl;
         return 1;
@@ -229,6 +238,42 @@ int scene::loadCamera(){
 	return 1;
 }
 
+int scene::loadTexture(string textureid){
+	int id = atoi(textureid.c_str());
+	if(id!=textures.size()){
+		cout << "ERROR: TEXTURE ID does not match expected number of textures" << endl;
+		return -1;
+	}else{
+		cout << "Loading Texture " << id << "..." << endl;
+		mtltexture newTexture;
+
+		// load texture from file
+		string filename;
+		utilityCore::safeGetline(fp_in,filename);
+		
+		int width, height, n;
+		unsigned char* colorData = stbi_load(filename.c_str(), &width, &height, &n, 3);
+
+		glm::vec3* colors = new glm::vec3[width * height];
+		for (int y=0; y<height; ++y) {
+			for (int x=0; x<width; ++x) {
+				int idx = y * width + x;
+				colors[idx].r = (int)colorData[idx*3]/255.0;
+				colors[idx].g = (int)colorData[idx*3+1]/255.0;
+				colors[idx].b = (int)colorData[idx*3+2]/255.0;
+			}
+		}
+		
+		delete [] colorData;
+
+		newTexture.width = width;
+		newTexture.height = height;
+		newTexture.colors = colors;
+		textures.push_back(newTexture);
+		return 1;
+	}
+}
+
 int scene::loadMaterial(string materialid){
 	int id = atoi(materialid.c_str());
 	if(id!=materials.size()){
@@ -239,9 +284,9 @@ int scene::loadMaterial(string materialid){
 		material newMaterial;
 	
 		//load static properties
-		for(int i=0; i<11; i++){
+		for(int i=0; i<12; i++){
 			string line;
-            utilityCore::safeGetline(fp_in,line);
+      utilityCore::safeGetline(fp_in,line);
 			vector<string> tokens = utilityCore::tokenizeString(line);
 			if(strcmp(tokens[0].c_str(), "RGB")==0){
 				glm::vec3 color( atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()) );
@@ -268,7 +313,8 @@ int scene::loadMaterial(string materialid){
 				newMaterial.reducedScatterCoefficient = atof(tokens[1].c_str());					  
 			}else if(strcmp(tokens[0].c_str(), "EMITTANCE")==0){
 				newMaterial.emittance = atof(tokens[1].c_str());					  
-			
+			}else if(strcmp(tokens[0].c_str(), "TEXTURE")==0){
+				newMaterial.textureid = atof(tokens[1].c_str());					  
 			}
 		}
 		materials.push_back(newMaterial);
@@ -279,23 +325,19 @@ int scene::loadMaterial(string materialid){
 // Use the loaded obj's information to populate the vector of faces
 void scene::convertObj(Obj::File* obj, int geomId) {
 	for (int i=0; i<obj->m_Triangles.size(); ++i) {
-		Obj::Vertex v1 = obj->m_Vertices[obj->m_Triangles[i].v[0]];
-		Obj::Vertex v2 = obj->m_Vertices[obj->m_Triangles[i].v[1]];
-		Obj::Vertex v3 = obj->m_Vertices[obj->m_Triangles[i].v[2]];
-
-		glm::vec3 p1(v1.x, v1.y, v1.z);
-		glm::vec3 p2(v2.x, v2.y, v2.z);
-		glm::vec3 p3(v3.x, v3.y, v3.z);
-
-		Obj::Normal n1 = obj->m_Normals[obj->m_Triangles[i].n[0]];
-		Obj::Normal n2 = obj->m_Normals[obj->m_Triangles[i].n[1]];
-		Obj::Normal n3 = obj->m_Normals[obj->m_Triangles[i].n[2]];
-
-		glm::vec3 vn1(n1.x, n1.y, n1.z);
-		glm::vec3 vn2(n2.x, n2.y, n2.z);
-		glm::vec3 vn3(n3.x, n3.y, n3.z);
-
-		triangle* face = new triangle(geomId, p1, p2, p3, vn1, vn2, vn3);
+		triangle* face = new triangle(obj->m_Triangles[i].v[0]+vertexcount, obj->m_Triangles[i].v[1]+vertexcount,
+			obj->m_Triangles[i].v[2]+vertexcount, obj->m_Triangles[i].n[0]+normalcount,
+			obj->m_Triangles[i].n[1]+normalcount, obj->m_Triangles[i].n[2]+normalcount);
 		faces.push_back(face);
+	}
+
+	for (int i=0; i<obj->m_Vertices.size(); ++i) {
+		glm::vec3* vert = new glm::vec3(obj->m_Vertices[i].x, obj->m_Vertices[i].y, obj->m_Vertices[i].z);
+		vertices.push_back(vert);
+	}
+
+	for (int i=0; i<obj->m_Normals.size(); ++i) {
+		glm::vec3* norm = new glm::vec3(obj->m_Normals[i].x, obj->m_Normals[i].y, obj->m_Normals[i].z);
+		normals.push_back(norm);
 	}
 }

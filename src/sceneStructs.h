@@ -15,27 +15,17 @@
 enum GEOMTYPE{ SPHERE, CUBE, MESH };
 
 struct triangle {
-	int geomId;
-	glm::vec3 v1;
-	glm::vec3 v2;
-	glm::vec3 v3;
-	glm::vec3 n1;
-	glm::vec3 n2;
-	glm::vec3 n3;
-	
-	triangle(): geomId(), v1(), v2(), v3(), n1(), n2(), n3() {}
-	triangle(int id, glm::vec3 p1, glm::vec3 p2, glm::vec3 p3, glm::vec3 vn1, glm::vec3 vn2, glm::vec3 vn3)
-		: geomId(id), v1(p1), v2(p2), v3(p3), n1(vn1), n2(vn2), n3(vn3) {}
-};
-
-struct transformedTriangle {
 	int materialid;
-	glm::vec3 v1;
-	glm::vec3 v2;
-	glm::vec3 v3;
-	glm::vec3 n1;
-	glm::vec3 n2;
-	glm::vec3 n3;
+	int v1;
+	int v2;
+	int v3;
+	int n1;
+	int n2;
+	int n3;
+
+	triangle() {};
+	triangle(int vi1, int vi2, int vi3, int ni1, int ni2, int ni3) :
+		v1(vi1), v2(vi2), v3(vi3), n1(ni1), n2(ni2), n3(ni3) {};
 };
 
 struct ray {
@@ -55,6 +45,11 @@ struct geom {
 	glm::vec3* scales;
 	cudaMat4* transforms;
 	cudaMat4* inverseTransforms;
+
+	// for mesh
+	int vertexcount;
+	int normalcount;
+	int facecount;
 };
 
 struct staticGeom {
@@ -104,6 +99,22 @@ struct material {
 	glm::vec3 absorptionCoefficient;
 	float reducedScatterCoefficient;
 	float emittance;
+	
+	int textureid; // -1 means no texture
+};
+
+// texture structure on CPU
+struct mtltexture {
+	int width;
+	int height;
+	glm::vec3* colors;
+};
+
+// texture structure on CUDA
+struct cudatexture {
+	int width;
+	int height;
+	int startindex; // the index of the first pixel in the pixel array of all textures
 };
 
 #endif //CUDASTRUCTS_H
