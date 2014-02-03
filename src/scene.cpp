@@ -272,8 +272,6 @@ int scene::loadMesh(string filename, int& numTotalFaces){
 	ifstream file;
 	file.open(fname);
 
-	vector<glm::vec3> vert_pos;
-
 	glm::vec3 min_v = glm::vec3(1000000, 1000000, 1000000);
 	glm::vec3 max_v = glm::vec3(-1000000, -1000000, -1000000);
 	
@@ -288,7 +286,7 @@ int scene::loadMesh(string filename, int& numTotalFaces){
 						glm::vec3 v = glm::vec3(atof(tokens[1].c_str()), atof(tokens[2].c_str()), atof(tokens[3].c_str()));
 						min_v = glm::vec3(min(min_v.x, v.x), min(min_v.y, v.y), min(min_v.z, v.z));
 						max_v = glm::vec3(max(max_v.x, v.x), min(max_v.y, v.y), max(max_v.z, v.z));
-						vert_pos.push_back(v);
+						vertices.push_back(v);
 					}else if(strcmp(tokens[0].c_str(), "f") == 0){
 						// Tokenize '/' to get texture and normal coordinates
 						int* indices = tokenizeFaceVerts(tokens);
@@ -298,9 +296,9 @@ int scene::loadMesh(string filename, int& numTotalFaces){
 							face f;
 							// Read vertex index
 							// TODO: Add texture and normal support
-							f.p1 = vert_pos[indices[0] - 1];
-							f.p2 = vert_pos[indices[i+1] - 1];
-							f.p3 = vert_pos[indices[i+2] - 1];
+							f.p1 = indices[0] - 1;
+							f.p2 = indices[i+1] - 1;
+							f.p3 = indices[i+2] - 1;
 							faces.push_back(f);
 						}
 

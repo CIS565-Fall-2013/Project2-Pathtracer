@@ -119,6 +119,7 @@ void runCuda(){
 	int* lightIds = new int[renderScene->lightIds.size()];
 	mesh* staticMeshes = new mesh[renderScene->meshes.size()];
 	face* staticFaces = new face[renderScene->faces.size()];
+	glm::vec3* staticVertices = new glm::vec3[renderScene->vertices.size()];
     
     for(int i=0; i<renderScene->objects.size(); i++){
 		geoms[i] = renderScene->objects[i];
@@ -135,9 +136,12 @@ void runCuda(){
 	for(int i=0; i<renderScene->faces.size(); i++){
 		staticFaces[i] = renderScene->faces[i];
 	}
+	for(int i=0; i<renderScene->vertices.size(); i++){
+		staticVertices[i] = renderScene->vertices[i];
+	}
 
     // execute the kernel
-	cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), lightIds, renderScene->lightIds.size(), staticMeshes, renderScene->meshes.size(), staticFaces, renderScene->faces.size());
+	cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), lightIds, renderScene->lightIds.size(), staticMeshes, renderScene->meshes.size(), staticFaces, renderScene->faces.size(), staticVertices, renderScene->vertices.size());
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);

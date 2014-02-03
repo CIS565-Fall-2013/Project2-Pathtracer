@@ -32,6 +32,7 @@ public:
     vector<geom> objects;
     vector<material> materials;
 	vector<face> faces;
+	vector<glm::vec3> vertices;
 	vector<int> lightIds;
     camera renderCam;
 };

@@ -20,7 +20,7 @@
     #include <cutil_math.h>
 #endif
 
-void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, int* lightIds, int numberOfLights, mesh* meshes, int numberOfMeshes, face* faces, int numberOfFaces);
+void cudaRaytraceCore(uchar4* pos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, int* lightIds, int numberOfLights, mesh* meshes, int numberOfMeshes, face* faces, int numberOfFaces, glm::vec3* vertices, int numberOfVertices);
 void clearImageBuffer(camera* renderCam);
 
 #endif

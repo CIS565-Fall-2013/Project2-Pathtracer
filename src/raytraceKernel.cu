@@ -21,7 +21,7 @@
 #define REFLECTIVE(materials, g) materials[g.materialid].hasReflective
 #define REFRACTIVE(materials, g) materials[g.materialid].hasRefractive
 #define REFRACTANCE(materials, g) materials[g.materialid].indexOfRefraction
-#define IS_LIGHT(materials, geoms, idx) !epsilonCheck(materials[geoms[idx].materialid].emittance, 0.0f)
+#define IS_LIGHT(materials, geoms, idx) materials[geoms[idx].materialid].emittance > .001f
 #define COLOR(materials, g) materials[g.materialid].color
 #define SPEC_COLOR(materials, g) materials[g.materialid].specularColor
 #define EMITTANCE(materials, g) materials[g.materialid].emittance
@@ -140,7 +140,7 @@ glm::vec3 __host__ __device__ refract(ray r, glm::vec3 normal, float indexOfRefr
 
 
 __global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, int traceDepth, int maxDepth, cameraData cam, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms, material* mats, int* lightIds, int numberOfLights, mesh* meshes, face* faces){
+                            staticGeom* geoms, int numberOfGeoms, material* mats, int* lightIds, int numberOfLights, mesh* meshes, face* faces, glm::vec3* vertices){
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
 	if(index <= resolution.x * resolution.y){
@@ -151,15 +151,15 @@ __global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, int tr
 
 		if(!r.isContinue) return;
 	
-		if(traceDepth == 0){
-			float focal_length = 12.0f;
-			glm::vec3 focal_point = cam.position + focal_length * cam.view;
-		
-			float t = 1.0f / glm::dot(r.direction, cam.view) * glm::dot(focal_point - r.origin, cam.view);
-			glm::vec3 aimed = r.origin + t * r.direction;
-			r.origin = r.origin + 1.0f * generateRandomNumberFromThread(resolution, time, index);
-			r.direction = glm::normalize(aimed - r.origin);
-		}
+		//if(traceDepth == 0){
+		//	float focal_length = 12.0f;
+		//	glm::vec3 focal_point = cam.position + focal_length * cam.view;
+		//
+		//	float t = 1.0f / glm::dot(r.direction, cam.view) * glm::dot(focal_point - r.origin, cam.view);
+		//	glm::vec3 aimed = r.origin + t * r.direction;
+		//	r.origin = r.origin + 1.0f * generateRandomNumberFromThread(resolution, time, index);
+		//	r.direction = glm::normalize(aimed - r.origin);
+		//}
 	
 		float intersect;
 		int geomId;
@@ -168,7 +168,7 @@ __global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, int tr
 		glm::vec3 light_pos, ray_incident, reflectedRay;
 
 		// Intersection Checking
-		intersect = isIntersect(r, intersectionPoint, normal, geoms, numberOfGeoms, meshes, faces, geomId);
+		intersect = isIntersect(r, intersectionPoint, normal, geoms, numberOfGeoms, meshes, faces, vertices, geomId);
 
 		if (epsilonCheck(intersect, -1.0f)){
 			r.color = glm::vec3(0.0f);
@@ -208,7 +208,7 @@ __global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, int tr
 				thrust::uniform_real_distribution<float> u01(0,1);
 				thrust::default_random_engine rng(hash(time * index * (traceDepth + 1)));
 
-				r.direction = (float)u01(rng) < rs + .001 ? reflect(r, normal) : refract(r, normal, REFRACTANCE(mats, geoms[geomId]));
+				r.direction = (float)u01(rng) < rs - .001 ? reflect(r, normal) : refract(r, normal, REFRACTANCE(mats, geoms[geomId]));
 
 			}else{
 				// DIFFUSE CASE
@@ -219,13 +219,13 @@ __global__ void pathtraceRay(ray* rays, glm::vec2 resolution, float time, int tr
 				if(russianRoulette < .02){
 					r.isContinue = false;
 				}
-
+				//normal = glm::dot(r.direction, normal) > 0 ? -1.0f * normal : normal;
 				r.direction = calculateRandomDirectionInHemisphere(normal, (float)u01(rng), (float)u01(rng));
 			}
-			r.color *= COLOR(mats, geoms[geomId]);
+			r.color = r.color * COLOR(mats, geoms[geomId]);
 			r.origin = intersectionPoint + .001f * r.direction;
 		} 
-		if(traceDepth == maxDepth - 1) r.isContinue = false; // force accumulator to pickup color on 
+		if(traceDepth == maxDepth - 1) r.isContinue = false; // force accumulator to pickup colors
 		rays[index] = r;
 	}
 }
@@ -350,9 +350,9 @@ void streamCompact(ray* src, ray* dest, int& numLiveRays, int& fullBlocksPerGrid
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms, 
-	int* lightIds, int numberOfLights, mesh* meshes, int numberOfMeshes, face* faces, int numberOfFaces){
+	int* lightIds, int numberOfLights, mesh* meshes, int numberOfMeshes, face* faces, int numberOfFaces, glm::vec3* vertices, int numberOfVertices){
   
-  int maxTraceDepth = 32;
+  int maxTraceDepth = 16;
   int traceDepth = 0; 
 
   // set up crucial magic
@@ -399,6 +399,10 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMalloc((void**)&cudaFaces, numberOfFaces * sizeof(face));
   cudaMemcpy(cudaFaces, faces, numberOfFaces * sizeof(face), cudaMemcpyHostToDevice);
 
+  glm::vec3* cudaVerts = NULL;
+  cudaMalloc((void**)&cudaVerts, numberOfVertices * sizeof(glm::vec3));
+  cudaMemcpy(cudaVerts, vertices, numberOfVertices * sizeof(glm::vec3), cudaMemcpyHostToDevice);
+
   //package camera
   cam.resolution = renderCam->resolution;
   cam.position = renderCam->positions[frame];
@@ -441,7 +445,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
 	  cudarays = traceDepth % 2 == 0 ? cudarays_a : cudarays_b;
 	  buffer = traceDepth % 2 == 0? cudarays_b : cudarays_a;
 	  
-	  pathtraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays, resolution, (float)iterations, traceDepth, maxTraceDepth, cam, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightids, numberOfLights, cudaMeshes, cudaFaces);
+	  pathtraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(cudarays, resolution, (float)iterations, traceDepth, maxTraceDepth, cam, cudaimage, cudageoms, numberOfGeoms, cudamats, cudalightids, numberOfLights, cudaMeshes, cudaFaces, cudaVerts);
 	  accumulateColor<<<fullBlocksPerGrid, threadsPerBlock>>>(numRays, cudaimage, cudarays);
 	  
 	  if(traceDepth < maxTraceDepth - 1) 
@@ -470,6 +474,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaFree( cuda_interSum_b );
   cudaFree( cudaMeshes );
   cudaFree( cudaFaces );
+  cudaFree( cudaVerts );
   delete geomList;
   delete remainRays;
 

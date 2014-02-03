@@ -80,9 +80,9 @@ struct material{
 
 struct face{
 	// Vertex indices
-	glm::vec3 p1;
-	glm::vec3 p2;
-	glm::vec3 p3;
+	int p1;
+	int p2;
+	int p3;
 };
 
 struct mesh{
